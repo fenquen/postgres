@@ -139,7 +139,7 @@ static bytea *bytea_substring(Datum str,
 static bytea *bytea_overlay(bytea *t1, bytea *t2, int sp, int sl);
 static void appendStringInfoText(StringInfo str, const text *t);
 static Datum text_to_array_internal(PG_FUNCTION_ARGS);
-static text *array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *v,
+static text *array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *arrayType,
 									const char *fldsep, const char *null_string);
 static StringInfo makeStringAggState(FunctionCallInfo fcinfo);
 static bool text_format_parse_digits(const char **ptr, const char *end_ptr,
@@ -4894,10 +4894,10 @@ array_to_text_null(PG_FUNCTION_ARGS)
 /*
  * common code for array_to_text and array_to_text_null functions
  */
-static text *
-array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *v,
-					   const char *fldsep, const char *null_string)
-{
+static text * array_to_text_internal(FunctionCallInfo fcinfo,
+                                     ArrayType *arrayType,
+					                 const char *fldsep,
+                                     const char *null_string){
 	text	   *result;
 	int			nitems,
 			   *dims,
@@ -4914,15 +4914,15 @@ array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *v,
 	int			i;
 	ArrayMetaState *my_extra;
 
-	ndims = ARR_NDIM(v);
-	dims = ARR_DIMS(v);
+	ndims = ARR_NDIM(arrayType);
+	dims = ARR_DIMS(arrayType);
 	nitems = ArrayGetNItems(ndims, dims);
 
 	/* if there are no elements, return an empty string */
 	if (nitems == 0)
 		return cstring_to_text_with_len("", 0);
 
-	element_type = ARR_ELEMTYPE(v);
+	element_type = ARR_ELEMTYPE(arrayType);
 	initStringInfo(&buf);
 
 	/*
@@ -4956,8 +4956,8 @@ array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *v,
 	typbyval = my_extra->typbyval;
 	typalign = my_extra->typalign;
 
-	p = ARR_DATA_PTR(v);
-	bitmap = ARR_NULLBITMAP(v);
+	p = ARR_DATA_PTR(arrayType);
+	bitmap = ARR_NULLBITMAP(arrayType);
 	bitmask = 1;
 
 	for (i = 0; i < nitems; i++)
@@ -5231,7 +5231,8 @@ build_concat_foutcache(FunctionCallInfo fcinfo, int argidx)
  * Returns NULL if result should be NULL, else text value.
  */
 static text *
-concat_internal(const char *sepstr, int argidx,
+concat_internal(const char *sepstr,
+                int argidx, // 实际的首个参数的起始位置
 				FunctionCallInfo fcinfo)
 {
 	text	   *result;
@@ -5250,7 +5251,7 @@ concat_internal(const char *sepstr, int argidx,
 		ArrayType  *arr;
 
 		/* Should have just the one argument */
-		Assert(argidx == PG_NARGS() - 1);
+		Assert(argidx == PG_NARGS() - 1);// 最后的参数是整个可变参数对应的数组
 
 		/* concat(VARIADIC NULL) is defined as NULL */
 		if (PG_ARGISNULL(argidx))
@@ -5290,7 +5291,7 @@ concat_internal(const char *sepstr, int argidx,
 			Datum		value = PG_GETARG_DATUM(i);
 
 			/* add separator if appropriate */
-			if (first_arg)
+			if (first_arg) // 如果是首个的话是用不着在之前积累的老本&str上在增加sepstr的
 				first_arg = false;
 			else
 				appendStringInfoString(&str, sepstr);
@@ -5313,9 +5314,7 @@ concat_internal(const char *sepstr, int argidx,
 Datum
 text_concat(PG_FUNCTION_ARGS)
 {
-	text	   *result;
-
-	result = concat_internal("", 0, fcinfo);
+	text *result = concat_internal("", 0, fcinfo);
 	if (result == NULL)
 		PG_RETURN_NULL();
 	PG_RETURN_TEXT_P(result);

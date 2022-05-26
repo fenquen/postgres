@@ -87,9 +87,9 @@ count_nulls(FunctionCallInfo fcinfo,
 		arr = PG_GETARG_ARRAYTYPE_P(0);
 
 		/* Count the array elements */
-		ndims = ARR_NDIM(arr);
-		dims = ARR_DIMS(arr);
-		nitems = ArrayGetNItems(ndims, dims);
+		ndims = ARR_NDIM(arr); // 有多少个维度
+		dims = ARR_DIMS(arr); // 各个维度的大小是多少
+		nitems = ArrayGetNItems(ndims, dims); // 各个的维度大小的相乘
 
 		/* Count those that are NULL */
 		bitmap = ARR_NULLBITMAP(arr);
@@ -111,8 +111,8 @@ count_nulls(FunctionCallInfo fcinfo,
 			}
 		}
 
-		*nargs = nitems;
-		*nulls = count;
+		*nargs = nitems; // 总的数量
+		*nulls = count;// null的的数量
 	}
 	else
 	{
