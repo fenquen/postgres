@@ -150,11 +150,17 @@ end_MultiFuncCall(PG_FUNCTION_ARGS, FuncCallContext *funcctx)
 {
 	ReturnSetInfo *rsi = (ReturnSetInfo *) fcinfo->resultinfo;
 
+
+    printf("----------------- UnregisterExprContextCallback \n");
+    fflush(stdout);
+
 	/* Deregister the shutdown callback */
 	UnregisterExprContextCallback(rsi->econtext,
 								  shutdown_MultiFuncCall,
 								  PointerGetDatum(fcinfo->flinfo));
 
+    printf("----------------- shutdown_MultiFuncCall \n");
+    fflush(stdout);
 	/* But use it to do the real work */
 	shutdown_MultiFuncCall(PointerGetDatum(fcinfo->flinfo));
 }
@@ -172,10 +178,9 @@ shutdown_MultiFuncCall(Datum arg)
 	/* unbind from flinfo */
 	flinfo->fn_extra = NULL;
 
-	/*
-	 * Delete context that holds all multi-call data, including the
-	 * FuncCallContext itself
-	 */
+	// delete context that holds all multi-call data, including the FuncCallContext itself
+    printf("----------------- MemoryContextDelete \n");
+    fflush(stdout);
 	MemoryContextDelete(funcctx->multi_call_memory_ctx);
 }
 
