@@ -746,17 +746,17 @@ tuplestore_puttuple(Tuplestorestate *state, HeapTuple tuple)
  * Similar to tuplestore_puttuple(), but work from values + nulls arrays.
  * This avoids an extra tuple-construction operation.
  */
-void
-tuplestore_putvalues(Tuplestorestate *state, TupleDesc tdesc,
-					 Datum *values, bool *isnull)
-{
-	MinimalTuple tuple;
-	MemoryContext oldcxt = MemoryContextSwitchTo(state->context);
+void tuplestore_putvalues(Tuplestorestate *tuplestorestate,
+                          TupleDesc tupleDesc,
+					      Datum *values,
+                          bool *isnull){
+	MemoryContext oldcxt = MemoryContextSwitchTo(tuplestorestate->context);
 
-	tuple = heap_form_minimal_tuple(tdesc, values, isnull);
-	USEMEM(state, GetMemoryChunkSpace(tuple));
+    MinimalTuple minimalTuple = heap_form_minimal_tuple(tupleDesc, values, isnull);
 
-	tuplestore_puttuple_common(state, (void *) tuple);
+	USEMEM(tuplestorestate, GetMemoryChunkSpace(minimalTuple));
+
+	tuplestore_puttuple_common(tuplestorestate, (void *) minimalTuple);
 
 	MemoryContextSwitchTo(oldcxt);
 }

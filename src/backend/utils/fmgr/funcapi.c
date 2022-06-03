@@ -297,6 +297,7 @@ internal_get_result_type(Oid funcid,
 	TupleDesc	tupdesc;
 
 	/* First fetch the function's pg_proc row to inspect its rettype */
+    // 函数内存上的表达
 	tp = SearchSysCache1(PROCOID, ObjectIdGetDatum(funcid));
 	if (!HeapTupleIsValid(tp))
 		elog(ERROR, "cache lookup failed for function %u", funcid);
@@ -306,8 +307,7 @@ internal_get_result_type(Oid funcid,
 
 	/* Check for OUT parameters defining a RECORD result */
 	tupdesc = build_function_result_tupdesc_t(tp);
-	if (tupdesc)
-	{
+	if (tupdesc){
 		/*
 		 * It has OUT parameters, so it's basically like a regular composite
 		 * type, except we have to be able to resolve any polymorphic OUT
@@ -318,17 +318,17 @@ internal_get_result_type(Oid funcid,
 
 		if (resolve_polymorphic_tupdesc(tupdesc,
 										&procform->proargtypes,
-										call_expr))
-		{
-			if (tupdesc->tdtypeid == RECORDOID &&
-				tupdesc->tdtypmod < 0)
+										call_expr)){
+			if (tupdesc->tdtypeid == RECORDOID &&tupdesc->tdtypmod < 0){
 				assign_record_type_typmod(tupdesc);
-			if (resultTupleDesc)
+            }
+
+			if (resultTupleDesc){
 				*resultTupleDesc = tupdesc;
+            }
+
 			result = TYPEFUNC_COMPOSITE;
-		}
-		else
-		{
+		} else {
 			if (resultTupleDesc)
 				*resultTupleDesc = NULL;
 			result = TYPEFUNC_RECORD;
@@ -523,7 +523,8 @@ resolve_anyrange_from_others(polymorphic_actuals *actuals)
  * Returns true if able to deduce all types, false if not.
  */
 static bool
-resolve_polymorphic_tupdesc(TupleDesc tupdesc, oidvector *declared_args,
+resolve_polymorphic_tupdesc(TupleDesc tupdesc,
+                            oidvector *declared_args,
 							Node *call_expr)
 {
 	int			natts = tupdesc->natts;
@@ -1211,13 +1212,11 @@ get_func_result_name(Oid functionId)
  * Note that this does not handle resolution of polymorphic types;
  * that is deliberate.
  */
-TupleDesc
-build_function_result_tupdesc_t(HeapTuple procTuple)
-{
+TupleDesc build_function_result_tupdesc_t(HeapTuple procTuple){
 	Form_pg_proc procform = (Form_pg_proc) GETSTRUCT(procTuple);
-	Datum		proallargtypes;
-	Datum		proargmodes;
-	Datum		proargnames;
+	Datum		proAllArgTypes;
+	Datum		proArgModes;
+	Datum		proArgNames;
 	bool		isnull;
 
 	/* Return NULL if the function isn't declared to return RECORD */
@@ -1230,24 +1229,24 @@ build_function_result_tupdesc_t(HeapTuple procTuple)
 		return NULL;
 
 	/* Get the data out of the tuple */
-	proallargtypes = SysCacheGetAttr(PROCOID, procTuple,
-									 Anum_pg_proc_proallargtypes,
-									 &isnull);
+	proAllArgTypes = SysCacheGetAttr(PROCOID, procTuple,
+                                     Anum_pg_proc_proallargtypes,
+                                     &isnull);
 	Assert(!isnull);
-	proargmodes = SysCacheGetAttr(PROCOID, procTuple,
-								  Anum_pg_proc_proargmodes,
-								  &isnull);
+    proArgModes = SysCacheGetAttr(PROCOID, procTuple,
+                                  Anum_pg_proc_proargmodes,
+                                  &isnull);
 	Assert(!isnull);
-	proargnames = SysCacheGetAttr(PROCOID, procTuple,
-								  Anum_pg_proc_proargnames,
-								  &isnull);
+    proArgNames = SysCacheGetAttr(PROCOID, procTuple,
+                                  Anum_pg_proc_proargnames,
+                                  &isnull);
 	if (isnull)
-		proargnames = PointerGetDatum(NULL);	/* just to be sure */
+        proArgNames = PointerGetDatum(NULL);	/* just to be sure */
 
 	return build_function_result_tupdesc_d(procform->prokind,
-										   proallargtypes,
-										   proargmodes,
-										   proargnames);
+                                           proAllArgTypes,
+                                           proArgModes,
+                                           proArgNames);
 }
 
 /*
@@ -1261,12 +1260,10 @@ build_function_result_tupdesc_t(HeapTuple procTuple)
  * For functions (but not for procedures), returns NULL if there are not at
  * least two OUT or INOUT arguments.
  */
-TupleDesc
-build_function_result_tupdesc_d(char prokind,
-								Datum proallargtypes,
-								Datum proargmodes,
-								Datum proargnames)
-{
+TupleDesc build_function_result_tupdesc_d(char prokind,
+                                          Datum proallargtypes,
+								          Datum proargmodes,
+								          Datum proargnames){
 	TupleDesc	desc;
 	ArrayType  *arr;
 	int			numargs;
@@ -1280,8 +1277,7 @@ build_function_result_tupdesc_d(char prokind,
 	int			i;
 
 	/* Can't have output args if columns are null */
-	if (proallargtypes == PointerGetDatum(NULL) ||
-		proargmodes == PointerGetDatum(NULL))
+	if (proallargtypes == PointerGetDatum(NULL) || proargmodes == PointerGetDatum(NULL))
 		return NULL;
 
 	/*
@@ -1356,10 +1352,11 @@ build_function_result_tupdesc_d(char prokind,
 	if (numoutargs < 2 && prokind != PROKIND_PROCEDURE)
 		return NULL;
 
+    // palloc的
 	desc = CreateTemplateTupleDesc(numoutargs);
-	for (i = 0; i < numoutargs; i++)
-	{
-		TupleDescInitEntry(desc, i + 1,
+	for (i = 0; i < numoutargs; i++) {
+		TupleDescInitEntry(desc,
+                           i + 1,
 						   outargnames[i],
 						   outargtypes[i],
 						   -1,

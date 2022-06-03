@@ -48,10 +48,9 @@
  * If successful, total argument count and number of nulls are
  * returned into *nargs and *nulls.
  */
-static bool
-count_nulls(FunctionCallInfo fcinfo,
-			int32 *nargs, int32 *nulls)
-{
+static bool count_nulls(FunctionCallInfo fcinfo,
+			            int32 *nargs,
+                        int32 *nulls){
 	int32		count = 0;
 	int			i;
 
@@ -150,9 +149,7 @@ pg_num_nulls(PG_FUNCTION_ARGS)
  * num_nonnulls()
  *	Count the number of non-NULL arguments
  */
-Datum
-pg_num_nonnulls(PG_FUNCTION_ARGS)
-{
+Datum pg_num_nonnulls(PG_FUNCTION_ARGS){
 	int32		nargs,
 				nulls;
 

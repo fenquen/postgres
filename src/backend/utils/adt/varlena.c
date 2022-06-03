@@ -4931,16 +4931,13 @@ static text * array_to_text_internal(FunctionCallInfo fcinfo,
 	 * type doesn't change underneath us.
 	 */
 	my_extra = (ArrayMetaState *) fcinfo->flinfo->fn_extra;
-	if (my_extra == NULL)
-	{
-		fcinfo->flinfo->fn_extra = MemoryContextAlloc(fcinfo->flinfo->fn_mcxt,
-													  sizeof(ArrayMetaState));
+	if (my_extra == NULL) {
+		fcinfo->flinfo->fn_extra = MemoryContextAlloc(fcinfo->flinfo->fn_mcxt,sizeof(ArrayMetaState));
 		my_extra = (ArrayMetaState *) fcinfo->flinfo->fn_extra;
 		my_extra->element_type = ~element_type;
 	}
 
-	if (my_extra->element_type != element_type)
-	{
+	if (my_extra->element_type != element_type) {
 		/*
 		 * Get info about element type, including its output conversion proc
 		 */
@@ -4952,6 +4949,7 @@ static text * array_to_text_internal(FunctionCallInfo fcinfo,
 					  fcinfo->flinfo->fn_mcxt);
 		my_extra->element_type = element_type;
 	}
+
 	typlen = my_extra->typlen;
 	typbyval = my_extra->typbyval;
 	typalign = my_extra->typalign;
@@ -5311,8 +5309,7 @@ concat_internal(const char *sepstr,
 /*
  * Concatenate all arguments. NULL arguments are ignored.
  */
-Datum
-text_concat(PG_FUNCTION_ARGS)
+Datum text_concat(PG_FUNCTION_ARGS)
 {
 	text *result = concat_internal("", 0, fcinfo);
 	if (result == NULL)

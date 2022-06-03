@@ -226,6 +226,8 @@ MemoryContextDelete(MemoryContext context)
 	 * leaking the whole context (if it's not a root context) if we do it
 	 * after, so let's do it before.
 	 */
+    //printf("----------------- MemoryContextCallResetCallbacks \n");
+    //fflush(stdout);
 	MemoryContextCallResetCallbacks(context);
 
 	/*
@@ -233,6 +235,8 @@ MemoryContextDelete(MemoryContext context)
 	 * there's an error we won't have deleted/busted contexts still attached
 	 * to the context tree.  Better a leak than a crash.
 	 */
+    //printf("----------------- MemoryContextSetParent \n");
+    //fflush(stdout);
 	MemoryContextSetParent(context, NULL);
 
 	/*
@@ -242,7 +246,9 @@ MemoryContextDelete(MemoryContext context)
 	 */
 	context->ident = NULL;
 
-	context->methods->delete_context(context);
+    if (context->methods && context->methods->delete_context) {
+        context->methods->delete_context(context);
+    }
 
 	VALGRIND_DESTROY_MEMPOOL(context);
 }

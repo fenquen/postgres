@@ -1545,7 +1545,7 @@ InputFunctionCall(FmgrInfo *flinfo, char *str, Oid typioparam, int32 typmod)
 	fcinfo->args[2].value = Int32GetDatum(typmod);
 	fcinfo->args[2].isnull = false;
 
-	result = FunctionCallInvoke(fcinfo);
+	result = ((* (fcinfo)->flinfo->fn_addr) (fcinfo));
 
 	/* Should get null result if and only if str is NULL */
 	if (str == NULL)
@@ -1865,8 +1865,7 @@ get_call_expr_argtype(Node *expr, int argnum)
 	 * special hack for ScalarArrayOpExpr: what the underlying function will
 	 * actually get passed is the element type of the array.
 	 */
-	if (IsA(expr, ScalarArrayOpExpr) &&
-		argnum == 1)
+	if (IsA(expr, ScalarArrayOpExpr) && argnum == 1)
 		argtype = get_base_element_type(argtype);
 
 	return argtype;

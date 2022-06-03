@@ -599,14 +599,12 @@ hashTupleDesc(TupleDesc desc)
  * If a nondefault collation is needed, insert it afterwards using
  * TupleDescInitEntryCollation.
  */
-void
-TupleDescInitEntry(TupleDesc desc,
-				   AttrNumber attributeNumber,
-				   const char *attributeName,
-				   Oid oidtypeid,
-				   int32 typmod,
-				   int attdim)
-{
+void TupleDescInitEntry(TupleDesc desc,
+				        AttrNumber attributeNumber,
+				        const char *attributeName,
+                        Oid oidtypeid,
+                        int32 typmod,
+                        int attdim) {
 	HeapTuple	tuple;
 	Form_pg_type typeForm;
 	Form_pg_attribute att;

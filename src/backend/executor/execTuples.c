@@ -2131,9 +2131,9 @@ TupleDescGetAttInMetadata(TupleDesc tupdesc)
  * values is an array of C strings, one for each attribute of the return tuple.
  * A NULL string pointer indicates we want to create a NULL field.
  */
-HeapTuple
-BuildTupleFromCStrings(AttInMetadata *attinmeta, char **values)
-{
+HeapTuple BuildTupleFromCStrings(AttInMetadata *attinmeta, char **values){
+
+
 	TupleDesc	tupdesc = attinmeta->tupdesc;
 	int			natts = tupdesc->natts;
 	Datum	   *dvalues;
@@ -2148,10 +2148,8 @@ BuildTupleFromCStrings(AttInMetadata *attinmeta, char **values)
 	 * Call the "in" function for each non-dropped attribute, even for nulls,
 	 * to support domains.
 	 */
-	for (i = 0; i < natts; i++)
-	{
-		if (!TupleDescAttr(tupdesc, i)->attisdropped)
-		{
+	for (i = 0; i < natts; i++){
+		if (!TupleDescAttr(tupdesc, i)->attisdropped){
 			/* Non-dropped attributes */
 			dvalues[i] = InputFunctionCall(&attinmeta->attinfuncs[i],
 										   values[i],
@@ -2161,9 +2159,7 @@ BuildTupleFromCStrings(AttInMetadata *attinmeta, char **values)
 				nulls[i] = false;
 			else
 				nulls[i] = true;
-		}
-		else
-		{
+		} else {
 			/* Handle dropped attributes by setting to NULL */
 			dvalues[i] = (Datum) 0;
 			nulls[i] = true;
