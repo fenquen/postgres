@@ -137,10 +137,10 @@ GetMemoryChunkContext(void *pointer)
  * context creation.  It's intended to be called from context-type-
  * specific creation routines, and noplace else.
  */
-extern void MemoryContextCreate(MemoryContext node,
-								NodeTag tag,
+extern void MemoryContextCreate(MemoryContext memoryContext,
+								NodeTag nodeTag,
 								const MemoryContextMethods *methods,
-								MemoryContext parent,
+								MemoryContext parentMemoryContext,
 								const char *name);
 
 
@@ -149,7 +149,7 @@ extern void MemoryContextCreate(MemoryContext node,
  */
 
 /* aset.c */
-extern MemoryContext AllocSetContextCreateInternal(MemoryContext parent,
+extern MemoryContext AllocSetContextCreateInternal(MemoryContext parentMemoryContext,
 												   const char *name,
 												   Size minContextSize,
 												   Size initBlockSize,

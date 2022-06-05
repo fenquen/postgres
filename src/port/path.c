@@ -446,40 +446,34 @@ path_is_prefix_of_path(const char *path1, const char *path2)
 }
 
 /*
- * Extracts the actual name of the program as called -
- * stripped of .exe suffix if any
+ * Extracts the actual name of the program as called -stripped of .exe suffix if any
  */
-const char *
-get_progname(const char *argv0)
-{
-	const char *nodir_name;
-	char	   *progname;
+const char *get_progname(const char *argv0) {
+    // 得到的是最后的'/'位置
+    const char *nodir_name = last_dir_separator(argv0);
 
-	nodir_name = last_dir_separator(argv0);
-	if (nodir_name)
-		nodir_name++;
-	else
-		nodir_name = skip_drive(argv0);
+    if (nodir_name) {
+        nodir_name++;
+    } else {
+        nodir_name = skip_drive(argv0);
+    }
 
-	/*
-	 * Make a copy in case argv[0] is modified by ps_status. Leaks memory, but
-	 * called only once.
-	 */
-	progname = strdup(nodir_name);
-	if (progname == NULL)
-	{
-		fprintf(stderr, "%s: out of memory\n", nodir_name);
-		abort();				/* This could exit the postmaster */
-	}
+    // Make a copy in case argv[0] is modified by ps_status. Leaks memory, but called only once.
+    char *progname = strdup(nodir_name);
+
+    if (progname == NULL) {
+        fprintf(stderr, "%s: out of memory\n", nodir_name);
+        abort();                /* This could exit the postmaster */
+    }
 
 #if defined(__CYGWIN__) || defined(WIN32)
-	/* strip ".exe" suffix, regardless of case */
-	if (strlen(progname) > sizeof(EXE) - 1 &&
-		pg_strcasecmp(progname + strlen(progname) - (sizeof(EXE) - 1), EXE) == 0)
-		progname[strlen(progname) - (sizeof(EXE) - 1)] = '\0';
+    /* strip ".exe" suffix, regardless of case */
+    if (strlen(progname) > sizeof(EXE) - 1 &&
+        pg_strcasecmp(progname + strlen(progname) - (sizeof(EXE) - 1), EXE) == 0)
+        progname[strlen(progname) - (sizeof(EXE) - 1)] = '\0';
 #endif
 
-	return progname;
+    return progname;
 }
 
 

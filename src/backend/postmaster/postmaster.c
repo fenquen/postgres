@@ -326,10 +326,8 @@ typedef enum
 	PM_RUN,						/* normal "database is alive" state */
 	PM_STOP_BACKENDS,			/* need to stop remaining backends */
 	PM_WAIT_BACKENDS,			/* waiting for live backends to exit */
-	PM_SHUTDOWN,				/* waiting for checkpointer to do shutdown
-								 * ckpt */
-	PM_SHUTDOWN_2,				/* waiting for archiver and walsenders to
-								 * finish */
+	PM_SHUTDOWN,				/* waiting for checkpointer to do shutdown ckpt */
+	PM_SHUTDOWN_2,				/* waiting for archiver and walsenders to finish */
 	PM_WAIT_DEAD_END,			/* waiting for dead_end children to exit */
 	PM_NO_CHILDREN				/* all important children have exited */
 } PMState;
@@ -646,10 +644,9 @@ PostmasterMain(int argc, char *argv[])
 	 * postmaster/checkpointer.c.
 	 */
 	pqinitmask();
-	PG_SETMASK(&BlockSig);
+	PG_SETMASK(&BlockSig); // https://blog.csdn.net/big_bit/article/details/51338523
 
-	pqsignal_pm(SIGHUP, SIGHUP_handler);	/* reread config file and have
-											 * children do same */
+	pqsignal_pm(SIGHUP, SIGHUP_handler);	/* reread config file and have children do same */
 	pqsignal_pm(SIGINT, pmdie); /* send SIGTERM and shut down */
 	pqsignal_pm(SIGQUIT, pmdie);	/* send SIGQUIT and die */
 	pqsignal_pm(SIGTERM, pmdie);	/* wait for children and shut down */
@@ -2750,9 +2747,7 @@ SIGHUP_handler(SIGNAL_ARGS)
 /*
  * pmdie -- signal handler for processing various postmaster signals.
  */
-static void
-pmdie(SIGNAL_ARGS)
-{
+static void pmdie(SIGNAL_ARGS) {
 	int			save_errno = errno;
 
 	/*
@@ -2764,23 +2759,18 @@ pmdie(SIGNAL_ARGS)
 #endif
 
 	ereport(DEBUG2,
-			(errmsg_internal("postmaster received signal %d",
-							 postgres_signal_arg)));
+			(errmsg_internal("postmaster received signal %d",postgres_signal_arg)));
 
-	switch (postgres_signal_arg)
-	{
+	switch (postgres_signal_arg) {
 		case SIGTERM:
 
-			/*
-			 * Smart Shutdown:
-			 *
-			 * Wait for children to end their work, then shut down.
-			 */
-			if (Shutdown >= SmartShutdown)
-				break;
+			// Smart Shutdown:Wait for children to end their work, then shut down.
+			if (Shutdown >= SmartShutdown) {
+                break;
+            }
+
 			Shutdown = SmartShutdown;
-			ereport(LOG,
-					(errmsg("received smart shutdown request")));
+			ereport(LOG,(errmsg("received smart shutdown request")));
 
 			/* Report status */
 			AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_STOPPING);
@@ -2796,20 +2786,18 @@ pmdie(SIGNAL_ARGS)
 			 * end the online backup mode.)  If already in PM_STOP_BACKENDS or
 			 * a later state, do not change it.
 			 */
-			if (pmState == PM_RUN)
-				connsAllowed = ALLOW_SUPERUSER_CONNS;
-			else if (pmState == PM_HOT_STANDBY)
-				connsAllowed = ALLOW_NO_CONNS;
-			else if (pmState == PM_STARTUP || pmState == PM_RECOVERY)
-			{
-				/* There should be no clients, so proceed to stop children */
-				pmState = PM_STOP_BACKENDS;
-			}
+            if (pmState == PM_RUN) {
+                connsAllowed = ALLOW_SUPERUSER_CONNS;
+            } else if (pmState == PM_HOT_STANDBY) {
+                connsAllowed = ALLOW_NO_CONNS;
+            } else if (pmState == PM_STARTUP || pmState == PM_RECOVERY) {
+                /* There should be no clients, so proceed to stop children */
+                pmState = PM_STOP_BACKENDS;
+            }
 
 			/*
 			 * Now wait for online backup mode to end and backends to exit. If
-			 * that is already the case, PostmasterStateMachine will take the
-			 * next step.
+			 * that is already the case, PostmasterStateMachine will take the next step.
 			 */
 			PostmasterStateMachine();
 			break;
@@ -3736,24 +3724,17 @@ LogChildExit(int lev, const char *procname, int pid, int exitstatus)
  * This is common code for pmdie(), reaper() and sigusr1_handler(), which
  * receive the signals that might mean we need to change state.
  */
-static void
-PostmasterStateMachine(void)
-{
+static void PostmasterStateMachine(void) {
 	/* If we're doing a smart shutdown, try to advance that state. */
-	if (pmState == PM_RUN || pmState == PM_HOT_STANDBY)
-	{
-		if (connsAllowed == ALLOW_SUPERUSER_CONNS)
-		{
-			/*
-			 * ALLOW_SUPERUSER_CONNS state ends as soon as online backup mode
-			 * is not active.
-			 */
-			if (!BackupInProgress())
-				connsAllowed = ALLOW_NO_CONNS;
-		}
+	if (pmState == PM_RUN || pmState == PM_HOT_STANDBY) {
+		if (connsAllowed == ALLOW_SUPERUSER_CONNS) {
+			// ALLOW_SUPERUSER_CONNS state ends as soon as online backup mode is not active.
+            if (!BackupInProgress()) {
+                connsAllowed = ALLOW_NO_CONNS;
+            }
+        }
 
-		if (connsAllowed == ALLOW_NO_CONNS)
-		{
+		if (connsAllowed == ALLOW_NO_CONNS) {
 			/*
 			 * ALLOW_NO_CONNS state ends when we have no normal client
 			 * backends running.  Then we're ready to stop other children.
@@ -3970,15 +3951,15 @@ PostmasterStateMachine(void)
 	 * and we will keep trying forever.
 	 */
 	if (pmState == PM_NO_CHILDREN &&
-		(StartupStatus == STARTUP_CRASHED || !restart_after_crash))
+		(StartupStatus == STARTUP_CRASHED || !restart_after_crash)) {
 		ExitPostmaster(1);
+    }
 
 	/*
 	 * If we need to recover from a crash, wait for all non-syslogger children
 	 * to exit, then reset shmem and StartupDataBase.
 	 */
-	if (FatalError && pmState == PM_NO_CHILDREN)
-	{
+	if (FatalError && pmState == PM_NO_CHILDREN) {
 		ereport(LOG,
 				(errmsg("all server processes terminated; reinitializing")));
 

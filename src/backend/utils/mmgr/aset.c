@@ -150,14 +150,23 @@ typedef AllocSetContext *AllocSet;
  *		AllocBlockData is the header data for a block --- the usable space
  *		within the block begins at the next alignment boundary.
  */
-typedef struct AllocBlockData
-{
-	AllocSet	aset;			/* aset that owns this block */
-	AllocBlock	prev;			/* prev block in aset's blocks list, if any */
-	AllocBlock	next;			/* next block in aset's blocks list, if any */
-	char	   *freeptr;		/* start of free space in this block */
-	char	   *endptr;			/* end of space in this block */
-}			AllocBlockData;
+typedef struct AllocBlockData {
+    /* allocSet that owns this block */
+    AllocSet aset;
+
+    /* prev block in aset's blocks list, if any */
+    AllocBlock prev;
+
+    /* next block in aset's blocks list, if any */
+    AllocBlock next;
+
+    // freeptr 和 endptr 之间是AllocChunkData长度
+    /* start of free space in this block */
+    char *freeptr;
+
+    /* end of space in this block */
+    char *endptr;
+} AllocBlockData;
 
 /*
  * AllocChunk
@@ -190,7 +199,7 @@ typedef struct AllocChunkData
 	char		padding[MAXIMUM_ALIGNOF - ALLOCCHUNK_RAWSIZE % MAXIMUM_ALIGNOF];
 #endif
 
-	/* aset is the owning aset if allocated, or the freelist link if free */
+	/* allocSet is the owning aset if allocated, or the freelist link if free */
 	void	   *aset;
 	/* there must not be any padding to reach a MAXALIGN boundary here! */
 }			AllocChunkData;
@@ -374,7 +383,7 @@ AllocSetFreeIndex(Size size)
  * AllocSetContextCreateInternal
  *		Create a new AllocSet context.
  *
- * parent: parent context, or NULL if top-level context
+ * parentMemoryContext: parentMemoryContext context, or NULL if top-level context
  * name: name of context (must be statically allocated)
  * minContextSize: minimum context size
  * initBlockSize: initial allocation block size
@@ -386,17 +395,15 @@ AllocSetFreeIndex(Size size)
  * Note: don't call this directly; go through the wrapper macro
  * AllocSetContextCreate.
  */
-MemoryContext
-AllocSetContextCreateInternal(MemoryContext parent,
-							  const char *name,
-							  Size minContextSize,
-							  Size initBlockSize,
-							  Size maxBlockSize)
-{
+MemoryContext AllocSetContextCreateInternal(MemoryContext parentMemoryContext,
+                                            const char *name,
+                                            Size minContextSize,
+                                            Size initBlockSize,
+                                            Size maxBlockSize) {
 	int			freeListIndex;
 	Size		firstBlockSize;
-	AllocSet	set;
-	AllocBlock	block;
+	AllocSet	allocSet;
+	AllocBlock	allocBlock;
 
 	/* Assert we padded AllocChunkData properly */
 	StaticAssertStmt(ALLOC_CHUNKHDRSZ == MAXALIGN(ALLOC_CHUNKHDRSZ),
@@ -409,7 +416,7 @@ AllocSetContextCreateInternal(MemoryContext parent,
 	 * First, validate allocation parameters.  Once these were regular runtime
 	 * test and elog's, but in practice Asserts seem sufficient because nobody
 	 * varies their parameters at runtime.  We somewhat arbitrarily enforce a
-	 * minimum 1K block size.
+	 * minimum 1K allocBlock size.
 	 */
 	Assert(initBlockSize == MAXALIGN(initBlockSize) &&
 		   initBlockSize >= 1024);
@@ -444,76 +451,79 @@ AllocSetContextCreateInternal(MemoryContext parent,
 		if (freelist->first_free != NULL)
 		{
 			/* Remove entry from freelist */
-			set = freelist->first_free;
-			freelist->first_free = (AllocSet) set->header.nextchild;
+			allocSet = freelist->first_free;
+			freelist->first_free = (AllocSet) allocSet->header.nextchild;
 			freelist->num_free--;
 
 			/* Update its maxBlockSize; everything else should be OK */
-			set->maxBlockSize = maxBlockSize;
+			allocSet->maxBlockSize = maxBlockSize;
 
-			/* Reinitialize its header, installing correct name and parent */
-			MemoryContextCreate((MemoryContext) set,
-								T_AllocSetContext,
-								&AllocSetMethods,
-								parent,
-								name);
+			/* Reinitialize its header, installing correct name and parentMemoryContext */
+			MemoryContextCreate((MemoryContext) allocSet,
+                                T_AllocSetContext,
+                                &AllocSetMethods,
+                                parentMemoryContext,
+                                name);
 
-			return (MemoryContext) set;
+			return (MemoryContext) allocSet;
 		}
 	}
 
-	/* Determine size of initial block */
-	firstBlockSize = MAXALIGN(sizeof(AllocSetContext)) +
-		ALLOC_BLOCKHDRSZ + ALLOC_CHUNKHDRSZ;
-	if (minContextSize != 0)
-		firstBlockSize = Max(firstBlockSize, minContextSize);
-	else
-		firstBlockSize = Max(firstBlockSize, initBlockSize);
+	// AllocSetContext长度 + AllocBlockData长度 + AllocChunkData长度
+	firstBlockSize = MAXALIGN(sizeof(AllocSetContext)) +ALLOC_BLOCKHDRSZ + ALLOC_CHUNKHDRSZ;
+
+    if (minContextSize != 0) {
+        firstBlockSize = Max(firstBlockSize, minContextSize);
+    } else {
+        firstBlockSize = Max(firstBlockSize, initBlockSize);
+    }
 
 	/*
-	 * Allocate the initial block.  Unlike other aset.c blocks, it starts with
-	 * the context header and its block header follows that.
+	 * Allocate the initial allocBlock.  Unlike other aset.c blocks, it starts with
+	 * the context header and its allocBlock header follows that.
 	 */
-	set = (AllocSet) malloc(firstBlockSize);
-	if (set == NULL)
-	{
-		if (TopMemoryContext)
-			MemoryContextStats(TopMemoryContext);
-		ereport(ERROR,
-				(errcode(ERRCODE_OUT_OF_MEMORY),
-				 errmsg("out of memory"),
-				 errdetail("Failed while creating memory context \"%s\".",
-						   name)));
+	allocSet = (AllocSet) malloc(firstBlockSize);
+	if (allocSet == NULL) {
+        if (TopMemoryContext) {
+            MemoryContextStats(TopMemoryContext);
+        }
+
+        ereport(ERROR,
+                (errcode(ERRCODE_OUT_OF_MEMORY),
+                        errmsg("out of memory"),
+                        errdetail("Failed while creating memory context \"%s\".",name)));
 	}
 
 	/*
 	 * Avoid writing code that can fail between here and MemoryContextCreate;
-	 * we'd leak the header/initial block if we ereport in this stretch.
+	 * we'd leak the header/initial allocBlock if we ereport in this stretch.
 	 */
 
-	/* Fill in the initial block's block header */
-	block = (AllocBlock) (((char *) set) + MAXALIGN(sizeof(AllocSetContext)));
-	block->aset = set;
-	block->freeptr = ((char *) block) + ALLOC_BLOCKHDRSZ;
-	block->endptr = ((char *) set) + firstBlockSize;
-	block->prev = NULL;
-	block->next = NULL;
+	/* Fill in the initial allocBlock's allocBlock header */
+	allocBlock = (AllocBlock) (((char *) allocSet) + MAXALIGN(sizeof(AllocSetContext)));
+    allocBlock->aset = allocSet;
+    allocBlock->prev = NULL;
+    allocBlock->next = NULL;
+    // AllocChunkData起点
+    allocBlock->freeptr = ((char *) allocBlock) + ALLOC_BLOCKHDRSZ;
+    // AllocChunkData末尾 也是整个的重点
+    allocBlock->endptr = ((char *) allocSet) + firstBlockSize;
 
-	/* Mark unallocated space NOACCESS; leave the block header alone. */
-	VALGRIND_MAKE_MEM_NOACCESS(block->freeptr, block->endptr - block->freeptr);
+	/* Mark unallocated space NOACCESS; leave the allocBlock header alone. */
+	VALGRIND_MAKE_MEM_NOACCESS(allocBlock->freeptr, allocBlock->endptr - allocBlock->freeptr);
 
-	/* Remember block as part of block list */
-	set->blocks = block;
-	/* Mark block as not to be released at reset time */
-	set->keeper = block;
+	/* Remember allocBlock as part of allocBlock list */
+	allocSet->blocks = allocBlock;
+	/* Mark allocBlock as not to be released at reset time */
+	allocSet->keeper = allocBlock;
 
 	/* Finish filling in aset-specific parts of the context header */
-	MemSetAligned(set->freelist, 0, sizeof(set->freelist));
+	MemSetAligned(allocSet->freelist, 0, sizeof(allocSet->freelist));
 
-	set->initBlockSize = initBlockSize;
-	set->maxBlockSize = maxBlockSize;
-	set->nextBlockSize = initBlockSize;
-	set->freeListIndex = freeListIndex;
+    allocSet->initBlockSize = initBlockSize;
+    allocSet->maxBlockSize = maxBlockSize;
+    allocSet->nextBlockSize = initBlockSize;
+    allocSet->freeListIndex = freeListIndex;
 
 	/*
 	 * Compute the allocation chunk size limit for this context.  It can't be
@@ -531,22 +541,22 @@ AllocSetContextCreateInternal(MemoryContext parent,
 	 *
 	 * Also, allocChunkLimit must not exceed ALLOCSET_SEPARATE_THRESHOLD.
 	 */
-	StaticAssertStmt(ALLOC_CHUNK_LIMIT == ALLOCSET_SEPARATE_THRESHOLD,
-					 "ALLOC_CHUNK_LIMIT != ALLOCSET_SEPARATE_THRESHOLD");
+	StaticAssertStmt(ALLOC_CHUNK_LIMIT == ALLOCSET_SEPARATE_THRESHOLD,"ALLOC_CHUNK_LIMIT != ALLOCSET_SEPARATE_THRESHOLD");
 
-	set->allocChunkLimit = ALLOC_CHUNK_LIMIT;
-	while ((Size) (set->allocChunkLimit + ALLOC_CHUNKHDRSZ) >
-		   (Size) ((maxBlockSize - ALLOC_BLOCKHDRSZ) / ALLOC_CHUNK_FRACTION))
-		set->allocChunkLimit >>= 1;
+    allocSet->allocChunkLimit = ALLOC_CHUNK_LIMIT;
+	while ((Size) (allocSet->allocChunkLimit + ALLOC_CHUNKHDRSZ) >
+           (Size) ((maxBlockSize - ALLOC_BLOCKHDRSZ) / ALLOC_CHUNK_FRACTION)) {
+        allocSet->allocChunkLimit >>= 1;
+    }
 
 	/* Finally, do the type-independent part of context creation */
-	MemoryContextCreate((MemoryContext) set,
-						T_AllocSetContext,
-						&AllocSetMethods,
-						parent,
-						name);
+	MemoryContextCreate((MemoryContext) allocSet,
+                        T_AllocSetContext,
+                        &AllocSetMethods,
+                        parentMemoryContext,
+                        name);
 
-	return (MemoryContext) set;
+	return (MemoryContext) allocSet;
 }
 
 /*

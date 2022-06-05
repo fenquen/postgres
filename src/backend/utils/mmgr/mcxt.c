@@ -88,9 +88,7 @@ static void MemoryContextStatsPrint(MemoryContext context, void *passthru,
  *
  * In a standalone backend this must be called during backend startup.
  */
-void
-MemoryContextInit(void)
-{
+void MemoryContextInit(void) {
 	AssertState(TopMemoryContext == NULL);
 
 	/*
@@ -124,6 +122,7 @@ MemoryContextInit(void)
 										 8 * 1024,
 										 8 * 1024,
 										 8 * 1024);
+
 	MemoryContextAllowInCriticalSection(ErrorContext, true);
 }
 
@@ -715,55 +714,54 @@ MemoryContextContains(MemoryContext context, void *pointer)
  *	4.  We return to the context-type-specific routine, which finishes
  *		up type-specific initialization.  This routine can now do things
  *		that might fail (like allocate more memory), so long as it's
- *		sure the node is left in a state that delete will handle.
+ *		sure the memoryContext is left in a state that delete will handle.
  *
- * node: the as-yet-uninitialized common part of the context header node.
- * tag: NodeTag code identifying the memory context type.
+ * memoryContext: the as-yet-uninitialized common part of the context header memoryContext.
+ * nodeTag: NodeTag code identifying the memory context type.
  * methods: context-type-specific methods (usually statically allocated).
- * parent: parent context, or NULL if this will be a top-level context.
+ * parentMemoryContext: parentMemoryContext context, or NULL if this will be a top-level context.
  * name: name of context (must be statically allocated).
  *
  * Context routines generally assume that MemoryContextCreate can't fail,
  * so this can contain Assert but not elog/ereport.
  */
-void
-MemoryContextCreate(MemoryContext node,
-					NodeTag tag,
-					const MemoryContextMethods *methods,
-					MemoryContext parent,
-					const char *name)
-{
-	/* Creating new memory contexts is not allowed in a critical section */
-	Assert(CritSectionCount == 0);
+void MemoryContextCreate(MemoryContext memoryContext,
+                         NodeTag nodeTag,
+                         const MemoryContextMethods *methods,
+                         MemoryContext parentMemoryContext,
+                         const char *name) {
+    /* Creating new memory contexts is not allowed in a critical section */
+    Assert(CritSectionCount == 0);
 
-	/* Initialize all standard fields of memory context header */
-	node->type = tag;
-	node->isReset = true;
-	node->methods = methods;
-	node->parent = parent;
-	node->firstchild = NULL;
-	node->prevchild = NULL;
-	node->name = name;
-	node->ident = NULL;
-	node->reset_cbs = NULL;
+    /* Initialize all standard fields of memory context header */
+    memoryContext->type = nodeTag;
+    memoryContext->isReset = true;
+    memoryContext->methods = methods;
+    memoryContext->parent = parentMemoryContext;
+    memoryContext->firstchild = NULL;
+    memoryContext->prevchild = NULL;
+    memoryContext->name = name;
+    memoryContext->ident = NULL;
+    memoryContext->reset_cbs = NULL;
 
-	/* OK to link node into context tree */
-	if (parent)
-	{
-		node->nextchild = parent->firstchild;
-		if (parent->firstchild != NULL)
-			parent->firstchild->prevchild = node;
-		parent->firstchild = node;
-		/* inherit allowInCritSection flag from parent */
-		node->allowInCritSection = parent->allowInCritSection;
-	}
-	else
-	{
-		node->nextchild = NULL;
-		node->allowInCritSection = false;
-	}
+    // 变为老大的首个小弟原来的首个小弟变为老2
+    if (parentMemoryContext) {
+        memoryContext->nextchild = parentMemoryContext->firstchild;
 
-	VALGRIND_CREATE_MEMPOOL(node, 0, false);
+        if (parentMemoryContext->firstchild != NULL) {
+            parentMemoryContext->firstchild->prevchild = memoryContext;
+        }
+
+        parentMemoryContext->firstchild = memoryContext;
+
+        // inherit allowInCritSection flag from parentMemoryContext
+        memoryContext->allowInCritSection = parentMemoryContext->allowInCritSection;
+    } else {
+        memoryContext->nextchild = NULL;
+        memoryContext->allowInCritSection = false;
+    }
+
+    VALGRIND_CREATE_MEMPOOL(memoryContext, 0, false);
 }
 
 /*

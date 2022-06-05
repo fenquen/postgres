@@ -334,7 +334,7 @@ tas(volatile slock_t *lock)
 {
 	return __sync_lock_test_and_set(lock, 1);
 }
-
+// Gcc内置原子操作__sync_系列函数 https://zhuanlan.zhihu.com/p/32303037
 #define S_UNLOCK(lock) __sync_lock_release(lock)
 
 #endif	 /* HAVE_GCC__SYNC_INT32_TAS */
