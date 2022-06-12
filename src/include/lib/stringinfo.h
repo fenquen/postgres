@@ -37,7 +37,7 @@ typedef struct StringInfoData
 	char	   *data;
 	int			len;
 	int			maxlen;
-	int			cursor;
+	int			cursor; // 对应了java的byteBuffer的position
 } StringInfoData;
 
 typedef StringInfoData *StringInfo;

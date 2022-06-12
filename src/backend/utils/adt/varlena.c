@@ -3795,10 +3795,9 @@ SplitIdentifierString(char *rawstring, char separator,
  *
  * Note that an empty string is considered okay here.
  */
-bool
-SplitDirectoriesString(char *rawstring, char separator,
-					   List **namelist)
-{
+bool SplitDirectoriesString(char *rawstring,
+                            char separator,
+                            List **namelist) {
 	char	   *nextp = rawstring;
 	bool		done = false;
 

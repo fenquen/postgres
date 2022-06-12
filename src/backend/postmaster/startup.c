@@ -129,7 +129,7 @@ StartupProcSigHupHandler(SIGNAL_ARGS)
 static void
 StartupProcShutdownHandler(SIGNAL_ARGS)
 {
-	int			save_errno = errno;
+	int	save_errno = errno;
 
 	if (in_restore_command)
 		proc_exit(1);
@@ -185,9 +185,7 @@ StartupProcExit(int code, Datum arg)
  *	Startup Process main entry point
  * ----------------------------------
  */
-void
-StartupProcessMain(void)
-{
+void StartupProcessMain(void) {
 	/* Arrange to clean up at startup process exit */
 	on_shmem_exit(StartupProcExit, 0);
 
@@ -203,32 +201,21 @@ StartupProcessMain(void)
 	pqsignal(SIGUSR1, StartupProcSigUsr1Handler);
 	pqsignal(SIGUSR2, StartupProcTriggerHandler);
 
-	/*
-	 * Reset some signals that are accepted by postmaster but not here
-	 */
+	// Reset some signals that are accepted by postmaster but not here
 	pqsignal(SIGCHLD, SIG_DFL);
 
-	/*
-	 * Register timeouts needed for standby mode
-	 */
+	// Register timeouts needed for standby mode
 	RegisterTimeout(STANDBY_DEADLOCK_TIMEOUT, StandbyDeadLockHandler);
 	RegisterTimeout(STANDBY_TIMEOUT, StandbyTimeoutHandler);
 	RegisterTimeout(STANDBY_LOCK_TIMEOUT, StandbyLockTimeoutHandler);
 
-	/*
-	 * Unblock signals (they were blocked when the postmaster forked us)
-	 */
+	// Unblock signals (they were blocked when the postmaster forked us)
 	PG_SETMASK(&UnBlockSig);
 
-	/*
-	 * Do what we came for.
-	 */
+	// Do what we came for.
 	StartupXLOG();
 
-	/*
-	 * Exit normally. Exit code 0 tells postmaster that we completed recovery
-	 * successfully.
-	 */
+	// Exit normally. Exit code 0 tells postmaster that we completed recovery successfully.
 	proc_exit(0);
 }
 

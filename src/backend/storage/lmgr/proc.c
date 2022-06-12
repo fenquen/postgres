@@ -298,12 +298,8 @@ InitProcGlobal(void)
 	SpinLockInit(ProcStructLock);
 }
 
-/*
- * InitProcess -- initialize a per-process data structure for this backend
- */
-void
-InitProcess(void)
-{
+// initialize a per-process data structure for this backend
+void InitProcess(void) {
 	PGPROC	   *volatile *procgloballist;
 
 	/*
@@ -512,9 +508,7 @@ InitProcessPhase2(void)
  * as a sendOnly process, so never reads messages from sinval queue. So
  * Startup process does have a VXID and does show up in pg_locks.
  */
-void
-InitAuxiliaryProcess(void)
-{
+void InitAuxiliaryProcess(void) {
 	PGPROC	   *auxproc;
 	int			proctype;
 
@@ -542,14 +536,12 @@ InitAuxiliaryProcess(void)
 	/*
 	 * Find a free auxproc ... *big* trouble if there isn't one ...
 	 */
-	for (proctype = 0; proctype < NUM_AUXILIARY_PROCS; proctype++)
-	{
+	for (proctype = 0; proctype < NUM_AUXILIARY_PROCS; proctype++) {
 		auxproc = &AuxiliaryProcs[proctype];
 		if (auxproc->pid == 0)
 			break;
 	}
-	if (proctype >= NUM_AUXILIARY_PROCS)
-	{
+	if (proctype >= NUM_AUXILIARY_PROCS) {
 		SpinLockRelease(ProcStructLock);
 		elog(FATAL, "all AuxiliaryProcs are in use");
 	}

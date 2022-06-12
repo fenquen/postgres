@@ -56,10 +56,8 @@ static void check_root(const char *progname);
 /*
  * Any Postgres server process begins execution here.
  */
-int
-main(int argc, char *argv[])
-{
-	bool		do_check_root = true;
+int main(int argc, char *argv[]) {
+	bool do_check_root = true;
 
 	/*
 	 * If supported on the current platform, set up a handler to be called if
@@ -160,39 +158,35 @@ main(int argc, char *argv[])
 	 * Catch standard options before doing much else, in particular before we
 	 * insist on not being root.
 	 */
-	if (argc > 1)
-	{
-		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)
-		{
-			help(progname);
-			exit(0);
-		}
-		if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0)
-		{
-			fputs(PG_BACKEND_VERSIONSTR, stdout);
-			exit(0);
-		}
+    if (argc > 1) {
+        if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0) {
+            help(progname);
+            exit(0);
+        }
 
-		/*
-		 * In addition to the above, we allow "--describe-config" and "-C var"
-		 * to be called by root.  This is reasonably safe since these are
-		 * read-only activities.  The -C case is important because pg_ctl may
-		 * try to invoke it while still holding administrator privileges on
-		 * Windows.  Note that while -C can normally be in any argv position,
-		 * if you want to bypass the root check you must put it first.  This
-		 * reduces the risk that we might misinterpret some other mode's -C
-		 * switch as being the postmaster/postgres one.
-		 */
-		if (strcmp(argv[1], "--describe-config") == 0)
-			do_check_root = false;
-		else if (argc > 2 && strcmp(argv[1], "-C") == 0)
-			do_check_root = false;
-	}
+        if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0) {
+            fputs(PG_BACKEND_VERSIONSTR, stdout);
+            exit(0);
+        }
 
-	/*
-	 * Make sure we are not running as root, unless it's safe for the selected
-	 * option.
-	 */
+        /*
+         * In addition to the above, we allow "--describe-config" and "-C var"
+         * to be called by root.  This is reasonably safe since these are
+         * read-only activities.  The -C case is important because pg_ctl may
+         * try to invoke it while still holding administrator privileges on
+         * Windows.  Note that while -C can normally be in any argv position,
+         * if you want to bypass the root check you must put it first.  This
+         * reduces the risk that we might misinterpret some other mode's -C
+         * switch as being the postmaster/postgres one.
+         */
+        if (strcmp(argv[1], "--describe-config") == 0) {
+            do_check_root = false;
+        } else if (argc > 2 && strcmp(argv[1], "-C") == 0) {
+            do_check_root = false;
+        }
+    }
+
+	// 确保的不是以root运行, unless it's safe for the selected option.
 	if (do_check_root)
 		check_root(progname);
 
@@ -216,17 +210,20 @@ main(int argc, char *argv[])
 	pgwin32_signal_initialize();
 #endif
 
-	if (argc > 1 && strcmp(argv[1], "--boot") == 0)
-		AuxiliaryProcessMain(argc, argv);	/* does not return */
-	else if (argc > 1 && strcmp(argv[1], "--describe-config") == 0)
-		GucInfoMain();			/* does not return */
-	else if (argc > 1 && strcmp(argv[1], "--single") == 0)
-		PostgresMain(argc, argv,
-					 NULL,		/* no dbname */
-					 strdup(get_user_name_or_exit(progname)));	/* does not return */
-	else
-		PostmasterMain(argc, argv); /* does not return */
-	abort();					/* should not get here */
+    if (argc > 1 && strcmp(argv[1], "--boot") == 0) {
+        AuxiliaryProcessMain(argc, argv);    // does not return
+    } else if (argc > 1 && strcmp(argv[1], "--describe-config") == 0) {
+        GucInfoMain();    // does not return
+    } else if (argc > 1 && strcmp(argv[1], "--single") == 0) {
+        PostgresMain(argc, argv,
+                     NULL,        /* no dbname */
+                     strdup(get_user_name_or_exit(progname)));
+    }    /* does not return */
+    else {
+        PostmasterMain(argc, argv); /* does not return */
+    }
+
+    abort();                    /* should not get here */
 }
 
 
@@ -382,12 +379,9 @@ help(const char *progname)
 
 
 
-static void
-check_root(const char *progname)
-{
+static void check_root(const char *progname) {
 #ifndef WIN32
-	if (geteuid() == 0)
-	{
+	if (geteuid() == 0) {
 		write_stderr("\"root\" execution of the PostgreSQL server is not permitted.\n"
 					 "The server must be started under an unprivileged user ID to prevent\n"
 					 "possible system security compromise.  See the documentation for\n"
@@ -403,10 +397,8 @@ check_root(const char *progname)
 	 * trying to actively fix this situation seems more trouble than it's
 	 * worth; we'll just expend the effort to check for it.)
 	 */
-	if (getuid() != geteuid())
-	{
-		write_stderr("%s: real and effective user IDs must match\n",
-					 progname);
+	if (getuid() != geteuid()) {
+		write_stderr("%s: real and effective user IDs must match\n",progname);
 		exit(1);
 	}
 #else							/* WIN32 */

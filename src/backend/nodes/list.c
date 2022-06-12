@@ -134,7 +134,7 @@ lappend(List *list, void *datum)
 	else
 		new_tail_cell(list);
 
-	lfirst(list->tail) = datum;
+	lfirst(list->tail) = datum; // 注入到ptr_value
 	check_list_invariants(list);
 	return list;
 }

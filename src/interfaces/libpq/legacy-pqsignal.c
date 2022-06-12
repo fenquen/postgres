@@ -19,6 +19,8 @@
 
 
 /*
+ * sigaction函数说明 https://www.jianshu.com/p/bf4476440515
+ *
  * This version of pqsignal() exists only because pre-9.3 releases
  * of libpq exported pqsignal(), and some old client programs still
  * depend on that.  (Since 9.3, clients are supposed to get it from
@@ -32,24 +34,28 @@
  * non-ENABLE_THREAD_SAFETY builds), so the incompatibility isn't
  * troublesome for internal references.
  */
-pqsigfunc
-pqsignal(int signo, pqsigfunc func)
-{
+pqsigfunc pqsignal(int signo, pqsigfunc func) {
 #ifndef WIN32
-	struct sigaction act,
-				oact;
+	struct sigaction act,oact;
 
 	act.sa_handler = func;
 	sigemptyset(&act.sa_mask);
 	act.sa_flags = 0;
-	if (signo != SIGALRM)
+
+	if (signo != SIGALRM) {
 		act.sa_flags |= SA_RESTART;
+    }
+
 #ifdef SA_NOCLDSTOP
-	if (signo == SIGCHLD)
+	if (signo == SIGCHLD) {
 		act.sa_flags |= SA_NOCLDSTOP;
+    }
 #endif
-	if (sigaction(signo, &act, &oact) < 0)
+
+	if (sigaction(signo, &act, &oact) < 0) {
 		return SIG_ERR;
+    }
+
 	return oact.sa_handler;
 #else							/* WIN32 */
 	return signal(signo, func);

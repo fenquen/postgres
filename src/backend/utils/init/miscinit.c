@@ -102,26 +102,23 @@ checkDataDir(void)
 
 	Assert(DataDir);
 
-	if (stat(DataDir, &stat_buf) != 0)
-	{
-		if (errno == ENOENT)
-			ereport(FATAL,
-					(errcode_for_file_access(),
-					 errmsg("data directory \"%s\" does not exist",
-							DataDir)));
-		else
-			ereport(FATAL,
-					(errcode_for_file_access(),
-					 errmsg("could not read permissions of directory \"%s\": %m",
-							DataDir)));
-	}
+    if (stat(DataDir, &stat_buf) != 0) {
+        if (errno == ENOENT) {
+            ereport(FATAL,
+                    (errcode_for_file_access(),
+                            errmsg("data directory \"%s\" does not exist", DataDir)));
+        } else {
+            ereport(FATAL,
+                    (errcode_for_file_access(),
+                            errmsg("could not read permissions of directory \"%s\": %m", DataDir)));
+        }
+    }
 
-	/* eventual chdir would fail anyway, but let's test ... */
+	// 如不是目录
 	if (!S_ISDIR(stat_buf.st_mode))
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-				 errmsg("specified data directory \"%s\" is not a directory",
-						DataDir)));
+				 errmsg("specified data directory \"%s\" is not a directory",DataDir)));
 
 	/*
 	 * Check that the directory belongs to my userid; if not, reject.
@@ -136,8 +133,7 @@ checkDataDir(void)
 	if (stat_buf.st_uid != geteuid())
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-				 errmsg("data directory \"%s\" has wrong ownership",
-						DataDir),
+				 errmsg("data directory \"%s\" has wrong ownership",DataDir),
 				 errhint("The server must be started by the user that owns the data directory.")));
 #endif
 
@@ -185,22 +181,21 @@ checkDataDir(void)
 }
 
 /*
- * Set data directory, but make sure it's an absolute path.  Use this,
- * never set DataDir directly.
+ * Set data directory, but make sure it's an absolute path.  Use this,never set DataDir directly.
  */
-void
-SetDataDir(const char *dir)
-{
-	char	   *new;
+void SetDataDir(const char *newDataDirPath) {
+	char	   *dataDirAbsPath;
 
-	AssertArg(dir);
+	AssertArg(newDataDirPath);
 
 	/* If presented path is relative, convert to absolute */
-	new = make_absolute_path(dir);
+	dataDirAbsPath = make_absolute_path(newDataDirPath);
 
-	if (DataDir)
-		free(DataDir);
-	DataDir = new;
+	if (DataDir) {
+        free(DataDir);
+    }
+
+	DataDir = dataDirAbsPath;
 }
 
 /*
@@ -209,16 +204,14 @@ SetDataDir(const char *dir)
  * stuff in and under the data directory.  For convenience during path
  * setup, however, we don't force the chdir to occur during SetDataDir.
  */
-void
-ChangeToDataDir(void)
-{
+void ChangeToDataDir(void) {
 	AssertState(DataDir);
 
-	if (chdir(DataDir) < 0)
+	if (chdir(DataDir) < 0) {
 		ereport(FATAL,
 				(errcode_for_file_access(),
-				 errmsg("could not change directory to \"%s\": %m",
-						DataDir)));
+				 errmsg("could not change directory to \"%s\": %m", DataDir)));
+    }
 }
 
 
@@ -269,9 +262,7 @@ static bool SetRoleIsActive = false;
  *
  * Should be called as early as possible after the child's startup.
  */
-void
-InitPostmasterChild(void)
-{
+void InitPostmasterChild(void) {
 	IsUnderPostmaster = true;	/* we are a postmaster subprocess now */
 
 	/*
@@ -303,14 +294,15 @@ InitPostmasterChild(void)
 	InitLatch(MyLatch);
 
 	/*
-	 * If possible, make this process a group leader, so that the postmaster
-	 * can signal any child processes too. Not all processes will have
+	 * If possible, 通过setsid()把当前的这个子进程设为进程组的组长,
+	 * so that the postmaster can signal any child processes too. Not all processes will have
 	 * children, but for consistency we make all postmaster child processes do
 	 * this.
 	 */
 #ifdef HAVE_SETSID
-	if (setsid() < 0)
-		elog(FATAL, "setsid() failed: %m");
+	if (setsid() < 0) {
+        elog(FATAL, "setsid() failed: %m");
+    }
 #endif
 
 	/* Request a signal if the postmaster dies, if possible. */
@@ -335,11 +327,9 @@ InitStandaloneProcess(const char *argv0)
 	InitLatch(MyLatch);
 
 	/* Compute paths, no postmaster to inherit from */
-	if (my_exec_path[0] == '\0')
-	{
+	if (my_exec_path[0] == '\0') {
 		if (find_my_exec(argv0, my_exec_path) < 0)
-			elog(FATAL, "%s: could not locate my own executable path",
-				 argv0);
+			elog(FATAL, "%s: could not locate my own executable path", argv0);
 	}
 
 	if (pkglib_path[0] == '\0')
@@ -882,20 +872,23 @@ UnlinkLockFiles(int status, Datum arg)
  * socketDir is the Unix socket directory path to include (possibly empty).
  * isDDLock and refName are used to determine what error message to produce.
  */
-static void
-CreateLockFile(const char *filename, bool amPostmaster,
-			   const char *socketDir,
-			   bool isDDLock, const char *refName)
-{
+static void CreateLockFile(const char *filename,
+                           bool amPostmaster,
+                           const char *socketDir,
+                           bool isDDLock,
+                           const char *refName) {
+
 	int			fd;
 	char		buffer[MAXPGPATH * 2 + 256];
 	int			ntries;
 	int			len;
 	int			encoded_pid;
 	pid_t		other_pid;
+
 	pid_t		my_pid,
 				my_p_pid,
 				my_gp_pid;
+
 	const char *envvar;
 
 	/*
@@ -930,18 +923,18 @@ CreateLockFile(const char *filename, bool amPostmaster,
 #endif
 
 	envvar = getenv("PG_GRANDPARENT_PID");
-	if (envvar)
-		my_gp_pid = atoi(envvar);
-	else
-		my_gp_pid = 0;
+    if (envvar) {
+        my_gp_pid = atoi(envvar);
+    } else {
+        my_gp_pid = 0;
+    }
 
 	/*
 	 * We need a loop here because of race conditions.  But don't loop forever
 	 * (for example, a non-writable $PGDATA directory might cause a failure
 	 * that won't go away).  100 tries seems like plenty.
 	 */
-	for (ntries = 0;; ntries++)
-	{
+	for (ntries = 0;; ntries++) {
 		/*
 		 * Try to create the lock file --- O_EXCL makes this atomic.
 		 *
@@ -949,8 +942,9 @@ CreateLockFile(const char *filename, bool amPostmaster,
 		 * comments below.
 		 */
 		fd = open(filename, O_RDWR | O_CREAT | O_EXCL, pg_file_create_mode);
-		if (fd >= 0)
-			break;				/* Success; exit the retry loop */
+		if (fd >= 0) {
+            break;
+        }
 
 		/*
 		 * Couldn't create the pid file. Probably it already exists.
@@ -966,26 +960,30 @@ CreateLockFile(const char *filename, bool amPostmaster,
 		 * here: file might have been deleted since we tried to create it.
 		 */
 		fd = open(filename, O_RDONLY, pg_file_create_mode);
-		if (fd < 0)
-		{
-			if (errno == ENOENT)
-				continue;		/* race condition; try again */
+		if (fd < 0) {
+            /* race condition; try again */
+			if (errno == ENOENT){
+                continue;
+            }
+
 			ereport(FATAL,
 					(errcode_for_file_access(),
-					 errmsg("could not open lock file \"%s\": %m",
-							filename)));
+					 errmsg("could not open lock file \"%s\": %m",filename)));
 		}
+
 		pgstat_report_wait_start(WAIT_EVENT_LOCK_FILE_CREATE_READ);
-		if ((len = read(fd, buffer, sizeof(buffer) - 1)) < 0)
+
+		if ((len = read(fd, buffer, sizeof(buffer) - 1)) < 0) {
 			ereport(FATAL,
 					(errcode_for_file_access(),
 					 errmsg("could not read lock file \"%s\": %m",
 							filename)));
+        }
+
 		pgstat_report_wait_end();
 		close(fd);
 
-		if (len == 0)
-		{
+		if (len == 0) {
 			ereport(FATAL,
 					(errcode(ERRCODE_LOCK_FILE_EXISTS),
 					 errmsg("lock file \"%s\" is empty", filename),
@@ -995,12 +993,12 @@ CreateLockFile(const char *filename, bool amPostmaster,
 		buffer[len] = '\0';
 		encoded_pid = atoi(buffer);
 
-		/* if pid < 0, the pid is for postgres, not postmaster */
+		// if pid < 0, the pid is for postgres, not postmaster
 		other_pid = (pid_t) (encoded_pid < 0 ? -encoded_pid : encoded_pid);
 
-		if (other_pid <= 0)
-			elog(FATAL, "bogus data in lock file \"%s\": \"%s\"",
-				 filename, buffer);
+		if (other_pid <= 0) {
+            elog(FATAL, "bogus data in lock file \"%s\": \"%s\"", filename, buffer);
+        }
 
 		/*
 		 * Check to see if the other process still exists
@@ -1024,12 +1022,8 @@ CreateLockFile(const char *filename, bool amPostmaster,
 		 * instance of Postgres being run by someone else, at least on
 		 * machines where /tmp hasn't got a stickybit.)
 		 */
-		if (other_pid != my_pid && other_pid != my_p_pid &&
-			other_pid != my_gp_pid)
-		{
-			if (kill(other_pid, 0) == 0 ||
-				(errno != ESRCH && errno != EPERM))
-			{
+        if (other_pid != my_pid && other_pid != my_p_pid && other_pid != my_gp_pid) {
+			if (kill(other_pid, 0) == 0 || (errno != ESRCH && errno != EPERM)) {
 				/* lockfile belongs to a live process */
 				ereport(FATAL,
 						(errcode(ERRCODE_LOCK_FILE_EXISTS),
@@ -1103,6 +1097,12 @@ CreateLockFile(const char *filename, bool amPostmaster,
 	}
 
 	/*
+	 * 向postgres.pid写入的内容如下
+	 * pid
+	 * data目录
+	 * 启动时间
+	 * port
+	 * localsock地址
 	 * Successfully created the file, now fill it.  See comment in pidfile.h
 	 * about the contents.  Note that we write the same first five lines into
 	 * both datadir and socket lockfiles; although more stuff may get added to
@@ -1119,13 +1119,14 @@ CreateLockFile(const char *filename, bool amPostmaster,
 	 * In a standalone backend, the next line (LOCK_FILE_LINE_LISTEN_ADDR)
 	 * will never receive data, so fill it in as empty now.
 	 */
-	if (isDDLock && !amPostmaster)
-		strlcat(buffer, "\n", sizeof(buffer));
+	if (isDDLock && !amPostmaster) {
+        strlcat(buffer, "\n", sizeof(buffer));
+    }
 
+    // 把buffer中的内容写到文件
 	errno = 0;
 	pgstat_report_wait_start(WAIT_EVENT_LOCK_FILE_CREATE_WRITE);
-	if (write(fd, buffer, strlen(buffer)) != strlen(buffer))
-	{
+	if (write(fd, buffer, strlen(buffer)) != strlen(buffer)) {
 		int			save_errno = errno;
 
 		close(fd);
@@ -1138,28 +1139,25 @@ CreateLockFile(const char *filename, bool amPostmaster,
 	}
 	pgstat_report_wait_end();
 
+    // fsync
 	pgstat_report_wait_start(WAIT_EVENT_LOCK_FILE_CREATE_SYNC);
-	if (pg_fsync(fd) != 0)
-	{
+	if (pg_fsync(fd) != 0) {
 		int			save_errno = errno;
 
 		close(fd);
 		unlink(filename);
 		errno = save_errno;
-		ereport(FATAL,
-				(errcode_for_file_access(),
-				 errmsg("could not write lock file \"%s\": %m", filename)));
+		ereport(FATAL,(errcode_for_file_access(),errmsg("could not write lock file \"%s\": %m", filename)));
 	}
 	pgstat_report_wait_end();
-	if (close(fd) != 0)
-	{
-		int			save_errno = errno;
+
+    // 关闭
+	if (close(fd) != 0) {
+		int	save_errno = errno;
 
 		unlink(filename);
 		errno = save_errno;
-		ereport(FATAL,
-				(errcode_for_file_access(),
-				 errmsg("could not write lock file \"%s\": %m", filename)));
+		ereport(FATAL,(errcode_for_file_access(),errmsg("could not write lock file \"%s\": %m", filename)));
 	}
 
 	/*
@@ -1167,13 +1165,11 @@ CreateLockFile(const char *filename, bool amPostmaster,
 	 * one, set up the on_proc_exit function to do it; then add this lock file
 	 * to the list of files to unlink.
 	 */
-	if (lock_files == NIL)
-		on_proc_exit(UnlinkLockFiles, 0);
+	if (lock_files == NIL) {
+        on_proc_exit(UnlinkLockFiles, 0);
+    }
 
-	/*
-	 * Use lcons so that the lock files are unlinked in reverse order of
-	 * creation; this is critical!
-	 */
+	// Use lcons so that the lock files are unlinked in reverse order of creation; this is critical!
 	lock_files = lcons(pstrdup(filename), lock_files);
 }
 
@@ -1187,9 +1183,7 @@ CreateLockFile(const char *filename, bool amPostmaster,
  * Note that the socket directory path line is initially written as empty.
  * postmaster.c will rewrite it upon creating the first Unix socket.
  */
-void
-CreateDataDirLockFile(bool amPostmaster)
-{
+void CreateDataDirLockFile(bool amPostmaster) {
 	CreateLockFile(DIRECTORY_LOCK_FILE, amPostmaster, "", true, DataDir);
 }
 
@@ -1401,8 +1395,7 @@ RecheckDataDirLockFile(void)
 	char		buffer[BLCKSZ];
 
 	fd = open(DIRECTORY_LOCK_FILE, O_RDWR | PG_BINARY, 0);
-	if (fd < 0)
-	{
+	if (fd < 0) {
 		/*
 		 * There are many foreseeable false-positive error conditions.  For
 		 * safety, fail only on enumerated clearly-something-is-wrong
@@ -1459,64 +1452,69 @@ RecheckDataDirLockFile(void)
  */
 
 /*
- * Determine whether the PG_VERSION file in directory `path' indicates
+ * 读取data目录下的PG_VERSION文件,文件的内容是pg的大版本的
+ * Determine whether the PG_VERSION file in directory `pgVersionFileParentDirPath' indicates
  * a data version compatible with the version of this program.
  *
  * If compatible, return. Otherwise, ereport(FATAL).
  */
-void
-ValidatePgVersion(const char *path)
-{
-	char		full_path[MAXPGPATH];
-	FILE	   *file;
-	int			ret;
-	long		file_major;
-	long		my_major;
+void ValidatePgVersion(const char *pgVersionFileParentDirPath) {
+	char		pgVersionFilePath[MAXPGPATH];
+	FILE	   *pgVersionFile;
+	int			matchCount;
+	long		pgMainVersionInFile;
+	long		pgMainVersion;
 	char	   *endptr;
-	char		file_version_string[64];
+	char		pgVersionStrInFile[64];
 	const char *my_version_string = PG_VERSION;
 
-	my_major = strtol(my_version_string, &endptr, 10);
+    // 这样读取的是到'.'之前的数字文本也便是12
+    pgMainVersion = strtol(my_version_string, &endptr, 10);
 
-	snprintf(full_path, sizeof(full_path), "%s/PG_VERSION", path);
+	snprintf(pgVersionFilePath, sizeof(pgVersionFilePath), "%s/PG_VERSION", pgVersionFileParentDirPath);
 
-	file = AllocateFile(full_path, "r");
-	if (!file)
-	{
+    // 读取PG_VERSION文件
+    // PG_VERSION 文件的内容是 12.12
+    pgVersionFile = AllocateFile(pgVersionFilePath, "r");
+	if (!pgVersionFile) {
 		if (errno == ENOENT)
 			ereport(FATAL,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("\"%s\" is not a valid data directory",
-							path),
-					 errdetail("File \"%s\" is missing.", full_path)));
+					 errmsg("\"%s\" is not a valid data directory", pgVersionFileParentDirPath),
+					 errdetail("File \"%s\" is missing.", pgVersionFilePath)));
 		else
 			ereport(FATAL,
 					(errcode_for_file_access(),
-					 errmsg("could not open file \"%s\": %m", full_path)));
+					 errmsg("could not open pgVersionFile \"%s\": %m", pgVersionFilePath)));
 	}
 
-	file_version_string[0] = '\0';
-	ret = fscanf(file, "%63s", file_version_string);
-	file_major = strtol(file_version_string, &endptr, 10);
+    // 读取文件的内容到文本
+    pgVersionStrInFile[0] = '\0';
+    // 该函数返回成功匹配和赋值的个数
+    matchCount = fscanf(pgVersionFile, "%63s", pgVersionStrInFile);
 
-	if (ret != 1 || endptr == file_version_string)
+    // 读取文件内容中的12.12的'.'之前的数字文本也便是12
+    pgMainVersionInFile = strtol(pgVersionStrInFile, &endptr, 10);
+
+    // endptr == pgVersionStrInFile 说明 文件的内容起始不是数字文本 例如文件的内容是 a1
+	if (matchCount != 1 || endptr == pgVersionStrInFile) {
 		ereport(FATAL,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("\"%s\" is not a valid data directory",
-						path),
-				 errdetail("File \"%s\" does not contain valid data.",
-						   full_path),
+				 errmsg("\"%s\" is not a valid data directory", pgVersionFileParentDirPath),
+				 errdetail("File \"%s\" does not contain valid data.", pgVersionFilePath),
 				 errhint("You might need to initdb.")));
+    }
 
-	FreeFile(file);
+	FreeFile(pgVersionFile);
 
-	if (my_major != file_major)
+	if (pgMainVersion != pgMainVersionInFile){
 		ereport(FATAL,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("database files are incompatible with server"),
 				 errdetail("The data directory was initialized by PostgreSQL version %s, "
 						   "which is not compatible with this version %s.",
-						   file_version_string, my_version_string)));
+                           pgVersionStrInFile, my_version_string)));
+    }
 }
 
 /*-------------------------------------------------------------------------
@@ -1541,24 +1539,25 @@ bool		process_shared_preload_libraries_in_progress = false;
  * 'gucname': name of GUC variable, for error reports
  * 'restricted': if true, force libraries to be in $libdir/plugins/
  */
-static void
-load_libraries(const char *libraries, const char *gucname, bool restricted)
-{
+static void load_libraries(const char *libraries, // 对应conf文件中的shared_preload_libraries,使用','分隔的不带.so后缀
+                           const char *gucname,
+                           bool restricted) {
 	char	   *rawstring;
-	List	   *elemlist;
-	ListCell   *l;
+	List	   *list;
+	ListCell   *listCell;
 
-	if (libraries == NULL || libraries[0] == '\0')
-		return;					/* nothing to do */
+    /* nothing to do */
+	if (libraries == NULL || libraries[0] == '\0') {
+		return;
+    }
 
 	/* Need a modifiable copy of string */
 	rawstring = pstrdup(libraries);
 
 	/* Parse string into list of filename paths */
-	if (!SplitDirectoriesString(rawstring, ',', &elemlist))
-	{
+	if (!SplitDirectoriesString(rawstring, ',', &list)) {
 		/* syntax error in list */
-		list_free_deep(elemlist);
+		list_free_deep(list);
 		pfree(rawstring);
 		ereport(LOG,
 				(errcode(ERRCODE_SYNTAX_ERROR),
@@ -1567,35 +1566,31 @@ load_libraries(const char *libraries, const char *gucname, bool restricted)
 		return;
 	}
 
-	foreach(l, elemlist)
-	{
+	foreach(listCell, list) {
 		/* Note that filename was already canonicalized */
-		char	   *filename = (char *) lfirst(l);
+		char	   *filename = (char *) lfirst(listCell);
 		char	   *expanded = NULL;
 
 		/* If restricting, insert $libdir/plugins if not mentioned already */
-		if (restricted && first_dir_separator(filename) == NULL)
-		{
+		if (restricted && first_dir_separator(filename) == NULL) {
 			expanded = psprintf("$libdir/plugins/%s", filename);
 			filename = expanded;
 		}
+
 		load_file(filename, restricted);
-		ereport(DEBUG1,
-				(errmsg("loaded library \"%s\"", filename)));
+		ereport(DEBUG1,(errmsg("loaded library \"%s\"", filename)));
 		if (expanded)
 			pfree(expanded);
 	}
 
-	list_free_deep(elemlist);
+	list_free_deep(list);
 	pfree(rawstring);
 }
 
 /*
  * process any libraries that should be preloaded at postmaster start
  */
-void
-process_shared_preload_libraries(void)
-{
+void process_shared_preload_libraries(void) {
 	process_shared_preload_libraries_in_progress = true;
 	load_libraries(shared_preload_libraries_string,
 				   "shared_preload_libraries",

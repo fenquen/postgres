@@ -228,12 +228,10 @@ typedef enum
 	AllocateDescRawFD
 } AllocateDescKind;
 
-typedef struct
-{
+typedef struct {
 	AllocateDescKind kind;
 	SubTransactionId create_subid;
-	union
-	{
+	union {
 		FILE	   *file;
 		DIR		   *dir;
 		int			fd;
@@ -331,16 +329,13 @@ static int	fsync_parent_path(const char *fname, int elevel);
 /*
  * pg_fsync --- do fsync with or without writethrough
  */
-int
-pg_fsync(int fd)
-{
+int pg_fsync(int fd) {
 	/* #if is to skip the sync_method test if there's no need for it */
 #if defined(HAVE_FSYNC_WRITETHROUGH) && !defined(FSYNC_WRITETHROUGH_IS_FSYNC)
 	if (sync_method == SYNC_METHOD_FSYNC_WRITETHROUGH)
 		return pg_fsync_writethrough(fd);
-	else
 #endif
-		return pg_fsync_no_writethrough(fd);
+    return pg_fsync_no_writethrough(fd);
 }
 
 
@@ -348,23 +343,19 @@ pg_fsync(int fd)
  * pg_fsync_no_writethrough --- same as fsync except does nothing if
  *	enableFsync is off
  */
-int
-pg_fsync_no_writethrough(int fd)
-{
-	if (enableFsync)
-		return fsync(fd);
-	else
-		return 0;
+int pg_fsync_no_writethrough(int fd) {
+	if (enableFsync) {
+        return fsync(fd);
+    }
+
+    return 0;
 }
 
 /*
  * pg_fsync_writethrough
  */
-int
-pg_fsync_writethrough(int fd)
-{
-	if (enableFsync)
-	{
+int pg_fsync_writethrough(int fd) {
+	if (enableFsync) {
 #ifdef WIN32
 		return _commit(fd);
 #elif defined(F_FULLFSYNC)
@@ -374,8 +365,8 @@ pg_fsync_writethrough(int fd)
 		return -1;
 #endif
 	}
-	else
-		return 0;
+
+    return 0;
 }
 
 /*
@@ -806,8 +797,7 @@ InitFileAccess(void)
 }
 
 /*
- * count_usable_fds --- count how many FDs the system will let us open,
- *		and estimate how many are already open.
+ * count_usable_fds --- count how many FDs the system will let us open and estimate how many are already open.
  *
  * We stop counting if usable_fds reaches max_to_probe.  Note: a small
  * value of max_to_probe might result in an underestimate of already_open;
@@ -817,14 +807,12 @@ InitFileAccess(void)
  *
  * We assume stdin (FD 0) is available for dup'ing
  */
-static void
-count_usable_fds(int max_to_probe, int *usable_fds, int *already_open)
-{
-	int		   *fd;
+static void count_usable_fds(int max_to_probe, int *usable_fds, int *already_open) {
+	int		   *fdArr;
 	int			size;
-	int			used = 0;
+	int			usableCount = 0;
 	int			highestfd = 0;
-	int			j;
+	int			usedindex;
 
 #ifdef HAVE_GETRLIMIT
 	struct rlimit rlim;
@@ -832,7 +820,7 @@ count_usable_fds(int max_to_probe, int *usable_fds, int *already_open)
 #endif
 
 	size = 1024;
-	fd = (int *) palloc(size * sizeof(int));
+    fdArr = (int *) palloc(size * sizeof(int));
 
 #ifdef HAVE_GETRLIMIT
 #ifdef RLIMIT_NOFILE			/* most platforms use RLIMIT_NOFILE */
@@ -840,104 +828,100 @@ count_usable_fds(int max_to_probe, int *usable_fds, int *already_open)
 #else							/* but BSD doesn't ... */
 	getrlimit_status = getrlimit(RLIMIT_OFILE, &rlim);
 #endif							/* RLIMIT_NOFILE */
-	if (getrlimit_status != 0)
-		ereport(WARNING, (errmsg("getrlimit failed: %m")));
+	if (getrlimit_status != 0) {
+        ereport(WARNING, (errmsg("getrlimit failed: %m")));
+    }
 #endif							/* HAVE_GETRLIMIT */
 
 	/* dup until failure or probe limit reached */
-	for (;;)
-	{
-		int			thisfd;
+	for (;;) {
+		int			newFd;
 
 #ifdef HAVE_GETRLIMIT
-
-		/*
-		 * don't go beyond RLIMIT_NOFILE; causes irritating kernel logs on
-		 * some platforms
-		 */
-		if (getrlimit_status == 0 && highestfd >= rlim.rlim_cur - 1)
+		// don't go beyond RLIMIT_NOFILE; causes irritating kernel logs on some platforms
+		if (getrlimit_status == 0 && highestfd >= rlim.rlim_cur - 1) {
 			break;
+        }
 #endif
 
-		thisfd = dup(0);
-		if (thisfd < 0)
-		{
+        // 利用dup这个手段来不断的用掉fd来知道有多少能用的
+		newFd = dup(0);
+		if (newFd < 0) {
 			/* Expect EMFILE or ENFILE, else it's fishy */
-			if (errno != EMFILE && errno != ENFILE)
-				elog(WARNING, "dup(0) failed after %d successes: %m", used);
+			if (errno != EMFILE && errno != ENFILE) {
+                elog(WARNING, "dup(0) failed after %d successes: %m", usableCount);
+            }
+
 			break;
 		}
 
-		if (used >= size)
-		{
+        // 数组容量要增大
+		if (usableCount >= size) {
 			size *= 2;
-			fd = (int *) repalloc(fd, size * sizeof(int));
+            fdArr = (int *) repalloc(fdArr, size * sizeof(int));
 		}
-		fd[used++] = thisfd;
 
-		if (highestfd < thisfd)
-			highestfd = thisfd;
+        fdArr[usableCount++] = newFd;
 
-		if (used >= max_to_probe)
+        // 变更最大的的fd
+		if (highestfd < newFd) {
+			highestfd = newFd;
+        }
+
+		if (usableCount >= max_to_probe) {
 			break;
+        }
 	}
 
-	/* release the files we opened */
-	for (j = 0; j < used; j++)
-		close(fd[j]);
+	// release the files we opened
+	for (usedindex = 0; usedindex < usableCount; usedindex++) {
+		close(fdArr[usedindex]);
+    }
 
-	pfree(fd);
+	pfree(fdArr);
 
 	/*
 	 * Return results.  usable_fds is just the number of successful dups. We
 	 * assume that the system limit is highestfd+1 (remember 0 is a legal FD
 	 * number) and so already_open is highestfd+1 - usable_fds.
 	 */
-	*usable_fds = used;
-	*already_open = highestfd + 1 - used;
+	*usable_fds = usableCount;
+	*already_open = highestfd + 1 - usableCount;
 }
 
-/*
- * set_max_safe_fds
- *		Determine number of filedescriptors that fd.c is allowed to use
- */
-void
-set_max_safe_fds(void)
-{
-	int			usable_fds;
-	int			already_open;
+// determine number of file descriptors that fd.c is allowed to use
+void set_max_safe_fds(void) {
+    int usable_fds;
+    int already_open;
 
-	/*----------
-	 * We want to set max_safe_fds to
-	 *			MIN(usable_fds, max_files_per_process - already_open)
-	 * less the slop factor for files that are opened without consulting
-	 * fd.c.  This ensures that we won't exceed either max_files_per_process
-	 * or the experimentally-determined EMFILE limit.
-	 *----------
-	 */
-	count_usable_fds(max_files_per_process,
-					 &usable_fds, &already_open);
+    /*----------
+     * We want to set max_safe_fds to
+     *			MIN(usable_fds, max_files_per_process - already_open)
+     * less the slop factor for files that are opened without consulting
+     * fd.c.  This ensures that we won't exceed either max_files_per_process
+     * or the experimentally-determined EMFILE limit.
+     *----------
+     */
+    count_usable_fds(max_files_per_process,&usable_fds, &already_open);
 
-	max_safe_fds = Min(usable_fds, max_files_per_process - already_open);
+    max_safe_fds = Min(usable_fds, max_files_per_process - already_open);
 
-	/*
-	 * Take off the FDs reserved for system() etc.
-	 */
-	max_safe_fds -= NUM_RESERVED_FDS;
+    /*
+     * Take off the FDs reserved for system() etc.
+     */
+    max_safe_fds -= NUM_RESERVED_FDS;
 
-	/*
-	 * Make sure we still have enough to get by.
-	 */
-	if (max_safe_fds < FD_MINFREE)
-		ereport(FATAL,
-				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
-				 errmsg("insufficient file descriptors available to start server process"),
-				 errdetail("System allows %d, we need at least %d.",
-						   max_safe_fds + NUM_RESERVED_FDS,
-						   FD_MINFREE + NUM_RESERVED_FDS)));
+    // Make sure we still have enough to get by.
+    if (max_safe_fds < FD_MINFREE) {
+        ereport(FATAL,
+                (errcode(ERRCODE_INSUFFICIENT_RESOURCES),
+                        errmsg("insufficient file descriptors available to start server process"),
+                        errdetail("System allows %d, we need at least %d.",
+                                  max_safe_fds + NUM_RESERVED_FDS, FD_MINFREE + NUM_RESERVED_FDS)));
+    }
 
-	elog(DEBUG2, "max_safe_fds = %d, usable_fds = %d, already_open = %d",
-		 max_safe_fds, usable_fds, already_open);
+    elog(DEBUG2, "max_safe_fds = %d, usable_fds = %d, already_open = %d",
+         max_safe_fds, usable_fds, already_open);
 }
 
 /*
@@ -1128,21 +1112,19 @@ LruInsert(File file)
 /*
  * Release one kernel FD by closing the least-recently-used VFD.
  */
-static bool
-ReleaseLruFile(void)
+static bool ReleaseLruFile(void)
 {
 	DO_DB(elog(LOG, "ReleaseLruFile. Opened %d", nfile));
 
-	if (nfile > 0)
-	{
+	if (nfile > 0) {
 		/*
-		 * There are opened files and so there should be at least one used vfd
-		 * in the ring.
+		 * There are opened files and so there should be at least one used vfd in the ring.
 		 */
 		Assert(VfdCache[0].lruMoreRecently != 0);
 		LruDelete(VfdCache[0].lruMoreRecently);
 		return true;			/* freed a file */
 	}
+
 	return false;				/* no files available to free */
 }
 
@@ -1150,19 +1132,15 @@ ReleaseLruFile(void)
  * Release kernel FDs as needed to get under the max_safe_fds limit.
  * After calling this, it's OK to try to open another file.
  */
-static void
-ReleaseLruFiles(void)
-{
-	while (nfile + numAllocatedDescs >= max_safe_fds)
-	{
-		if (!ReleaseLruFile())
+static void ReleaseLruFiles(void) {
+	while (nfile + numAllocatedDescs >= max_safe_fds) {
+		if (!ReleaseLruFile()) {
 			break;
+        }
 	}
 }
 
-static File
-AllocateVfd(void)
-{
+static File AllocateVfd(void) {
 	Index		i;
 	File		file;
 
@@ -2136,15 +2114,14 @@ FileGetRawMode(File file)
  * Make room for another allocatedDescs[] array entry if needed and possible.
  * Returns true if an array element is available.
  */
-static bool
-reserveAllocatedDesc(void)
-{
+static bool reserveAllocatedDesc(void) {
 	AllocateDesc *newDescs;
 	int			newMax;
 
-	/* Quick out if array already has a free slot. */
-	if (numAllocatedDescs < maxAllocatedDescs)
+	// Quick out if array already has a free slot
+	if (numAllocatedDescs < maxAllocatedDescs) {
 		return true;
+    }
 
 	/*
 	 * If the array hasn't yet been created in the current process, initialize
@@ -2152,17 +2129,18 @@ reserveAllocatedDesc(void)
 	 * we will ever need, anyway.  We don't want to look at max_safe_fds
 	 * immediately because set_max_safe_fds() may not have run yet.
 	 */
-	if (allocatedDescs == NULL)
-	{
+	if (allocatedDescs == NULL) {
 		newMax = FD_MINFREE / 2;
 		newDescs = (AllocateDesc *) malloc(newMax * sizeof(AllocateDesc));
-		/* Out of memory already?  Treat as fatal error. */
-		if (newDescs == NULL)
+		if (newDescs == NULL) {
 			ereport(ERROR,
 					(errcode(ERRCODE_OUT_OF_MEMORY),
 					 errmsg("out of memory")));
+        }
+
 		allocatedDescs = newDescs;
 		maxAllocatedDescs = newMax;
+
 		return true;
 	}
 
@@ -2176,15 +2154,16 @@ reserveAllocatedDesc(void)
 	 * least as large as the initial size, FD_MINFREE / 2.)
 	 */
 	newMax = max_safe_fds / 2;
-	if (newMax > maxAllocatedDescs)
-	{
-		newDescs = (AllocateDesc *) realloc(allocatedDescs,
-											newMax * sizeof(AllocateDesc));
-		/* Treat out-of-memory as a non-fatal error. */
-		if (newDescs == NULL)
+	if (newMax > maxAllocatedDescs) {
+		newDescs = (AllocateDesc *) realloc(allocatedDescs,newMax * sizeof(AllocateDesc));
+		// treat out-of-memory as a non-fatal error
+		if (newDescs == NULL) {
 			return false;
+        }
+
 		allocatedDescs = newDescs;
 		maxAllocatedDescs = newMax;
+
 		return true;
 	}
 
@@ -2193,6 +2172,7 @@ reserveAllocatedDesc(void)
 }
 
 /*
+ * 应对程序异常终止导致的fd泄漏
  * Routines that want to use stdio (ie, FILE*) should use AllocateFile
  * rather than plain fopen().  This lets fd.c deal with freeing FDs if
  * necessary to open the file.  When done, call FreeFile rather than fclose.
@@ -2209,50 +2189,47 @@ reserveAllocatedDesc(void)
  *
  * Ideally this should be the *only* direct call of fopen() in the backend.
  */
-FILE *
-AllocateFile(const char *name, const char *mode)
-{
-	FILE	   *file;
+FILE *AllocateFile(const char *filePath, const char *mode) {
+    FILE *file;
 
-	DO_DB(elog(LOG, "AllocateFile: Allocated %d (%s)",
-			   numAllocatedDescs, name));
+    DO_DB(elog(LOG, "AllocateFile: Allocated %d (%s)", numAllocatedDescs, filePath));
 
-	/* Can we allocate another non-virtual FD? */
-	if (!reserveAllocatedDesc())
-		ereport(ERROR,
-				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
-				 errmsg("exceeded maxAllocatedDescs (%d) while trying to open file \"%s\"",
-						maxAllocatedDescs, name)));
+    // Can we allocate another non-virtual FD?
+    if (!reserveAllocatedDesc()) {
+        ereport(ERROR,
+                (errcode(ERRCODE_INSUFFICIENT_RESOURCES),
+                        errmsg("exceeded maxAllocatedDescs (%d) while trying to open file \"%s\"",maxAllocatedDescs, filePath)));
+    }
 
-	/* Close excess kernel FDs. */
-	ReleaseLruFiles();
+    // close excess kernel FDs.
+    ReleaseLruFiles();
 
-TryAgain:
-	if ((file = fopen(name, mode)) != NULL)
-	{
-		AllocateDesc *desc = &allocatedDescs[numAllocatedDescs];
+    TryAgain:
+    if ((file = fopen(filePath, mode)) != NULL) {
+        AllocateDesc *allocateDesc = &allocatedDescs[numAllocatedDescs];
 
-		desc->kind = AllocateDescFile;
-		desc->desc.file = file;
-		desc->create_subid = GetCurrentSubTransactionId();
-		numAllocatedDescs++;
-		return desc->desc.file;
-	}
+        allocateDesc->kind = AllocateDescFile;
+        allocateDesc->desc.file = file;
+        allocateDesc->create_subid = GetCurrentSubTransactionId();
 
-	if (errno == EMFILE || errno == ENFILE)
-	{
-		int			save_errno = errno;
+        numAllocatedDescs++;
 
-		ereport(LOG,
-				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
-				 errmsg("out of file descriptors: %m; release and retry")));
-		errno = 0;
-		if (ReleaseLruFile())
-			goto TryAgain;
-		errno = save_errno;
-	}
+        return allocateDesc->desc.file;
+    }
 
-	return NULL;
+    if (errno == EMFILE || errno == ENFILE) {
+        int save_errno = errno;
+
+        ereport(LOG,
+                (errcode(ERRCODE_INSUFFICIENT_RESOURCES),
+                        errmsg("out of file descriptors: %m; release and retry")));
+        errno = 0;
+        if (ReleaseLruFile())
+            goto TryAgain;
+        errno = save_errno;
+    }
+
+    return NULL;
 }
 
 /*
@@ -2375,8 +2352,7 @@ FreeDesc(AllocateDesc *desc)
 	int			result;
 
 	/* Close the underlying object */
-	switch (desc->kind)
-	{
+	switch (desc->kind) {
 		case AllocateDescFile:
 			result = fclose(desc->desc.file);
 			break;
@@ -2408,20 +2384,17 @@ FreeDesc(AllocateDesc *desc)
  * Note we do not check fclose's return value --- it is up to the caller
  * to handle close errors.
  */
-int
-FreeFile(FILE *file)
-{
+int FreeFile(FILE *file) {
 	int			i;
 
 	DO_DB(elog(LOG, "FreeFile: Allocated %d", numAllocatedDescs));
 
 	/* Remove file from list of allocated files, if it's present */
-	for (i = numAllocatedDescs; --i >= 0;)
-	{
-		AllocateDesc *desc = &allocatedDescs[i];
+	for (i = numAllocatedDescs; --i >= 0;) {
+		AllocateDesc *allocateDesc = &allocatedDescs[i];
 
-		if (desc->kind == AllocateDescFile && desc->desc.file == file)
-			return FreeDesc(desc);
+		if (allocateDesc->kind == AllocateDescFile && allocateDesc->desc.file == file)
+			return FreeDesc(allocateDesc);
 	}
 
 	/* Only get here if someone passes us a file not in allocatedDescs */
@@ -3469,9 +3442,7 @@ fsync_parent_path(const char *fname, int elevel)
  * permissions in a PostgreSQL data directory could cause backups and other
  * processes to fail.
  */
-int
-MakePGDirectory(const char *directoryName)
-{
+int MakePGDirectory(const char *directoryName) {
 	return mkdir(directoryName, pg_dir_create_mode);
 }
 

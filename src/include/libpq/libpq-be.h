@@ -95,6 +95,7 @@ typedef struct
 #endif
 
 /*
+ * 描述和客户端之间的connection
  * This is used by the postmaster in its communication with frontends.  It
  * contains all state information needed during this communication before the
  * backend is run.  The Port structure is kept in malloc'd memory and is
@@ -119,7 +120,7 @@ typedef struct
 
 typedef struct Port
 {
-	pgsocket	sock;			/* File descriptor */
+	pgsocket	sock;			/* client的File descriptor */
 	bool		noblock;		/* is the socket in non-blocking mode? */
 	ProtocolVersion proto;		/* FE/BE protocol version */
 	SockAddr	laddr;			/* local addr (postmaster) */

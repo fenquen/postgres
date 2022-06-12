@@ -4389,32 +4389,29 @@ EncodeInterval(struct pg_tm *tm, fsec_t fsec, int style, char *str)
  * We've been burnt by stupid errors in the ordering of the datetkn tables
  * once too often.  Arrange to check them during postmaster start.
  */
-static bool
-CheckDateTokenTable(const char *tablename, const datetkn *base, int nel)
-{
+static bool CheckDateTokenTable(const char *tablename, const datetkn *datetknArr, int arrLen) {
 	bool		ok = true;
 	int			i;
 
-	for (i = 0; i < nel; i++)
-	{
+	for (i = 0; i < arrLen; i++) {
 		/* check for token strings that don't fit */
-		if (strlen(base[i].token) > TOKMAXLEN)
-		{
+		if (strlen(datetknArr[i].token) > TOKMAXLEN) {
 			/* %.*s is safe since all our tokens are ASCII */
 			elog(LOG, "token too long in %s table: \"%.*s\"",
-				 tablename,
-				 TOKMAXLEN + 1, base[i].token);
+                 tablename,
+				 TOKMAXLEN + 1, datetknArr[i].token);
+
 			ok = false;
 			break;				/* don't risk applying strcmp */
 		}
+
 		/* check for out of order */
-		if (i > 0 &&
-			strcmp(base[i - 1].token, base[i].token) >= 0)
-		{
+		if (i > 0 && strcmp(datetknArr[i - 1].token, datetknArr[i].token) >= 0) {
 			elog(LOG, "ordering error in %s table: \"%s\" >= \"%s\"",
-				 tablename,
-				 base[i - 1].token,
-				 base[i].token);
+                 tablename,
+                 datetknArr[i - 1].token,
+                 datetknArr[i].token);
+
 			ok = false;
 		}
 	}

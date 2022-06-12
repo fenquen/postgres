@@ -610,10 +610,12 @@ PGLC_localeconv(void)
 	if (!setlocale(LC_CTYPE, save_lc_ctype))
 		elog(FATAL, "failed to restore LC_CTYPE to \"%s\"", save_lc_ctype);
 #endif
-	if (!setlocale(LC_MONETARY, save_lc_monetary))
-		elog(FATAL, "failed to restore LC_MONETARY to \"%s\"", save_lc_monetary);
-	if (!setlocale(LC_NUMERIC, save_lc_numeric))
+	if (!setlocale(LC_MONETARY, save_lc_monetary)) {
+        elog(FATAL, "failed to restore LC_MONETARY to \"%s\"", save_lc_monetary);
+    }
+	if (!setlocale(LC_NUMERIC, save_lc_numeric)) {
 		elog(FATAL, "failed to restore LC_NUMERIC to \"%s\"", save_lc_numeric);
+    }
 
 	/*
 	 * At this point we've done our best to clean up, and can call functions

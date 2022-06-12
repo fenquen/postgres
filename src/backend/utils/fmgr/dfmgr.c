@@ -56,11 +56,10 @@ typedef struct df_files
 {
 	struct df_files *next;		/* List link */
 	dev_t		device;			/* Device file is on */
-#ifndef WIN32					/* ensures we never again depend on this under
-								 * win32 */
+#ifndef WIN32					/* ensures we never again depend on this under win32 */
 	ino_t		inode;			/* Inode number of file */
 #endif
-	void	   *handle;			/* a handle for pg_dl* functions */
+	void	   *handle;			/* extension对应的so文件 a handle for pg_dl* functions */
 	char		filename[FLEXIBLE_ARRAY_MEMBER];	/* Full pathname of file */
 } DynamicFileList;
 
@@ -142,22 +141,21 @@ load_external_function(const char *filename, const char *funcname,
  * When 'restricted' is true, only libraries in the presumed-secure
  * directory $libdir/plugins may be referenced.
  */
-void
-load_file(const char *filename, bool restricted)
-{
-	char	   *fullname;
+void load_file(const char *filename, bool restricted) {
+	char *fullname;
 
 	/* Apply security restriction if requested */
-	if (restricted)
-		check_restricted_library_name(filename);
+	if (restricted) {
+        check_restricted_library_name(filename);
+    }
 
 	/* Expand the possibly-abbreviated filename to an exact path name */
 	fullname = expand_dynamic_library_name(filename);
 
-	/* Unload the library if currently loaded */
+	// Unload the library if currently loaded
 	internal_unload_library(fullname);
 
-	/* Load the shared library */
+	// Load the shared library
 	(void) internal_load_library(fullname);
 
 	pfree(fullname);
@@ -180,44 +178,37 @@ lookup_external_function(void *filehandle, const char *funcname)
  *
  * Note: libname is expected to be an exact name for the library file.
  */
-static void *
-internal_load_library(const char *libname)
-{
+static void * internal_load_library(const char *libname) {
 	DynamicFileList *file_scanner;
 	PGModuleMagicFunction magic_func;
 	char	   *load_error;
 	struct stat stat_buf;
 	PG_init_t	PG_init;
 
-	/*
-	 * Scan the list of loaded FILES to see if the file has been loaded.
-	 */
+	// 简单的比较名字来确定有没有load
 	for (file_scanner = file_list;
-		 file_scanner != NULL &&
-		 strcmp(libname, file_scanner->filename) != 0;
-		 file_scanner = file_scanner->next)
-		;
+		 file_scanner != NULL && strcmp(libname, file_scanner->filename) != 0;
+		 file_scanner = file_scanner->next);
 
-	if (file_scanner == NULL)
-	{
+    // 说明这个当前尚未load过
+	if (file_scanner == NULL){
 		/*
 		 * Check for same files - different paths (ie, symlink or link)
 		 */
-		if (stat(libname, &stat_buf) == -1)
+		if (stat(libname, &stat_buf) == -1) {
 			ereport(ERROR,
 					(errcode_for_file_access(),
-					 errmsg("could not access file \"%s\": %m",
-							libname)));
+					 errmsg("could not access file \"%s\": %m", libname)));
+        }
 
+        // 比较inode来更加深入的
 		for (file_scanner = file_list;
-			 file_scanner != NULL &&
-			 !SAME_INODE(stat_buf, *file_scanner);
-			 file_scanner = file_scanner->next)
-			;
+			 file_scanner != NULL && !SAME_INODE(stat_buf, *file_scanner);
+			 file_scanner = file_scanner->next);
 	}
 
-	if (file_scanner == NULL)
-	{
+    // 说明是更加的真的未load过
+	if (file_scanner == NULL) {
 		/*
 		 * File not loaded yet.
 		 */
@@ -248,16 +239,13 @@ internal_load_library(const char *libname)
 							libname, load_error)));
 		}
 
-		/* Check the magic function to determine compatibility */
-		magic_func = (PGModuleMagicFunction)
-			dlsym(file_scanner->handle, PG_MAGIC_FUNCTION_NAME_STRING);
-		if (magic_func)
-		{
+		// 调用 Pg_magic_func 得到 Pg_magic_struct 用来确认extension和本体之间的兼容
+		magic_func = (PGModuleMagicFunction) dlsym(file_scanner->handle, PG_MAGIC_FUNCTION_NAME_STRING);
+		if (magic_func) {
 			const Pg_magic_struct *magic_data_ptr = (*magic_func) ();
 
-			if (magic_data_ptr->len != magic_data.len ||
-				memcmp(magic_data_ptr, &magic_data, magic_data.len) != 0)
-			{
+            // 不兼容了
+			if (magic_data_ptr->len != magic_data.len || memcmp(magic_data_ptr, &magic_data, magic_data.len) != 0) {
 				/* copy data block before unlinking library */
 				Pg_magic_struct module_magic_data = *magic_data_ptr;
 
@@ -268,9 +256,7 @@ internal_load_library(const char *libname)
 				/* issue suitable complaint */
 				incompatible_module_error(libname, &module_magic_data);
 			}
-		}
-		else
-		{
+		} else {
 			/* try to close library */
 			dlclose(file_scanner->handle);
 			free((char *) file_scanner);
@@ -281,18 +267,19 @@ internal_load_library(const char *libname)
 					 errhint("Extension libraries are required to use the PG_MODULE_MAGIC macro.")));
 		}
 
-		/*
-		 * If the library has a _PG_init() function, call it.
-		 */
+		// 得到了_PG_init函数指针然后调用
 		PG_init = (PG_init_t) dlsym(file_scanner->handle, "_PG_init");
-		if (PG_init)
-			(*PG_init) ();
+		if (PG_init) {
+            (*PG_init)();
+        }
 
 		/* OK to link it into list */
-		if (file_list == NULL)
+		if (file_list == NULL) {
 			file_list = file_scanner;
-		else
+        } else {
 			file_tail->next = file_scanner;
+        }
+
 		file_tail = file_scanner;
 	}
 

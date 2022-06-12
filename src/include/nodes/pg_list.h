@@ -42,23 +42,21 @@
 
 typedef struct ListCell ListCell;
 
-typedef struct List
-{
+typedef struct List {
 	NodeTag		type;			/* T_List, T_IntList, or T_OidList */
 	int			length;
 	ListCell   *head;
 	ListCell   *tail;
 } List;
 
-struct ListCell
-{
-	union
-	{
-		void	   *ptr_value;
-		int			int_value;
-		Oid			oid_value;
-	}			data;
-	ListCell   *next;
+struct ListCell {
+    union {
+        void *ptr_value;
+        int int_value;
+        Oid oid_value;
+    } data;
+
+    ListCell *next;
 };
 
 /*
@@ -73,20 +71,15 @@ struct ListCell
  * them as macros, since we want to avoid double-evaluation of macro
  * arguments.
  */
-static inline ListCell *
-list_head(const List *l)
-{
-	return l ? l->head : NULL;
+static inline ListCell * list_head(const List *list) {
+	return list ? list->head : NULL;
 }
 
-static inline ListCell *
-list_tail(List *l)
-{
-	return l ? l->tail : NULL;
+static inline ListCell *list_tail(List *list) {
+	return list ? list->tail : NULL;
 }
 
-static inline int
-list_length(const List *l)
+static inline int list_length(const List *l)
 {
 	return l ? l->length : 0;
 }

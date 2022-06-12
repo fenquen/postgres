@@ -339,7 +339,7 @@ extern Oid	GetCurrentRoleId(void);
 extern void SetCurrentRoleId(Oid roleid, bool is_superuser);
 
 extern void checkDataDir(void);
-extern void SetDataDir(const char *dir);
+extern void SetDataDir(const char *newDataDirPath);
 extern void ChangeToDataDir(void);
 
 extern void SwitchToSharedLatch(void);
@@ -408,7 +408,7 @@ typedef enum
 {
 	NotAnAuxProcess = -1,
 	CheckerProcess = 0,
-	BootstrapProcess,
+	BootstrapProcess, /* 对应调用initdb时候 */
 	StartupProcess,
 	BgWriterProcess,
 	CheckpointerProcess,
@@ -453,7 +453,7 @@ extern void CreateSocketLockFile(const char *socketfile, bool amPostmaster,
 extern void TouchSocketLockFiles(void);
 extern void AddToDataDirLockFile(int target_line, const char *str);
 extern bool RecheckDataDirLockFile(void);
-extern void ValidatePgVersion(const char *path);
+extern void ValidatePgVersion(const char *pgVersionFileParentDirPath);
 extern void process_shared_preload_libraries(void);
 extern void process_session_preload_libraries(void);
 extern void pg_bindtextdomain(const char *domain);

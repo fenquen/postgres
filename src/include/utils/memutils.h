@@ -108,9 +108,7 @@ extern bool MemoryContextContains(MemoryContext context, void *pointer);
  * repalloc() to find the context to call.
  */
 #ifndef FRONTEND
-static inline MemoryContext
-GetMemoryChunkContext(void *pointer)
-{
+static inline MemoryContext GetMemoryChunkContext(void *pointer) {
 	MemoryContext context;
 
 	/*
@@ -121,9 +119,6 @@ GetMemoryChunkContext(void *pointer)
 	Assert(pointer != NULL);
 	Assert(pointer == (void *) MAXALIGN(pointer));
 
-	/*
-	 * OK, it's probably safe to look at the context.
-	 */
 	context = *(MemoryContext *) (((char *) pointer) - sizeof(void *));
 
 	AssertArg(MemoryContextIsValid(context));

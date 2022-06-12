@@ -130,15 +130,12 @@ validate_exec(const char *path)
  * a true path not a symlink location, so that we can locate other files
  * that are part of our installation relative to the executable.
  */
-int
-find_my_exec(const char *argv0, char *retpath)
-{
+int find_my_exec(const char *argv0, char *retpath) {
 	char		cwd[MAXPGPATH],
 				test_path[MAXPGPATH];
 	char	   *path;
 
-	if (!getcwd(cwd, MAXPGPATH))
-	{
+	if (!getcwd(cwd, MAXPGPATH)) {
 		log_error(errcode_for_file_access(),
 				  _("could not identify current directory: %m"));
 		return -1;
@@ -147,8 +144,7 @@ find_my_exec(const char *argv0, char *retpath)
 	/*
 	 * If argv0 contains a separator, then PATH wasn't used.
 	 */
-	if (first_dir_separator(argv0) != NULL)
-	{
+	if (first_dir_separator(argv0) != NULL) {
 		if (is_absolute_path(argv0))
 			StrNCpy(retpath, argv0, MAXPGPATH);
 		else
@@ -174,13 +170,11 @@ find_my_exec(const char *argv0, char *retpath)
 	 * Since no explicit path was supplied, the user must have been relying on
 	 * PATH.  We'll search the same PATH.
 	 */
-	if ((path = getenv("PATH")) && *path)
-	{
+	if ((path = getenv("PATH")) && *path) {
 		char	   *startp = NULL,
 				   *endp = NULL;
 
-		do
-		{
+		do {
 			if (!startp)
 				startp = path;
 			else

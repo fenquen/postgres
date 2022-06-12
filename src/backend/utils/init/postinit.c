@@ -513,18 +513,20 @@ pg_split_opts(char **argv, int *argcp, const char *optstr)
  * postmaster itself and processes not under postmaster control should call
  * this.
  */
-void
-InitializeMaxBackends(void)
-{
-	Assert(MaxBackends == 0);
+void InitializeMaxBackends(void) {
+    Assert(MaxBackends == 0);
 
-	/* the extra unit accounts for the autovacuum launcher */
-	MaxBackends = MaxConnections + autovacuum_max_workers + 1 +
-		max_worker_processes + max_wal_senders;
+    /* the extra unit accounts for the autovacuum launcher */
+    MaxBackends = MaxConnections +
+                  autovacuum_max_workers +
+                  1 +
+                  max_worker_processes +
+                  max_wal_senders;
 
-	/* internal error because the values were all checked previously */
-	if (MaxBackends > MAX_BACKENDS)
-		elog(ERROR, "too many backends configured");
+    /* internal error because the values were all checked previously */
+    if (MaxBackends > MAX_BACKENDS) {
+        elog(ERROR, "too many backends configured");
+    }
 }
 
 /*
@@ -535,9 +537,7 @@ InitializeMaxBackends(void)
  * processes, such as the background writer process, which may not call
  * InitPostgres at all.
  */
-void
-BaseInit(void)
-{
+void BaseInit(void) {
 	/*
 	 * Attach to shared memory and semaphores, and initialize our
 	 * input/output/debugging file descriptors.

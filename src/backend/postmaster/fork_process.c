@@ -27,9 +27,7 @@
  * -1 if the fork failed, 0 in the child process, and the PID of the
  * child in the parent process.
  */
-pid_t
-fork_process(void)
-{
+pid_t fork_process(void) {
 	pid_t		result;
 	const char *oomfilename;
 
@@ -59,8 +57,7 @@ fork_process(void)
 #endif
 
 	result = fork();
-	if (result == 0)
-	{
+	if (result == 0) {
 		/* fork succeeded, in child */
 #ifdef LINUX_PROFILE
 		setitimer(ITIMER_PROF, &prof_itimer, NULL);
@@ -84,8 +81,7 @@ fork_process(void)
 		 */
 		oomfilename = getenv("PG_OOM_ADJUST_FILE");
 
-		if (oomfilename != NULL)
-		{
+		if (oomfilename != NULL) {
 			/*
 			 * Use open() not stdio, to ensure we control the open flags. Some
 			 * Linux security environments reject anything but O_WRONLY.
@@ -93,8 +89,7 @@ fork_process(void)
 			int			fd = open(oomfilename, O_WRONLY, 0);
 
 			/* We ignore all errors */
-			if (fd >= 0)
-			{
+			if (fd >= 0) {
 				const char *oomvalue = getenv("PG_OOM_ADJUST_VALUE");
 				int			rc;
 

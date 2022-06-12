@@ -87,7 +87,7 @@ typedef enum
 {
 	DestNone,					/* results are discarded */
 	DestDebug,					/* results go to debugging output */
-	DestRemote,					/* results sent to frontend process */
+	DestRemote,					/* 标准的cs, results sent to frontend process */
 	DestRemoteExecute,			/* sent to frontend, in Execute command */
 	DestRemoteSimple,			/* sent to frontend, w/no catalog access */
 	DestSPI,					/* results sent to SPI manager */

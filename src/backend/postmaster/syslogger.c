@@ -539,12 +539,8 @@ SysLoggerMain(int argc, char *argv[])
 	}
 }
 
-/*
- * Postmaster subroutine to start a syslogger subprocess.
- */
-int
-SysLogger_Start(void)
-{
+// Postmaster subroutine to start a sys logger subprocess.
+int SysLogger_Start(void) {
 	pid_t		sysloggerPid;
 	char	   *filename;
 

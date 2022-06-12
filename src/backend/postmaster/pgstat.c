@@ -352,8 +352,7 @@ static void pgstat_recv_tempfile(PgStat_MsgTempFile *msg, int len);
  *	disabled.
  * ----------
  */
-void
-pgstat_init(void)
+void pgstat_init(void)
 {
 	ACCEPT_TYPE_ARG3 alen;
 	struct addrinfo *addrs = NULL,

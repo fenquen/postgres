@@ -1,0 +1,118 @@
+data/global/pg_contorl内容是ControlFileData二进制
+    详见 ReadControlFile
+
+data/PG_VESION记录了pg的大小版本
+    详见 ValidatePgVersion
+
+data/postmaster.pid
+    是DataDirLockFile
+    内容的格式 详见CreateDataDirLockFile
+         pid
+         data目录
+         启动时间
+         port
+         localsocket 地址
+         localsock地址
+         不知
+         当前的状态
+            #define PM_STATUS_STARTING		"starting"
+            #define PM_STATUS_STOPPING		"stopping"
+            #define PM_STATUS_READY			"ready   "
+            #define PM_STATUS_STANDBY		"standby "
+
+         以下是各行为什么是对应相应数据的原因
+         #define LOCK_FILE_LINE_PID			1
+         #define LOCK_FILE_LINE_DATA_DIR		2
+         #define LOCK_FILE_LINE_START_TIME	3
+         #define LOCK_FILE_LINE_PORT			4
+         #define LOCK_FILE_LINE_SOCKET_DIR	5
+         #define LOCK_FILE_LINE_LISTEN_ADDR	6
+         #define LOCK_FILE_LINE_SHMEM_KEY	7
+         #define LOCK_FILE_LINE_PM_STATUS	8
+
+
+data/postermaster.opts 内容是启动的命令
+    详见 CreateOptsFile
+
+fsync用到的F_FULLFSYNC是mac专有 pg_fsync
+
+
+palloc分配的最大值
+    #define MaxAllocSize	((Size) 0x3fffffff) /* 1 gigabyte - 1 */
+    #define AllocSizeIsValid(size)	((Size) (size) <= MaxAllocSize)
+
+使用AllocateFile来open文件
+
+内存的分配函数指针的集合
+    static const MemoryContextMethods AllocSetMethods = {
+    	AllocSetAlloc,
+    	AllocSetFree,
+    	AllocSetRealloc,
+    	AllocSetReset,
+    	AllocSetDelete,
+    	AllocSetGetChunkSpace,
+    	AllocSetIsEmpty,
+    	AllocSetStats
+    #ifdef MEMORY_CONTEXT_CHECKING
+    	,AllocSetCheck
+    #endif
+    };
+
+c的list实现
+    lappend 函数
+    foreach 宏
+
+load library
+    internal_load_library
+
+inode维度来确认是不是同个文件
+    internal_load_library中用到的宏 SAME_INODE
+
+extension中的_PG_init调用
+    internal_load_library中会通过dlsym得到函数的指针然后调用
+
+extension中PG_MODULE_MAGIC意义
+    PG_MAGIC_FUNCTION_NAME Pg_magic_func
+    internal_load_library中通过dlsym得到Pg_magic_func函数
+
+repalloc中有意思的 GetMemoryChunkContext
+    根据裸指针得到隶属的memory context
+        context = *(MemoryContext *) (((char *) pointer) - sizeof(void *));
+        AllocChunkData的最后个原始便是 void* allocSet 是不是意味着实际数据是直接在这个指针之后的
+
+
+通过了不断使用dup(0)用掉了fd来知道当前有多少可用的fd
+    详见 count_usable_fds
+
+编译器内置函数__builtin_frame_address
+    详见 set_stack_base
+
+使用了pipe来让子进程来感知主进程的消亡
+    InitPostmasterDeathWatchHandle
+
+
+
+单个的客户端的连接对应1个子进程
+    BackendStartup
+
+通过signal_child可以知道
+
+    进程组id(pgid)是组长进程的pid
+    setsid 用来把当前的进程的设置为进程组的组长
+    kill -进程组id 用来把组内的全部都干掉
+
+子进程在ps中显示的名字 postgres: a postgres 127.0.0.1(60240) idle
+    详见 init_ps_display
+重要的文件
+data/PG_VERSION 内容是pg的版本号
+data/global/pg_control ControlFileData二进制内容
+data/postmaster.pid
+data/postermaster.opts 内容是启动的命令
+    详见 CreateOptsFile
+
+
+
+
+ ./configure --enable-debug --enable-cassert --enable-thread-safety --prefix=/Users/a/program/pg12 CFLAGS="-g -O0"
+
+  make -sj

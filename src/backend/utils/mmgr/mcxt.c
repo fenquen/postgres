@@ -924,33 +924,32 @@ MemoryContextAllocExtended(MemoryContext context, Size size, int flags)
 	return ret;
 }
 
-void *
-palloc(Size size)
-{
+void *palloc(Size size) {
 	/* duplicates MemoryContextAlloc to avoid increased overhead */
 	void	   *ret;
-	MemoryContext context = CurrentMemoryContext;
+	MemoryContext memoryContext = CurrentMemoryContext;
 
-	AssertArg(MemoryContextIsValid(context));
-	AssertNotInCriticalSection(context);
+	AssertArg(MemoryContextIsValid(memoryContext));
+	AssertNotInCriticalSection(memoryContext);
 
-	if (!AllocSizeIsValid(size))
+	if (!AllocSizeIsValid(size)) {
 		elog(ERROR, "invalid memory alloc request size %zu", size);
+    }
 
-	context->isReset = false;
+    memoryContext->isReset = false;
 
-	ret = context->methods->alloc(context, size);
-	if (unlikely(ret == NULL))
-	{
+	ret = memoryContext->methods->alloc(memoryContext, size);
+
+	if (unlikely(ret == NULL)) {
 		MemoryContextStats(TopMemoryContext);
 		ereport(ERROR,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
 				 errmsg("out of memory"),
-				 errdetail("Failed on request of size %zu in memory context \"%s\".",
-						   size, context->name)));
+				 errdetail("Failed on request of size %zu in memory memoryContext \"%s\".",
+                           size, memoryContext->name)));
 	}
 
-	VALGRIND_MEMPOOL_ALLOC(context, ret, size);
+	VALGRIND_MEMPOOL_ALLOC(memoryContext, ret, size);
 
 	return ret;
 }
@@ -1041,12 +1040,9 @@ pfree(void *pointer)
 }
 
 /*
- * repalloc
- *		Adjust the size of a previously allocated chunk.
+ * adjust the size of a previously allocated chunk.
  */
-void *
-repalloc(void *pointer, Size size)
-{
+void *repalloc(void *pointer, Size size) {
 	MemoryContext context = GetMemoryChunkContext(pointer);
 	void	   *ret;
 

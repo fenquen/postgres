@@ -194,31 +194,27 @@ static IndexList *ILHead = NULL;
  *
  *	 This code is here just because of historical reasons.
  */
-void
-AuxiliaryProcessMain(int argc, char *argv[])
-{
-	char	   *progname = argv[0];
-	int			flag;
-	char	   *userDoption = NULL;
+void AuxiliaryProcessMain(int argc, char *argv[]) {
+	char *progname = argv[0];
+	int	flag;
+	char *userDoption = NULL;
 
-	/*
-	 * Initialize process environment (already done if under postmaster, but
-	 * not if standalone).
-	 */
-	if (!IsUnderPostmaster)
+	// initialize process environment (already done if under postmaster, but not if standalone).
+
+    // 之前单独调用initdb时候也会走到这里 该值是false
+	if (!IsUnderPostmaster) { // 在InitPostmasterChild中会把其设true
 		InitStandaloneProcess(argv[0]);
+    }
 
-	/*
-	 * process command arguments
-	 */
+	// process command arguments
 
 	/* Set defaults, to be overridden by explicit options below */
-	if (!IsUnderPostmaster)
+	if (!IsUnderPostmaster) {
 		InitializeGUCOptions();
+    }
 
-	/* Ignore the initial --boot argument, if present */
-	if (argc > 1 && strcmp(argv[1], "--boot") == 0)
-	{
+	/* ignore the initial --boot argument, if present */
+	if (argc > 1 && strcmp(argv[1], "--boot") == 0) {
 		argv++;
 		argc--;
 	}
@@ -226,18 +222,15 @@ AuxiliaryProcessMain(int argc, char *argv[])
 	/* If no -x argument, we are a CheckerProcess */
 	MyAuxProcType = CheckerProcess;
 
-	while ((flag = getopt(argc, argv, "B:c:d:D:Fkr:x:X:-:")) != -1)
-	{
-		switch (flag)
-		{
+	while ((flag = getopt(argc, argv, "B:c:d:D:Fkr:x:X:-:")) != -1) {
+		switch (flag) {
 			case 'B':
 				SetConfigOption("shared_buffers", optarg, PGC_POSTMASTER, PGC_S_ARGV);
 				break;
 			case 'D':
 				userDoption = pstrdup(optarg);
 				break;
-			case 'd':
-				{
+			case 'd': {
 					/* Turn on debugging for the bootstrap process. */
 					char	   *debugstr;
 
@@ -261,68 +254,58 @@ AuxiliaryProcessMain(int argc, char *argv[])
 			case 'x':
 				MyAuxProcType = atoi(optarg);
 				break;
-			case 'X':
-				{
-					int			WalSegSz = strtoul(optarg, NULL, 0);
+			case 'X': {
+					int	WalSegSz = strtoul(optarg, NULL, 0);
 
-					if (!IsValidWalSegSize(WalSegSz))
+					if (!IsValidWalSegSize(WalSegSz)) {
 						ereport(ERROR,
 								(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 								 errmsg("-X requires a power of two value between 1 MB and 1 GB")));
-					SetConfigOption("wal_segment_size", optarg, PGC_INTERNAL,
-									PGC_S_OVERRIDE);
+                    }
+
+					SetConfigOption("wal_segment_size", optarg, PGC_INTERNAL,PGC_S_OVERRIDE);
 				}
 				break;
 			case 'c':
-			case '-':
-				{
-					char	   *name,
-							   *value;
+			case '-': {
+                char *name,*value;
 
-					ParseLongOption(optarg, &name, &value);
-					if (!value)
-					{
-						if (flag == '-')
-							ereport(ERROR,
-									(errcode(ERRCODE_SYNTAX_ERROR),
-									 errmsg("--%s requires a value",
-											optarg)));
-						else
-							ereport(ERROR,
-									(errcode(ERRCODE_SYNTAX_ERROR),
-									 errmsg("-c %s requires a value",
-											optarg)));
-					}
+                ParseLongOption(optarg, &name, &value);
+                if (!value) {
+                    if (flag == '-')
+                        ereport(ERROR,
+                                (errcode(ERRCODE_SYNTAX_ERROR),
+                                        errmsg("--%s requires a value", optarg)));
+                    else
+                        ereport(ERROR,
+                                (errcode(ERRCODE_SYNTAX_ERROR),
+                                        errmsg("-c %s requires a value",
+                                               optarg)));
+                }
 
-					SetConfigOption(name, value, PGC_POSTMASTER, PGC_S_ARGV);
-					free(name);
-					if (value)
-						free(value);
-					break;
-				}
+                SetConfigOption(name, value, PGC_POSTMASTER, PGC_S_ARGV);
+                free(name);
+                if (value)
+                    free(value);
+                break;
+            }
 			default:
-				write_stderr("Try \"%s --help\" for more information.\n",
-							 progname);
+				write_stderr("Try \"%s --help\" for more information.\n",progname);
 				proc_exit(1);
 				break;
 		}
 	}
 
-	if (argc != optind)
-	{
+	if (argc != optind) {
 		write_stderr("%s: invalid command-line arguments\n", progname);
 		proc_exit(1);
 	}
 
-	/*
-	 * Identify myself via ps
-	 */
-	if (IsUnderPostmaster)
-	{
+	// Identify myself via ps
+	if (IsUnderPostmaster) {
 		const char *statmsg;
 
-		switch (MyAuxProcType)
-		{
+		switch (MyAuxProcType) {
 			case StartupProcess:
 				statmsg = pgstat_get_backend_desc(B_STARTUP);
 				break;
@@ -342,36 +325,38 @@ AuxiliaryProcessMain(int argc, char *argv[])
 				statmsg = "??? process";
 				break;
 		}
+
 		init_ps_display(statmsg, "", "", "");
 	}
 
 	/* Acquire configuration parameters, unless inherited from postmaster */
-	if (!IsUnderPostmaster)
-	{
-		if (!SelectConfigFiles(userDoption, progname))
-			proc_exit(1);
+	if (!IsUnderPostmaster) {
+		if (!SelectConfigFiles(userDoption, progname)) {
+            proc_exit(1);
+        }
 	}
 
 	/*
 	 * Validate we have been given a reasonable-looking DataDir and change
 	 * into it (if under postmaster, should be done already).
 	 */
-	if (!IsUnderPostmaster)
-	{
+	if (!IsUnderPostmaster) {
 		checkDataDir();
 		ChangeToDataDir();
 	}
 
 	/* If standalone, create lockfile for data directory */
-	if (!IsUnderPostmaster)
+	if (!IsUnderPostmaster) {
 		CreateDataDirLockFile(false);
+    }
 
 	SetProcessingMode(BootstrapProcessing);
 	IgnoreSystemIndexes = true;
 
 	/* Initialize MaxBackends (if under postmaster, was done already) */
-	if (!IsUnderPostmaster)
+	if (!IsUnderPostmaster) {
 		InitializeMaxBackends();
+    }
 
 	BaseInit();
 
@@ -380,11 +365,9 @@ AuxiliaryProcessMain(int argc, char *argv[])
 	 * InitPostgres pushups, but there are a couple of things that need to get
 	 * lit up even in an auxiliary process.
 	 */
-	if (IsUnderPostmaster)
-	{
+	if (IsUnderPostmaster) {
 		/*
-		 * Create a PGPROC so we can use LWLocks.  In the EXEC_BACKEND case,
-		 * this was already done by SubPostmasterMain().
+		 * Create a PGPROC so we can use LWLocks.  In the EXEC_BACKEND case, this was already done by SubPostmasterMain().
 		 */
 #ifndef EXEC_BACKEND
 		InitAuxiliaryProcess();
@@ -426,14 +409,13 @@ AuxiliaryProcessMain(int argc, char *argv[])
 	 */
 	SetProcessingMode(NormalProcessing);
 
-	switch (MyAuxProcType)
-	{
+	switch (MyAuxProcType) {
 		case CheckerProcess:
 			/* don't set signals, they're useless here */
 			CheckerModeMain();
 			proc_exit(1);		/* should never return */
 
-		case BootstrapProcess:
+		case BootstrapProcess: // 对应调用initdb
 
 			/*
 			 * There was a brief instant during which mode was Normal; this is

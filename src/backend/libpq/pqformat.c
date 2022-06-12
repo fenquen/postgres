@@ -577,9 +577,7 @@ pq_getmsgtext(StringInfo msg, int rawbytes, int *nbytes)
  *		to a palloc'd conversion result.
  * --------------------------------
  */
-const char *
-pq_getmsgstring(StringInfo msg)
-{
+const char * pq_getmsgstring(StringInfo msg) {
 	char	   *str;
 	int			slen;
 
@@ -591,10 +589,11 @@ pq_getmsgstring(StringInfo msg)
 	 * message.
 	 */
 	slen = strlen(str);
-	if (msg->cursor + slen >= msg->len)
+	if (msg->cursor + slen >= msg->len) {
 		ereport(ERROR,
-				(errcode(ERRCODE_PROTOCOL_VIOLATION),
-				 errmsg("invalid string in message")));
+				(errcode(ERRCODE_PROTOCOL_VIOLATION), errmsg("invalid string in message")));
+    }
+
 	msg->cursor += slen + 1;
 
 	return pg_client_to_server(str, slen);

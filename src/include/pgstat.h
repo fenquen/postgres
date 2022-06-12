@@ -1316,9 +1316,7 @@ extern char *pgstat_clip_activity(const char *raw_activity);
  * initialized.
  * ----------
  */
-static inline void
-pgstat_report_wait_start(uint32 wait_event_info)
-{
+static inline void pgstat_report_wait_start(uint32 wait_event_info) {
 	volatile PGPROC *proc = MyProc;
 
 	if (!pgstat_track_activities || !proc)
@@ -1340,9 +1338,7 @@ pgstat_report_wait_start(uint32 wait_event_info)
  * initialized.
  * ----------
  */
-static inline void
-pgstat_report_wait_end(void)
-{
+static inline void pgstat_report_wait_end(void) {
 	volatile PGPROC *proc = MyProc;
 
 	if (!pgstat_track_activities || !proc)

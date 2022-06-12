@@ -302,18 +302,15 @@ init_ps_display(const char *username, const char *dbname,
 #define PROGRAM_NAME_PREFIX "postgres: "
 #endif
 
-	if (*cluster_name == '\0')
-	{
-		snprintf(ps_buffer, ps_buffer_size,
-				 PROGRAM_NAME_PREFIX "%s %s %s ",
-				 username, dbname, host_info);
-	}
-	else
-	{
-		snprintf(ps_buffer, ps_buffer_size,
-				 PROGRAM_NAME_PREFIX "%s: %s %s %s ",
-				 cluster_name, username, dbname, host_info);
-	}
+    if (*cluster_name == '\0') {
+        snprintf(ps_buffer, ps_buffer_size,
+                 PROGRAM_NAME_PREFIX "%s %s %s ",
+                 username, dbname, host_info);
+    } else {
+        snprintf(ps_buffer, ps_buffer_size,
+                 PROGRAM_NAME_PREFIX "%s: %s %s %s ",
+                 cluster_name, username, dbname, host_info);
+    }
 
 	ps_buffer_cur_len = ps_buffer_fixed_size = strlen(ps_buffer);
 
@@ -327,9 +324,7 @@ init_ps_display(const char *username, const char *dbname,
  * Call this to update the ps status display to a fixed prefix plus an
  * indication of what you're currently doing passed in the argument.
  */
-void
-set_ps_display(const char *activity, bool force)
-{
+void set_ps_display(const char *activity, bool force) {
 #ifndef PS_USE_NONE
 	/* update_process_title=off disables updates, unless force = true */
 	if (!force && !update_process_title)
@@ -375,8 +370,7 @@ set_ps_display(const char *activity, bool force)
 #ifdef PS_USE_CLOBBER_ARGV
 	/* pad unused memory; need only clobber remainder of old status string */
 	if (last_status_len > ps_buffer_cur_len)
-		MemSet(ps_buffer + ps_buffer_cur_len, PS_PADDING,
-			   last_status_len - ps_buffer_cur_len);
+		MemSet(ps_buffer + ps_buffer_cur_len, PS_PADDING, last_status_len - ps_buffer_cur_len);
 	last_status_len = ps_buffer_cur_len;
 #endif							/* PS_USE_CLOBBER_ARGV */
 

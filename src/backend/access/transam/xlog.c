@@ -4647,39 +4647,32 @@ WriteControlFile(void)
 						XLOG_CONTROL_FILE)));
 }
 
-static void
-ReadControlFile(void)
-{
+static void ReadControlFile(void) {
 	pg_crc32c	crc;
 	int			fd;
 	static char wal_segsz_str[20];
 	int			r;
 
-	/*
-	 * Read data...
-	 */
-	fd = BasicOpenFile(XLOG_CONTROL_FILE,
-					   O_RDWR | PG_BINARY);
-	if (fd < 0)
-		ereport(PANIC,
-				(errcode_for_file_access(),
-				 errmsg("could not open file \"%s\": %m",
-						XLOG_CONTROL_FILE)));
+	// 当前的dir依然是切换到了data目录,读取global/pg_control
+	fd = BasicOpenFile(XLOG_CONTROL_FILE,O_RDWR | PG_BINARY);
+	if (fd < 0) {
+        ereport(PANIC,
+                (errcode_for_file_access(),
+                        errmsg("could not open file \"%s\": %m", XLOG_CONTROL_FILE)));
+    }
 
 	pgstat_report_wait_start(WAIT_EVENT_CONTROL_FILE_READ);
+    // 说明该文件的内容是ControlFileData二进制的
 	r = read(fd, ControlFile, sizeof(ControlFileData));
-	if (r != sizeof(ControlFileData))
-	{
+	if (r != sizeof(ControlFileData)) {
 		if (r < 0)
 			ereport(PANIC,
 					(errcode_for_file_access(),
-					 errmsg("could not read file \"%s\": %m",
-							XLOG_CONTROL_FILE)));
+					 errmsg("could not read file \"%s\": %m", XLOG_CONTROL_FILE)));
 		else
 			ereport(PANIC,
 					(errcode(ERRCODE_DATA_CORRUPTED),
-					 errmsg("could not read file \"%s\": read %d of %zu",
-							XLOG_CONTROL_FILE, r, sizeof(ControlFileData))));
+					 errmsg("could not read file \"%s\": read %d of %zu", XLOG_CONTROL_FILE, r, sizeof(ControlFileData))));
 	}
 	pgstat_report_wait_end();
 
@@ -4691,15 +4684,17 @@ ReadControlFile(void)
 	 * of bytes.  Complaining about wrong version will probably be more
 	 * enlightening than complaining about wrong CRC.
 	 */
-
-	if (ControlFile->pg_control_version != PG_CONTROL_VERSION && ControlFile->pg_control_version % 65536 == 0 && ControlFile->pg_control_version / 65536 != 0)
-		ereport(FATAL,
-				(errmsg("database files are incompatible with server"),
-				 errdetail("The database cluster was initialized with PG_CONTROL_VERSION %d (0x%08x),"
-						   " but the server was compiled with PG_CONTROL_VERSION %d (0x%08x).",
-						   ControlFile->pg_control_version, ControlFile->pg_control_version,
-						   PG_CONTROL_VERSION, PG_CONTROL_VERSION),
-				 errhint("This could be a problem of mismatched byte ordering.  It looks like you need to initdb.")));
+	if (ControlFile->pg_control_version != PG_CONTROL_VERSION &&
+        ControlFile->pg_control_version % 65536 == 0 &&
+        ControlFile->pg_control_version / 65536 != 0) {
+        ereport(FATAL,
+                (errmsg("database files are incompatible with server"),
+                        errdetail("The database cluster was initialized with PG_CONTROL_VERSION %d (0x%08x),"
+                                  " but the server was compiled with PG_CONTROL_VERSION %d (0x%08x).",
+                                  ControlFile->pg_control_version, ControlFile->pg_control_version,
+                                  PG_CONTROL_VERSION, PG_CONTROL_VERSION),
+                        errhint("This could be a problem of mismatched byte ordering.  It looks like you need to initdb.")));
+    }
 
 	if (ControlFile->pg_control_version != PG_CONTROL_VERSION)
 		ereport(FATAL,
@@ -4709,16 +4704,13 @@ ReadControlFile(void)
 						   ControlFile->pg_control_version, PG_CONTROL_VERSION),
 				 errhint("It looks like you need to initdb.")));
 
-	/* Now check the CRC. */
+	// crc
 	INIT_CRC32C(crc);
-	COMP_CRC32C(crc,
-				(char *) ControlFile,
-				offsetof(ControlFileData, crc));
+	COMP_CRC32C(crc, (char *) ControlFile, offsetof(ControlFileData, crc));
 	FIN_CRC32C(crc);
-
-	if (!EQ_CRC32C(crc, ControlFile->crc))
-		ereport(FATAL,
-				(errmsg("incorrect checksum in control file")));
+	if (!EQ_CRC32C(crc, ControlFile->crc)) {
+        ereport(FATAL, (errmsg("incorrect checksum in control file")));
+    }
 
 	/*
 	 * Do compatibility checking immediately.  If the database isn't
@@ -4992,9 +4984,7 @@ check_wal_buffers(int *newval, void **extra, GucSource source)
  * reset just controls whether previous contents are to be expected (in the
  * reset case, there's a dangling pointer into old shared memory), or not.
  */
-void
-LocalProcessControlFile(bool reset)
-{
+void LocalProcessControlFile(bool reset) {
 	Assert(reset || ControlFile == NULL);
 	ControlFile = palloc(sizeof(ControlFileData));
 	ReadControlFile();
@@ -6275,9 +6265,7 @@ CheckRequiredParameterValues(void)
 /*
  * This must be called ONCE during postmaster or standalone-backend startup
  */
-void
-StartupXLOG(void)
-{
+void StartupXLOG(void) {
 	XLogCtlInsert *Insert;
 	CheckPoint	checkPoint;
 	bool		wasShutdown;

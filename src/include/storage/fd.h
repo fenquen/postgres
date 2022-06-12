@@ -97,7 +97,7 @@ extern void PathNameDeleteTemporaryDir(const char *name);
 extern void TempTablespacePath(char *path, Oid tablespace);
 
 /* Operations that allow use of regular stdio --- USE WITH CAUTION */
-extern FILE *AllocateFile(const char *name, const char *mode);
+extern FILE *AllocateFile(const char *filePath, const char *mode);
 extern int	FreeFile(FILE *file);
 
 /* Operations that allow use of pipe streams (popen/pclose) */
