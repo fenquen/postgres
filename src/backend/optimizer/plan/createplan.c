@@ -298,8 +298,8 @@ static GatherMerge *create_gather_merge_plan(PlannerInfo *root,
 /*
  * create_plan
  *	  Creates the access plan for a query by recursively processing the
- *	  desired tree of pathnodes, starting at the node 'best_path'.  For
- *	  every pathnode found, we create a corresponding plan node containing
+ *	  desired tree of path nodes, starting at the node 'best_path'.  For
+ *	  every path node found, we create a corresponding plan node containing
  *	  appropriate id, target list, and qualification information.
  *
  *	  The tlists and quals in the plan tree are still in planner format,
@@ -2692,7 +2692,7 @@ static SeqScan *
 create_seqscan_plan(PlannerInfo *root, Path *best_path,
 					List *tlist, List *scan_clauses)
 {
-	SeqScan    *scan_plan;
+	SeqScan    *seqScan;
 	Index		scan_relid = best_path->parent->relid;
 
 	/* it should be a base rel... */
@@ -2712,13 +2712,13 @@ create_seqscan_plan(PlannerInfo *root, Path *best_path,
 			replace_nestloop_params(root, (Node *) scan_clauses);
 	}
 
-	scan_plan = make_seqscan(tlist,
-							 scan_clauses,
-							 scan_relid);
+    seqScan = make_seqscan(tlist,
+                           scan_clauses,
+                           scan_relid);
 
-	copy_generic_path_info(&scan_plan->plan, best_path);
+	copy_generic_path_info(&seqScan->plan, best_path);
 
-	return scan_plan;
+	return seqScan;
 }
 
 /*
@@ -5181,16 +5181,16 @@ make_seqscan(List *qptlist,
 			 List *qpqual,
 			 Index scanrelid)
 {
-	SeqScan    *node = makeNode(SeqScan);
-	Plan	   *plan = &node->plan;
+	SeqScan    *seqScan = makeNode(SeqScan);
+	Plan	   *plan = &seqScan->plan;
 
 	plan->targetlist = qptlist;
 	plan->qual = qpqual;
 	plan->lefttree = NULL;
 	plan->righttree = NULL;
-	node->scanrelid = scanrelid;
+    seqScan->scanrelid = scanrelid;
 
-	return node;
+	return seqScan;
 }
 
 static SampleScan *

@@ -2140,9 +2140,9 @@ SS_charge_for_initplans(PlannerInfo *root, RelOptInfo *final_rel)
 }
 
 /*
- * SS_attach_initplans - attach initplans to topmost plan node
+ * SS_attach_initplans - attach init plans to topmost plan node
  *
- * Attach any initplans created in the current query level to the specified
+ * Attach any init plans created in the current query level to the specified
  * plan node, which should normally be the topmost node for the query level.
  * (In principle the initPlans could go in any node at or above where they're
  * referenced; but there seems no reason to put them any lower than the

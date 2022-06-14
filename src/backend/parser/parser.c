@@ -32,9 +32,7 @@
  * Returns a list of raw (un-analyzed) parse trees.  The immediate elements
  * of the list are always RawStmt nodes.
  */
-List *
-raw_parser(const char *str)
-{
+List * raw_parser(const char *str) {
 	core_yyscan_t yyscanner;
 	base_yy_extra_type yyextra;
 	int			yyresult;

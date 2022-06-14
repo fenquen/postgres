@@ -112,8 +112,7 @@ struct TupleTableSlotOps;
 typedef struct TupleTableSlotOps TupleTableSlotOps;
 
 /* base tuple table slot type */
-typedef struct TupleTableSlot
-{
+typedef struct TupleTableSlot {
 	NodeTag		type;
 #define FIELDNO_TUPLETABLESLOT_FLAGS 1
 	uint16		tts_flags;		/* Boolean states */

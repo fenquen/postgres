@@ -79,7 +79,7 @@ typedef struct PlannedStmt
 
 	Bitmapset  *rewindPlanIDs;	/* indices of subplans that require REWIND */
 
-	List	   *rowMarks;		/* a list of PlanRowMark's */
+	List	   *rowMarks;		/* a list of PlanRowMark */
 
 	List	   *relationOids;	/* OIDs of relations the plan depends on */
 
@@ -137,7 +137,7 @@ typedef struct Plan
 	 * Common structural data for all Plan types.
 	 */
 	int			plan_node_id;	/* unique across entire final plan tree */
-	List	   *targetlist;		/* target list to be computed at this node */
+	List	   *targetlist;		/* 要取的column,target list to be computed at this node */
 	List	   *qual;			/* implicitly-ANDed qual conditions */
 	struct Plan *lefttree;		/* input plan tree(s) */
 	struct Plan *righttree;

@@ -517,7 +517,7 @@ typedef struct EState
 	struct ExecRowMark **es_rowmarks;	/* Array of per-range-table-entry
 										 * ExecRowMarks, or NULL if none */
 	PlannedStmt *es_plannedstmt;	/* link to top of plan tree */
-	const char *es_sourceText;	/* Source text from QueryDesc */
+	const char *es_sourceText;	/* 原始的sql,Source text from QueryDesc */
 
 	JunkFilter *es_junkFilter;	/* top-level junk filter, if any */
 
@@ -1336,8 +1336,7 @@ typedef struct BitmapOrState
  *		ScanTupleSlot	   pointer to slot in tuple table holding scan tuple
  * ----------------
  */
-typedef struct ScanState
-{
+typedef struct ScanState {
 	PlanState	ps;				/* its first field is NodeTag */
 	Relation	ss_currentRelation;
 	struct TableScanDescData *ss_currentScanDesc;

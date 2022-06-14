@@ -37,7 +37,7 @@ makeStringInfo(void)
 }
 
 /*
- * initStringInfo
+ * 有点像是生成bytebuffer套路 设置limit和position
  *
  * Initialize a StringInfoData struct (with previously undefined contents)
  * to describe an empty string.

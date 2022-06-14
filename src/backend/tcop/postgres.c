@@ -627,43 +627,42 @@ ProcessClientWriteInterrupt(bool blocked)
  * we've seen a COMMIT or ABORT command; when we are in abort state, other
  * commands are not processed any further than the raw parse stage.
  */
-List *
-pg_parse_query(const char *query_string)
-{
-	List	   *raw_parsetree_list;
+List * pg_parse_query(const char *queryString) {
+	List	   *rawParseTreeList;
 
-	TRACE_POSTGRESQL_QUERY_PARSE_START(query_string);
+	TRACE_POSTGRESQL_QUERY_PARSE_START(queryString);
 
-	if (log_parser_stats)
+	if (log_parser_stats) {
 		ResetUsage();
+    }
 
-	raw_parsetree_list = raw_parser(query_string);
+    rawParseTreeList = raw_parser(queryString);
 
-	if (log_parser_stats)
-		ShowUsage("PARSER STATISTICS");
+	if (log_parser_stats) {
+        ShowUsage("PARSER STATISTICS");
+    }
 
 #ifdef COPY_PARSE_PLAN_TREES
 	/* Optional debugging check: pass raw parsetrees through copyObject() */
 	{
-		List	   *new_list = copyObject(raw_parsetree_list);
+		List	   *new_list = copyObject(rawParseTreeList);
 
 		/* This checks both copyObject() and the equal() routines... */
-		if (!equal(new_list, raw_parsetree_list))
+		if (!equal(new_list, rawParseTreeList))
 			elog(WARNING, "copyObject() failed to produce an equal raw parse tree");
 		else
-			raw_parsetree_list = new_list;
+			rawParseTreeList = new_list;
 	}
 #endif
 
 	/*
 	 * Currently, outfuncs/readfuncs support is missing for many raw parse
-	 * tree nodes, so we don't try to implement WRITE_READ_PARSE_PLAN_TREES
-	 * here.
+	 * tree nodes, so we don't try to implement WRITE_READ_PARSE_PLAN_TREES here.
 	 */
 
 	TRACE_POSTGRESQL_QUERY_PARSE_DONE(query_string);
 
-	return raw_parsetree_list;
+	return rawParseTreeList;
 }
 
 /*
@@ -675,36 +674,34 @@ pg_parse_query(const char *query_string)
  *
  * NOTE: for reasons mentioned above, this must be separate from raw parsing.
  */
-List *
-pg_analyze_and_rewrite(RawStmt *parsetree, const char *query_string,
-					   Oid *paramTypes, int numParams,
-					   QueryEnvironment *queryEnv)
-{
-	Query	   *query;
-	List	   *querytree_list;
+List *pg_analyze_and_rewrite(RawStmt *parsetree,
+                             const char *queryString,
+                             Oid *paramTypes,
+                             int numParams,
+                             QueryEnvironment *queryEnv) {
+    Query *query;
+    List *queryTreeList;
 
-	TRACE_POSTGRESQL_QUERY_REWRITE_START(query_string);
+    TRACE_POSTGRESQL_QUERY_REWRITE_START(queryString);
 
-	/*
-	 * (1) Perform parse analysis.
-	 */
-	if (log_parser_stats)
-		ResetUsage();
+    // (1) Perform parse analysis.
+    if (log_parser_stats) {
+        ResetUsage();
+    }
 
-	query = parse_analyze(parsetree, query_string, paramTypes, numParams,
-						  queryEnv);
+    query = parse_analyze(parsetree, queryString, paramTypes, numParams,
+                          queryEnv);
 
-	if (log_parser_stats)
-		ShowUsage("PARSE ANALYSIS STATISTICS");
+    if (log_parser_stats) {
+        ShowUsage("PARSE ANALYSIS STATISTICS");
+    }
 
-	/*
-	 * (2) Rewrite the queries, as necessary
-	 */
-	querytree_list = pg_rewrite_query(query);
+    // (2) Rewrite the queries, as necessary
+    queryTreeList = pg_rewrite_query(query);
 
-	TRACE_POSTGRESQL_QUERY_REWRITE_DONE(query_string);
+    TRACE_POSTGRESQL_QUERY_REWRITE_DONE(query_string);
 
-	return querytree_list;
+    return queryTreeList;
 }
 
 /*
@@ -712,50 +709,44 @@ pg_analyze_and_rewrite(RawStmt *parsetree, const char *query_string,
  * except that external-parameter resolution is determined by parser callback
  * hooks instead of a fixed list of parameter datatypes.
  */
-List *
-pg_analyze_and_rewrite_params(RawStmt *parsetree,
-							  const char *query_string,
-							  ParserSetupHook parserSetup,
-							  void *parserSetupArg,
-							  QueryEnvironment *queryEnv)
-{
-	ParseState *pstate;
-	Query	   *query;
-	List	   *querytree_list;
+List *pg_analyze_and_rewrite_params(RawStmt *parsetree,
+                              const char *query_string,
+                              ParserSetupHook parserSetup,
+                              void *parserSetupArg,
+                              QueryEnvironment *queryEnv) {
+    ParseState *parseState;
+    Query *query;
+    List *querytree_list;
 
-	Assert(query_string != NULL);	/* required as of 8.4 */
+    Assert(query_string != NULL);    /* required as of 8.4 */
 
-	TRACE_POSTGRESQL_QUERY_REWRITE_START(query_string);
+    TRACE_POSTGRESQL_QUERY_REWRITE_START(query_string);
 
-	/*
-	 * (1) Perform parse analysis.
-	 */
-	if (log_parser_stats)
-		ResetUsage();
+    // 1 Perform parse analysis.
+    if (log_parser_stats)
+        ResetUsage();
 
-	pstate = make_parsestate(NULL);
-	pstate->p_sourcetext = query_string;
-	pstate->p_queryEnv = queryEnv;
-	(*parserSetup) (pstate, parserSetupArg);
+    parseState = make_parsestate(NULL);
+    parseState->p_sourcetext = query_string;
+    parseState->p_queryEnv = queryEnv;
+    (*parserSetup)(parseState, parserSetupArg);
 
-	query = transformTopLevelStmt(pstate, parsetree);
+    query = transformTopLevelStmt(parseState, parsetree);
 
-	if (post_parse_analyze_hook)
-		(*post_parse_analyze_hook) (pstate, query);
+    if (post_parse_analyze_hook)
+        (*post_parse_analyze_hook)(parseState, query);
 
-	free_parsestate(pstate);
+    free_parsestate(parseState);
 
-	if (log_parser_stats)
-		ShowUsage("PARSE ANALYSIS STATISTICS");
+    if (log_parser_stats)
+        ShowUsage("PARSE ANALYSIS STATISTICS");
 
-	/*
-	 * (2) Rewrite the queries, as necessary
-	 */
-	querytree_list = pg_rewrite_query(query);
+    // 2 Rewrite the queries, as necessary
+    querytree_list = pg_rewrite_query(query);
 
-	TRACE_POSTGRESQL_QUERY_REWRITE_DONE(query_string);
+    TRACE_POSTGRESQL_QUERY_REWRITE_DONE(query_string);
 
-	return querytree_list;
+    return querytree_list;
 }
 
 /*
@@ -764,91 +755,84 @@ pg_analyze_and_rewrite_params(RawStmt *parsetree,
  * Note: query must just have come from the parser, because we do not do
  * AcquireRewriteLocks() on it.
  */
-static List *
-pg_rewrite_query(Query *query)
-{
-	List	   *querytree_list;
+static List *pg_rewrite_query(Query *query) {
+    List *querytree_list;
 
-	if (Debug_print_parse)
-		elog_node_display(LOG, "parse tree", query,
-						  Debug_pretty_print);
+    if (Debug_print_parse)
+        elog_node_display(LOG, "parse tree", query, Debug_pretty_print);
 
-	if (log_parser_stats)
-		ResetUsage();
+    if (log_parser_stats)
+        ResetUsage();
 
-	if (query->commandType == CMD_UTILITY)
-	{
-		/* don't rewrite utilities, just dump 'em into result list */
-		querytree_list = list_make1(query);
-	}
-	else
-	{
-		/* rewrite regular queries */
-		querytree_list = QueryRewrite(query);
-	}
+    if (query->commandType == CMD_UTILITY) {
+        /* don't rewrite utilities, just dump 'em into result list */
+        querytree_list = list_make1(query);
+    } else {
+        /* rewrite regular queries */
+        querytree_list = QueryRewrite(query);
+    }
 
-	if (log_parser_stats)
-		ShowUsage("REWRITER STATISTICS");
+    if (log_parser_stats)
+        ShowUsage("REWRITER STATISTICS");
 
 #ifdef COPY_PARSE_PLAN_TREES
-	/* Optional debugging check: pass querytree through copyObject() */
-	{
-		List	   *new_list;
+    /* Optional debugging check: pass querytree through copyObject() */
+    {
+        List	   *new_list;
 
-		new_list = copyObject(querytree_list);
-		/* This checks both copyObject() and the equal() routines... */
-		if (!equal(new_list, querytree_list))
-			elog(WARNING, "copyObject() failed to produce equal parse tree");
-		else
-			querytree_list = new_list;
-	}
+        new_list = copyObject(querytree_list);
+        /* This checks both copyObject() and the equal() routines... */
+        if (!equal(new_list, querytree_list))
+            elog(WARNING, "copyObject() failed to produce equal parse tree");
+        else
+            querytree_list = new_list;
+    }
 #endif
 
 #ifdef WRITE_READ_PARSE_PLAN_TREES
-	/* Optional debugging check: pass querytree through outfuncs/readfuncs */
-	{
-		List	   *new_list = NIL;
-		ListCell   *lc;
+    /* Optional debugging check: pass querytree through outfuncs/readfuncs */
+    {
+        List	   *new_list = NIL;
+        ListCell   *lc;
 
-		/*
-		 * We currently lack outfuncs/readfuncs support for most utility
-		 * statement types, so only attempt to write/read non-utility queries.
-		 */
-		foreach(lc, querytree_list)
-		{
-			Query	   *query = castNode(Query, lfirst(lc));
+        /*
+         * We currently lack outfuncs/readfuncs support for most utility
+         * statement types, so only attempt to write/read non-utility queries.
+         */
+        foreach(lc, querytree_list)
+        {
+            Query	   *query = castNode(Query, lfirst(lc));
 
-			if (query->commandType != CMD_UTILITY)
-			{
-				char	   *str = nodeToString(query);
-				Query	   *new_query = stringToNodeWithLocations(str);
+            if (query->commandType != CMD_UTILITY)
+            {
+                char	   *str = nodeToString(query);
+                Query	   *new_query = stringToNodeWithLocations(str);
 
-				/*
-				 * queryId is not saved in stored rules, but we must preserve
-				 * it here to avoid breaking pg_stat_statements.
-				 */
-				new_query->queryId = query->queryId;
+                /*
+                 * queryId is not saved in stored rules, but we must preserve
+                 * it here to avoid breaking pg_stat_statements.
+                 */
+                new_query->queryId = query->queryId;
 
-				new_list = lappend(new_list, new_query);
-				pfree(str);
-			}
-			else
-				new_list = lappend(new_list, query);
-		}
+                new_list = lappend(new_list, new_query);
+                pfree(str);
+            }
+            else
+                new_list = lappend(new_list, query);
+        }
 
-		/* This checks both outfuncs/readfuncs and the equal() routines... */
-		if (!equal(new_list, querytree_list))
-			elog(WARNING, "outfuncs/readfuncs failed to produce equal parse tree");
-		else
-			querytree_list = new_list;
-	}
+        /* This checks both outfuncs/readfuncs and the equal() routines... */
+        if (!equal(new_list, querytree_list))
+            elog(WARNING, "outfuncs/readfuncs failed to produce equal parse tree");
+        else
+            querytree_list = new_list;
+    }
 #endif
 
-	if (Debug_print_rewritten)
-		elog_node_display(LOG, "rewritten parse tree", querytree_list,
-						  Debug_pretty_print);
+    if (Debug_print_rewritten)
+        elog_node_display(LOG, "rewritten parse tree", querytree_list, Debug_pretty_print);
 
-	return querytree_list;
+    return querytree_list;
 }
 
 
@@ -856,81 +840,81 @@ pg_rewrite_query(Query *query)
  * Generate a plan for a single already-rewritten query.
  * This is a thin wrapper around planner() and takes the same parameters.
  */
-PlannedStmt *
-pg_plan_query(Query *querytree, int cursorOptions, ParamListInfo boundParams)
-{
-	PlannedStmt *plan;
+PlannedStmt *pg_plan_query(Query *query, int cursorOptions, ParamListInfo boundParams) {
+    PlannedStmt *plannedStmt;
 
-	/* Utility commands have no plans. */
-	if (querytree->commandType == CMD_UTILITY)
-		return NULL;
+    /* Utility commands have no plans. */
+    if (query->commandType == CMD_UTILITY) {
+        return NULL;
+    }
 
-	/* Planner must have a snapshot in case it calls user-defined functions. */
-	Assert(ActiveSnapshotSet());
+    /* Planner must have a snapshot in case it calls user-defined functions. */
+    Assert(ActiveSnapshotSet());
 
-	TRACE_POSTGRESQL_QUERY_PLAN_START();
+    TRACE_POSTGRESQL_QUERY_PLAN_START();
 
-	if (log_planner_stats)
-		ResetUsage();
+    if (log_planner_stats) {
+        ResetUsage();
+    }
 
-	/* call the optimizer */
-	plan = planner(querytree, cursorOptions, boundParams);
+    // call the optimizer
+    plannedStmt = planner(query, cursorOptions, boundParams);
 
-	if (log_planner_stats)
-		ShowUsage("PLANNER STATISTICS");
+    if (log_planner_stats) {
+        ShowUsage("PLANNER STATISTICS");
+    }
 
 #ifdef COPY_PARSE_PLAN_TREES
-	/* Optional debugging check: pass plan tree through copyObject() */
-	{
-		PlannedStmt *new_plan = copyObject(plan);
+    /* Optional debugging check: pass plannedStmt tree through copyObject() */
+    {
+        PlannedStmt *new_plan = copyObject(plannedStmt);
 
-		/*
-		 * equal() currently does not have routines to compare Plan nodes, so
-		 * don't try to test equality here.  Perhaps fix someday?
-		 */
+        /*
+         * equal() currently does not have routines to compare Plan nodes, so
+         * don't try to test equality here.  Perhaps fix someday?
+         */
 #ifdef NOT_USED
-		/* This checks both copyObject() and the equal() routines... */
-		if (!equal(new_plan, plan))
-			elog(WARNING, "copyObject() failed to produce an equal plan tree");
-		else
+        /* This checks both copyObject() and the equal() routines... */
+        if (!equal(new_plan, plannedStmt))
+            elog(WARNING, "copyObject() failed to produce an equal plannedStmt tree");
+        else
 #endif
-			plan = new_plan;
-	}
+            plannedStmt = new_plan;
+    }
 #endif
 
 #ifdef WRITE_READ_PARSE_PLAN_TREES
-	/* Optional debugging check: pass plan tree through outfuncs/readfuncs */
-	{
-		char	   *str;
-		PlannedStmt *new_plan;
+    /* Optional debugging check: pass plannedStmt tree through outfuncs/readfuncs */
+    {
+        char	   *str;
+        PlannedStmt *new_plan;
 
-		str = nodeToString(plan);
-		new_plan = stringToNodeWithLocations(str);
-		pfree(str);
+        str = nodeToString(plannedStmt);
+        new_plan = stringToNodeWithLocations(str);
+        pfree(str);
 
-		/*
-		 * equal() currently does not have routines to compare Plan nodes, so
-		 * don't try to test equality here.  Perhaps fix someday?
-		 */
+        /*
+         * equal() currently does not have routines to compare Plan nodes, so
+         * don't try to test equality here.  Perhaps fix someday?
+         */
 #ifdef NOT_USED
-		/* This checks both outfuncs/readfuncs and the equal() routines... */
-		if (!equal(new_plan, plan))
-			elog(WARNING, "outfuncs/readfuncs failed to produce an equal plan tree");
-		else
+        /* This checks both outfuncs/readfuncs and the equal() routines... */
+        if (!equal(new_plan, plannedStmt))
+            elog(WARNING, "outfuncs/readfuncs failed to produce an equal plannedStmt tree");
+        else
 #endif
-			plan = new_plan;
-	}
+            plannedStmt = new_plan;
+    }
 #endif
 
-	/*
-	 * Print plan if debugging.
-	 */
-	if (Debug_print_plan)
-		elog_node_display(LOG, "plan", plan, Debug_pretty_print);
+    // print plannedStmt if debugging.
+    if (Debug_print_plan) {
+        elog_node_display(LOG, "plannedStmt", plannedStmt, Debug_pretty_print);
+    }
 
-	TRACE_POSTGRESQL_QUERY_PLAN_DONE();
+    TRACE_POSTGRESQL_QUERY_PLAN_DONE();
 
-	return plan;
+    return plannedStmt;
 }
 
 /*
@@ -941,64 +925,52 @@ pg_plan_query(Query *querytree, int cursorOptions, ParamListInfo boundParams)
  *
  * The result is a list of PlannedStmt nodes.
  */
-List *
-pg_plan_queries(List *querytrees, int cursorOptions, ParamListInfo boundParams)
-{
-	List	   *stmt_list = NIL;
-	ListCell   *query_list;
+List *pg_plan_queries(List *queryList, int cursorOptions, ParamListInfo boundParams) {
+    List *plannedStmtList = NIL;
+    ListCell *queryCell;
 
-	foreach(query_list, querytrees)
-	{
-		Query	   *query = lfirst_node(Query, query_list);
-		PlannedStmt *stmt;
+    foreach(queryCell, queryList) {
+        Query *query = lfirst_node(Query, queryCell);
+        PlannedStmt *plannedStmt;
 
-		if (query->commandType == CMD_UTILITY)
-		{
-			/* Utility commands require no planning. */
-			stmt = makeNode(PlannedStmt);
-			stmt->commandType = CMD_UTILITY;
-			stmt->canSetTag = query->canSetTag;
-			stmt->utilityStmt = query->utilityStmt;
-			stmt->stmt_location = query->stmt_location;
-			stmt->stmt_len = query->stmt_len;
-		}
-		else
-		{
-			stmt = pg_plan_query(query, cursorOptions, boundParams);
-		}
+        if (query->commandType == CMD_UTILITY) {
+            /* Utility commands require no planning. */
+            plannedStmt = makeNode(PlannedStmt);
+            plannedStmt->commandType = CMD_UTILITY;
+            plannedStmt->canSetTag = query->canSetTag;
+            plannedStmt->utilityStmt = query->utilityStmt;
+            plannedStmt->stmt_location = query->stmt_location;
+            plannedStmt->stmt_len = query->stmt_len;
+        } else {
+            plannedStmt = pg_plan_query(query, cursorOptions, boundParams);
+        }
 
-		stmt_list = lappend(stmt_list, stmt);
-	}
+        plannedStmtList = lappend(plannedStmtList, plannedStmt);
+    }
 
-	return stmt_list;
+    return plannedStmtList;
 }
 
 
 /*
- * exec_simple_query
- *
  * Execute a "simple Query" protocol message.
  */
-static void
-exec_simple_query(const char *query_string)
-{
+static void exec_simple_query(const char *queryString) {
 	CommandDest dest = whereToSendOutput;
-	MemoryContext oldcontext;
-	List	   *parsetree_list;
+	MemoryContext oldMemoryContext;
+	List	   *parseTreeList;
 	ListCell   *parsetree_item;
 	bool		save_log_statement_stats = log_statement_stats;
 	bool		was_logged = false;
 	bool		use_implicit_block;
 	char		msec_str[32];
 
-	/*
-	 * Report query to various monitoring facilities.
-	 */
-	debug_query_string = query_string;
+	// Report query to various monitoring facilities.
+	debug_query_string = queryString;
 
-	pgstat_report_activity(STATE_RUNNING, query_string);
+	pgstat_report_activity(STATE_RUNNING, queryString);
 
-	TRACE_POSTGRESQL_QUERY_START(query_string);
+	TRACE_POSTGRESQL_QUERY_START(queryString);
 
 	/*
 	 * We use save_log_statement_stats so ShowUsage doesn't report incorrect
@@ -1009,7 +981,7 @@ exec_simple_query(const char *query_string)
 
 	/*
 	 * Start up a transaction command.  All queries generated by the
-	 * query_string will be in this same command block, *unless* we find a
+	 * queryString will be in this same command block, *unless* we find a
 	 * BEGIN/COMMIT/ABORT statement; we have to force a new xact command after
 	 * one of those, else bad things will happen in xact.c. (Note that this
 	 * will normally change current memory context.)
@@ -1024,245 +996,218 @@ exec_simple_query(const char *query_string)
 	 */
 	drop_unnamed_stmt();
 
-	/*
-	 * Switch to appropriate context for constructing parsetrees.
-	 */
-	oldcontext = MemoryContextSwitchTo(MessageContext);
+	// Switch to appropriate context for constructing parse trees.
+	oldMemoryContext = MemoryContextSwitchTo(MessageContext);
 
 	/*
 	 * Do basic parsing of the query or queries (this should be safe even if
 	 * we are in aborted transaction state!)
 	 */
-	parsetree_list = pg_parse_query(query_string);
+	parseTreeList = pg_parse_query(queryString);
 
 	/* Log immediately if dictated by log_statement */
-	if (check_log_statement(parsetree_list))
-	{
+	if (check_log_statement(parseTreeList)) {
 		ereport(LOG,
-				(errmsg("statement: %s", query_string),
+				(errmsg("statement: %s", queryString),
 				 errhidestmt(true),
-				 errdetail_execute(parsetree_list)));
+				 errdetail_execute(parseTreeList)));
+
 		was_logged = true;
 	}
 
-	/*
-	 * Switch back to transaction context to enter the loop.
-	 */
-	MemoryContextSwitchTo(oldcontext);
+	// Switch back to transaction context to enter the loop.
+	MemoryContextSwitchTo(oldMemoryContext);
 
 	/*
 	 * For historical reasons, if multiple SQL statements are given in a
 	 * single "simple Query" message, we execute them as a single transaction,
 	 * unless explicit transaction control commands are included to make
 	 * portions of the list be separate transactions.  To represent this
-	 * behavior properly in the transaction machinery, we use an "implicit"
-	 * transaction block.
+	 * behavior properly in the transaction machinery, we use an "implicit" transaction block.
 	 */
-	use_implicit_block = (list_length(parsetree_list) > 1);
+	use_implicit_block = (list_length(parseTreeList) > 1);
 
-	/*
-	 * Run through the raw parsetree(s) and process each one.
-	 */
-	foreach(parsetree_item, parsetree_list)
-	{
-		RawStmt    *parsetree = lfirst_node(RawStmt, parsetree_item);
-		bool		snapshot_set = false;
-		const char *commandTag;
-		char		completionTag[COMPLETION_TAG_BUFSIZE];
-		List	   *querytree_list,
-				   *plantree_list;
-		Portal		portal;
-		DestReceiver *receiver;
-		int16		format;
+	// Run through the raw parse tree(s) and process each one.
+    foreach(parsetree_item, parseTreeList) {
+        RawStmt *parsetree = lfirst_node(RawStmt, parsetree_item);
+        bool snapshot_set = false;
+        const char *commandTag;
+        char completionTag[COMPLETION_TAG_BUFSIZE];
+        List *queryTree,
+                *plannedStmtList;
+        Portal portal;
+        DestReceiver *receiver;
+        int16 format;
 
-		/*
-		 * Get the command name for use in status display (it also becomes the
-		 * default completion tag, down inside PortalRun).  Set ps_status and
-		 * do any special start-of-SQL-command processing needed by the
-		 * destination.
-		 */
-		commandTag = CreateCommandTag(parsetree->stmt);
+        /*
+         * Get the command name for use in status display (it also becomes the
+         * default completion tag, down inside PortalRun).  Set ps_status and
+         * do any special start-of-SQL-command processing needed by the
+         * destination.
+         */
+        commandTag = CreateCommandTag(parsetree->stmt);
 
-		set_ps_display(commandTag, false);
+        set_ps_display(commandTag, false);
 
-		BeginCommand(commandTag, dest);
+        BeginCommand(commandTag, dest);
 
-		/*
-		 * If we are in an aborted transaction, reject all commands except
-		 * COMMIT/ABORT.  It is important that this test occur before we try
-		 * to do parse analysis, rewrite, or planning, since all those phases
-		 * try to do database accesses, which may fail in abort state. (It
-		 * might be safe to allow some additional utility commands in this
-		 * state, but not many...)
-		 */
-		if (IsAbortedTransactionBlockState() &&
-			!IsTransactionExitStmt(parsetree->stmt))
-			ereport(ERROR,
-					(errcode(ERRCODE_IN_FAILED_SQL_TRANSACTION),
-					 errmsg("current transaction is aborted, "
-							"commands ignored until end of transaction block"),
-					 errdetail_abort()));
+        /*
+         * If we are in an aborted transaction, reject all commands except
+         * COMMIT/ABORT.  It is important that this test occur before we try
+         * to do parse analysis, rewrite, or planning, since all those phases
+         * try to do database accesses, which may fail in abort state. (It
+         * might be safe to allow some additional utility commands in this
+         * state, but not many...)
+         */
+        if (IsAbortedTransactionBlockState() && !IsTransactionExitStmt(parsetree->stmt))
+            ereport(ERROR,
+                    (errcode(ERRCODE_IN_FAILED_SQL_TRANSACTION),
+                            errmsg("current transaction is aborted, "
+                                   "commands ignored until end of transaction block"),
+                            errdetail_abort()));
 
-		/* Make sure we are in a transaction command */
-		start_xact_command();
+        /* Make sure we are in a transaction command */
+        start_xact_command();
 
-		/*
-		 * If using an implicit transaction block, and we're not already in a
-		 * transaction block, start an implicit block to force this statement
-		 * to be grouped together with any following ones.  (We must do this
-		 * each time through the loop; otherwise, a COMMIT/ROLLBACK in the
-		 * list would cause later statements to not be grouped.)
-		 */
-		if (use_implicit_block)
-			BeginImplicitTransactionBlock();
+        /*
+         * If using an implicit transaction block, and we're not already in a
+         * transaction block, start an implicit block to force this statement
+         * to be grouped together with any following ones.  (We must do this
+         * each time through the loop; otherwise, a COMMIT/ROLLBACK in the
+         * list would cause later statements to not be grouped.)
+         */
+        if (use_implicit_block)
+            BeginImplicitTransactionBlock();
 
-		/* If we got a cancel signal in parsing or prior command, quit */
-		CHECK_FOR_INTERRUPTS();
+        /* If we got a cancel signal in parsing or prior command, quit */
+        CHECK_FOR_INTERRUPTS();
 
-		/*
-		 * Set up a snapshot if parse analysis/planning will need one.
-		 */
-		if (analyze_requires_snapshot(parsetree))
-		{
-			PushActiveSnapshot(GetTransactionSnapshot());
-			snapshot_set = true;
-		}
+        // Set up a snapshot if parse analysis/planning will need one.
+        if (analyze_requires_snapshot(parsetree)) {
+            PushActiveSnapshot(GetTransactionSnapshot());
+            snapshot_set = true;
+        }
 
-		/*
-		 * OK to analyze, rewrite, and plan this query.
-		 *
-		 * Switch to appropriate context for constructing querytrees (again,
-		 * these must outlive the execution context).
-		 */
-		oldcontext = MemoryContextSwitchTo(MessageContext);
+        /*
+         * OK to analyze, rewrite, and plan this query.
+         *
+         * Switch to appropriate context for constructing querytrees (again,
+         * these must outlive the execution context).
+         */
+        oldMemoryContext = MemoryContextSwitchTo(MessageContext);
 
-		querytree_list = pg_analyze_and_rewrite(parsetree, query_string,
-												NULL, 0, NULL);
+        queryTree = pg_analyze_and_rewrite(parsetree, queryString, NULL, 0, NULL);
 
-		plantree_list = pg_plan_queries(querytree_list,
-										CURSOR_OPT_PARALLEL_OK, NULL);
+        plannedStmtList = pg_plan_queries(queryTree, CURSOR_OPT_PARALLEL_OK, NULL);
 
-		/* Done with the snapshot used for parsing/planning */
-		if (snapshot_set)
-			PopActiveSnapshot();
+        /* Done with the snapshot used for parsing/planning */
+        if (snapshot_set)
+            PopActiveSnapshot();
 
-		/* If we got a cancel signal in analysis or planning, quit */
-		CHECK_FOR_INTERRUPTS();
+        /* If we got a cancel signal in analysis or planning, quit */
+        CHECK_FOR_INTERRUPTS();
 
-		/*
-		 * Create unnamed portal to run the query or queries in. If there
-		 * already is one, silently drop it.
-		 */
-		portal = CreatePortal("", true, true);
-		/* Don't display the portal in pg_cursors */
-		portal->visible = false;
+        /*
+         * Create unnamed portal to run the query or queries in. If there
+         * already is one, silently drop it.
+         */
+        portal = CreatePortal("", true, true);
+        /* Don't display the portal in pg_cursors */
+        portal->visible = false;
 
-		/*
-		 * We don't have to copy anything into the portal, because everything
-		 * we are passing here is in MessageContext, which will outlive the
-		 * portal anyway.
-		 */
-		PortalDefineQuery(portal,
-						  NULL,
-						  query_string,
-						  commandTag,
-						  plantree_list,
-						  NULL);
+        /*
+         * We don't have to copy anything into the portal, because everything
+         * we are passing here is in MessageContext, which will outlive the
+         * portal anyway. 通过PortalDefineQuery将查询计划等数据设置到Portal上之后，Portal的状态变为PORTAL_DEFINED
+         */
+        PortalDefineQuery(portal,
+                          NULL,
+                          queryString,
+                          commandTag,
+                          plannedStmtList,
+                          NULL);
 
-		/*
-		 * Start the portal.  No parameters here.
-		 */
-		PortalStart(portal, NULL, 0, InvalidSnapshot);
+        /*
+         * Start the portal.  No parameters here.
+         */
+        PortalStart(portal, NULL, 0, InvalidSnapshot);
 
-		/*
-		 * Select the appropriate output format: text unless we are doing a
-		 * FETCH from a binary cursor.  (Pretty grotty to have to do this here
-		 * --- but it avoids grottiness in other places.  Ah, the joys of
-		 * backward compatibility...)
-		 */
-		format = 0;				/* TEXT is default */
-		if (IsA(parsetree->stmt, FetchStmt))
-		{
-			FetchStmt  *stmt = (FetchStmt *) parsetree->stmt;
+        /*
+         * Select the appropriate output format: text unless we are doing a
+         * FETCH from a binary cursor.  (Pretty grotty to have to do this here
+         * --- but it avoids grottiness in other places.  Ah, the joys of
+         * backward compatibility...)
+         */
+        format = 0;                /* TEXT is default */
+        if (IsA(parsetree->stmt, FetchStmt)) {
+            FetchStmt *stmt = (FetchStmt *) parsetree->stmt;
 
-			if (!stmt->ismove)
-			{
-				Portal		fportal = GetPortalByName(stmt->portalname);
+            if (!stmt->ismove) {
+                Portal fportal = GetPortalByName(stmt->portalname);
 
-				if (PortalIsValid(fportal) &&
-					(fportal->cursorOptions & CURSOR_OPT_BINARY))
-					format = 1; /* BINARY */
-			}
-		}
-		PortalSetResultFormat(portal, 1, &format);
+                if (PortalIsValid(fportal) && (fportal->cursorOptions & CURSOR_OPT_BINARY))
+                    format = 1; /* BINARY */
+            }
+        }
+        PortalSetResultFormat(portal, 1, &format);
 
-		/*
-		 * Now we can create the destination receiver object.
-		 */
-		receiver = CreateDestReceiver(dest);
-		if (dest == DestRemote)
-			SetRemoteDestReceiverParams(receiver, portal);
+        /*
+         * Now we can create the destination receiver object.
+         */
+        receiver = CreateDestReceiver(dest);
+        if (dest == DestRemote)
+            SetRemoteDestReceiverParams(receiver, portal);
 
-		/*
-		 * Switch back to transaction context for execution.
-		 */
-		MemoryContextSwitchTo(oldcontext);
+        /*
+         * Switch back to transaction context for execution.
+         */
+        MemoryContextSwitchTo(oldMemoryContext);
 
-		/*
-		 * Run the portal to completion, and then drop it (and the receiver).
-		 */
-		(void) PortalRun(portal,
-						 FETCH_ALL,
-						 true,	/* always top level */
-						 true,
-						 receiver,
-						 receiver,
-						 completionTag);
+        // Run the portal to completion, and then drop it (and the receiver).
+        (void) PortalRun(portal,
+                         FETCH_ALL,
+                         true,    /* always top level */
+                         true,
+                         receiver,
+                         receiver,
+                         completionTag);
 
-		receiver->rDestroy(receiver);
+        receiver->rDestroy(receiver);
 
-		PortalDrop(portal, false);
+        PortalDrop(portal, false);
 
-		if (lnext(parsetree_item) == NULL)
-		{
-			/*
-			 * If this is the last parsetree of the query string, close down
-			 * transaction statement before reporting command-complete.  This
-			 * is so that any end-of-transaction errors are reported before
-			 * the command-complete message is issued, to avoid confusing
-			 * clients who will expect either a command-complete message or an
-			 * error, not one and then the other.  Also, if we're using an
-			 * implicit transaction block, we must close that out first.
-			 */
-			if (use_implicit_block)
-				EndImplicitTransactionBlock();
-			finish_xact_command();
-		}
-		else if (IsA(parsetree->stmt, TransactionStmt))
-		{
-			/*
-			 * If this was a transaction control statement, commit it. We will
-			 * start a new xact command for the next command.
-			 */
-			finish_xact_command();
-		}
-		else
-		{
-			/*
-			 * We need a CommandCounterIncrement after every query, except
-			 * those that start or end a transaction block.
-			 */
-			CommandCounterIncrement();
-		}
+        if (lnext(parsetree_item) == NULL) {
+            /*
+             * If this is the last parsetree of the query string, close down
+             * transaction statement before reporting command-complete.  This
+             * is so that any end-of-transaction errors are reported before
+             * the command-complete message is issued, to avoid confusing
+             * clients who will expect either a command-complete message or an
+             * error, not one and then the other.  Also, if we're using an
+             * implicit transaction block, we must close that out first.
+             */
+            if (use_implicit_block)
+                EndImplicitTransactionBlock();
+            finish_xact_command();
+        } else if (IsA(parsetree->stmt, TransactionStmt)) {
+            // If this was a transaction control statement, commit it. We will start a new xact command for the next command.
+            finish_xact_command();
+        } else {
+            /*
+             * We need a CommandCounterIncrement after every query, except
+             * those that start or end a transaction block.
+             */
+            CommandCounterIncrement();
+        }
 
-		/*
-		 * Tell client that we're done with this query.  Note we emit exactly
-		 * one EndCommand report for each raw parsetree, thus one for each SQL
-		 * command the client sent, regardless of rewriting. (But a command
-		 * aborted by error will not send an EndCommand report at all.)
-		 */
-		EndCommand(completionTag, dest);
-	}							/* end loop over parsetrees */
+        /*
+         * Tell client that we're done with this query.  Note we emit exactly
+         * one EndCommand report for each raw parsetree, thus one for each SQL
+         * command the client sent, regardless of rewriting. (But a command
+         * aborted by error will not send an EndCommand report at all.)
+         */
+        EndCommand(completionTag, dest);
+    }
 
 	/*
 	 * Close down transaction statement, if one is open.  (This will only do
@@ -1271,33 +1216,28 @@ exec_simple_query(const char *query_string)
 	 */
 	finish_xact_command();
 
-	/*
-	 * If there were no parsetrees, return EmptyQueryResponse message.
-	 */
-	if (!parsetree_list)
-		NullCommand(dest);
+	// there were no parse trees, return EmptyQueryResponse message.
+	if (!parseTreeList) {
+        NullCommand(dest);
+    }
 
-	/*
-	 * Emit duration logging if appropriate.
-	 */
-	switch (check_log_duration(msec_str, was_logged))
-	{
+	// Emit duration logging if appropriate.
+	switch (check_log_duration(msec_str, was_logged)) {
 		case 1:
 			ereport(LOG,
-					(errmsg("duration: %s ms", msec_str),
-					 errhidestmt(true)));
+					(errmsg("duration: %s ms", msec_str),errhidestmt(true)));
 			break;
 		case 2:
 			ereport(LOG,
-					(errmsg("duration: %s ms  statement: %s",
-							msec_str, query_string),
+					(errmsg("duration: %s ms  statement: %s", msec_str, queryString),
 					 errhidestmt(true),
-					 errdetail_execute(parsetree_list)));
+					 errdetail_execute(parseTreeList)));
 			break;
 	}
 
-	if (save_log_statement_stats)
-		ShowUsage("QUERY STATISTICS");
+	if (save_log_statement_stats) {
+        ShowUsage("QUERY STATISTICS");
+    }
 
 	TRACE_POSTGRESQL_QUERY_DONE(query_string);
 
@@ -4110,6 +4050,8 @@ void PostgresMain(int argc,
         MemoryContextSwitchTo(MessageContext);
         MemoryContextResetAndDeleteChildren(MessageContext);
 
+
+        // stringInfo和byteBuffer类似
         initStringInfo(&inputMessage);
 
         /*
@@ -4227,16 +4169,17 @@ void PostgresMain(int argc,
                 pq_getmsgend(&inputMessage);
 
                 if (am_walsender) {
-                    if (!exec_replication_command(queryString))
+                    if (!exec_replication_command(queryString)) {
                         exec_simple_query(queryString);
-                } else
+                    }
+                } else {
                     exec_simple_query(queryString);
+                }
 
                 sendReadyForQuery = true;
             }
                 break;
-            case 'P':            /* parse */
-            {
+            case 'P': { /* parse */
                 const char *stmt_name;
                 const char *query_string;
                 int numParams;

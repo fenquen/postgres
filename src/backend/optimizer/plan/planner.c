@@ -265,27 +265,27 @@ static int	common_prefix_cmp(const void *a, const void *b);
  *
  *****************************************************************************/
 PlannedStmt *
-planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
+planner(Query *query, int cursorOptions, ParamListInfo boundParams)
 {
-	PlannedStmt *result;
+	PlannedStmt *plannedStmt;
 
 	if (planner_hook)
-		result = (*planner_hook) (parse, cursorOptions, boundParams);
+        plannedStmt = (*planner_hook) (query, cursorOptions, boundParams);
 	else
-		result = standard_planner(parse, cursorOptions, boundParams);
-	return result;
+        plannedStmt = standard_planner(query, cursorOptions, boundParams);
+	return plannedStmt;
 }
 
-PlannedStmt *
-standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
-{
-	PlannedStmt *result;
-	PlannerGlobal *glob;
-	double		tuple_fraction;
+PlannedStmt *standard_planner(Query *parse,
+                              int cursorOptions,
+                              ParamListInfo boundParams) {
+	PlannedStmt *plannedStmt;
+	PlannerGlobal *plannerGlobal;
+	double		tuple_fraction;// 要得到原始的总量的多少
 	PlannerInfo *root;
 	RelOptInfo *final_rel;
-	Path	   *best_path;
-	Plan	   *top_plan;
+	Path	   *bestPath;
+	Plan	   *topPlan;
 	ListCell   *lp,
 			   *lr;
 
@@ -295,24 +295,24 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 	 * so we keep it in a separate struct that's linked to by each per-Query
 	 * PlannerInfo.
 	 */
-	glob = makeNode(PlannerGlobal);
+	plannerGlobal = makeNode(PlannerGlobal);
 
-	glob->boundParams = boundParams;
-	glob->subplans = NIL;
-	glob->subroots = NIL;
-	glob->rewindPlanIDs = NULL;
-	glob->finalrtable = NIL;
-	glob->finalrowmarks = NIL;
-	glob->resultRelations = NIL;
-	glob->rootResultRelations = NIL;
-	glob->relationOids = NIL;
-	glob->invalItems = NIL;
-	glob->paramExecTypes = NIL;
-	glob->lastPHId = 0;
-	glob->lastRowMarkId = 0;
-	glob->lastPlanNodeId = 0;
-	glob->transientPlan = false;
-	glob->dependsOnRole = false;
+    plannerGlobal->boundParams = boundParams;
+    plannerGlobal->subplans = NIL;
+    plannerGlobal->subroots = NIL;
+    plannerGlobal->rewindPlanIDs = NULL;
+    plannerGlobal->finalrtable = NIL;
+    plannerGlobal->finalrowmarks = NIL;
+    plannerGlobal->resultRelations = NIL;
+    plannerGlobal->rootResultRelations = NIL;
+    plannerGlobal->relationOids = NIL;
+    plannerGlobal->invalItems = NIL;
+    plannerGlobal->paramExecTypes = NIL;
+    plannerGlobal->lastPHId = 0;
+    plannerGlobal->lastRowMarkId = 0;
+    plannerGlobal->lastPlanNodeId = 0;
+    plannerGlobal->transientPlan = false;
+    plannerGlobal->dependsOnRole = false;
 
 	/*
 	 * Assess whether it's feasible to use parallel mode for this query. We
@@ -341,21 +341,18 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 		parse->commandType == CMD_SELECT &&
 		!parse->hasModifyingCTE &&
 		max_parallel_workers_per_gather > 0 &&
-		!IsParallelWorker())
-	{
+		!IsParallelWorker()) {
 		/* all the cheap tests pass, so scan the query tree */
-		glob->maxParallelHazard = max_parallel_hazard(parse);
-		glob->parallelModeOK = (glob->maxParallelHazard != PROPARALLEL_UNSAFE);
-	}
-	else
-	{
+		plannerGlobal->maxParallelHazard = max_parallel_hazard(parse);
+        plannerGlobal->parallelModeOK = (plannerGlobal->maxParallelHazard != PROPARALLEL_UNSAFE);
+	} else {
 		/* skip the query tree scan, just assume it's unsafe */
-		glob->maxParallelHazard = PROPARALLEL_UNSAFE;
-		glob->parallelModeOK = false;
+		plannerGlobal->maxParallelHazard = PROPARALLEL_UNSAFE;
+        plannerGlobal->parallelModeOK = false;
 	}
 
 	/*
-	 * glob->parallelModeNeeded is normally set to false here and changed to
+	 * plannerGlobal->parallelModeNeeded is normally set to false here and changed to
 	 * true during plan creation if a Gather or Gather Merge plan is actually
 	 * created (cf. create_gather_plan, create_gather_merge_plan).
 	 *
@@ -371,12 +368,10 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 	 * labelled as parallel-safe or parallel-restricted when in reality it's
 	 * parallel-unsafe, or else the query planner itself has a bug.
 	 */
-	glob->parallelModeNeeded = glob->parallelModeOK &&
-		(force_parallel_mode != FORCE_PARALLEL_OFF);
+	plannerGlobal->parallelModeNeeded = plannerGlobal->parallelModeOK && (force_parallel_mode != FORCE_PARALLEL_OFF);
 
 	/* Determine what fraction of the plan is likely to be scanned */
-	if (cursorOptions & CURSOR_OPT_FAST_PLAN)
-	{
+	if (cursorOptions & CURSOR_OPT_FAST_PLAN) {
 		/*
 		 * We have no real idea how many tuples the user will ultimately FETCH
 		 * from a cursor, but it is often the case that he doesn't want 'em
@@ -395,39 +390,35 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 			tuple_fraction = 0.0;
 		else if (tuple_fraction <= 0.0)
 			tuple_fraction = 1e-10;
-	}
-	else
-	{
+	} else {
 		/* Default assumption is we need all the tuples */
 		tuple_fraction = 0.0;
 	}
 
 	/* primary planning entry point (may recurse for subqueries) */
-	root = subquery_planner(glob, parse, NULL,
-							false, tuple_fraction);
+	root = subquery_planner(plannerGlobal, parse, NULL, false, tuple_fraction);
 
 	/* Select best Path and turn it into a Plan */
 	final_rel = fetch_upper_rel(root, UPPERREL_FINAL, NULL);
-	best_path = get_cheapest_fractional_path(final_rel, tuple_fraction);
+    bestPath = get_cheapest_fractional_path(final_rel, tuple_fraction);
 
-	top_plan = create_plan(root, best_path);
+    topPlan = create_plan(root, bestPath);
 
 	/*
 	 * If creating a plan for a scrollable cursor, make sure it can run
 	 * backwards on demand.  Add a Material node at the top at need.
 	 */
-	if (cursorOptions & CURSOR_OPT_SCROLL)
-	{
-		if (!ExecSupportsBackwardScan(top_plan))
-			top_plan = materialize_finished_plan(top_plan);
+	if (cursorOptions & CURSOR_OPT_SCROLL) {
+		if (!ExecSupportsBackwardScan(topPlan)) {
+            topPlan = materialize_finished_plan(topPlan);
+        }
 	}
 
 	/*
 	 * Optionally add a Gather node for testing purposes, provided this is
 	 * actually a safe thing to do.
 	 */
-	if (force_parallel_mode != FORCE_PARALLEL_OFF && top_plan->parallel_safe)
-	{
+	if (force_parallel_mode != FORCE_PARALLEL_OFF && topPlan->parallel_safe) {
 		Gather	   *gather = makeNode(Gather);
 
 		/*
@@ -435,12 +426,12 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 		 * move them up to the Gather node; same as we do for Material node in
 		 * materialize_finished_plan.
 		 */
-		gather->plan.initPlan = top_plan->initPlan;
-		top_plan->initPlan = NIL;
+		gather->plan.initPlan = topPlan->initPlan;
+        topPlan->initPlan = NIL;
 
-		gather->plan.targetlist = top_plan->targetlist;
+		gather->plan.targetlist = topPlan->targetlist;
 		gather->plan.qual = NIL;
-		gather->plan.lefttree = top_plan;
+		gather->plan.lefttree = topPlan;
 		gather->plan.righttree = NULL;
 		gather->num_workers = 1;
 		gather->single_copy = true;
@@ -456,19 +447,19 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 		 * Ideally we'd use cost_gather here, but setting up dummy path data
 		 * to satisfy it doesn't seem much cleaner than knowing what it does.
 		 */
-		gather->plan.startup_cost = top_plan->startup_cost +
-			parallel_setup_cost;
-		gather->plan.total_cost = top_plan->total_cost +
-			parallel_setup_cost + parallel_tuple_cost * top_plan->plan_rows;
-		gather->plan.plan_rows = top_plan->plan_rows;
-		gather->plan.plan_width = top_plan->plan_width;
+		gather->plan.startup_cost = topPlan->startup_cost +
+                                    parallel_setup_cost;
+		gather->plan.total_cost = topPlan->total_cost +
+                                  parallel_setup_cost + parallel_tuple_cost * topPlan->plan_rows;
+		gather->plan.plan_rows = topPlan->plan_rows;
+		gather->plan.plan_width = topPlan->plan_width;
 		gather->plan.parallel_aware = false;
 		gather->plan.parallel_safe = false;
 
 		/* use parallel mode for parallel plans. */
 		root->glob->parallelModeNeeded = true;
 
-		top_plan = &gather->plan;
+        topPlan = &gather->plan;
 	}
 
 	/*
@@ -477,90 +468,84 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 	 * set_plan_references' tree traversal, but for now it has to be separate
 	 * because we need to visit subplans before not after main plan.
 	 */
-	if (glob->paramExecTypes != NIL)
-	{
-		Assert(list_length(glob->subplans) == list_length(glob->subroots));
-		forboth(lp, glob->subplans, lr, glob->subroots)
-		{
-			Plan	   *subplan = (Plan *) lfirst(lp);
-			PlannerInfo *subroot = lfirst_node(PlannerInfo, lr);
+    if (plannerGlobal->paramExecTypes != NIL) {
+        Assert(list_length(plannerGlobal->subplans) == list_length(plannerGlobal->subroots));
+        forboth(lp, plannerGlobal->subplans, lr, plannerGlobal->subroots) {
+            Plan *subplan = (Plan *) lfirst(lp);
+            PlannerInfo *subroot = lfirst_node(PlannerInfo, lr);
 
-			SS_finalize_plan(subroot, subplan);
-		}
-		SS_finalize_plan(root, top_plan);
-	}
+            SS_finalize_plan(subroot, subplan);
+        }
+        SS_finalize_plan(root, topPlan);
+    }
 
 	/* final cleanup of the plan */
-	Assert(glob->finalrtable == NIL);
-	Assert(glob->finalrowmarks == NIL);
-	Assert(glob->resultRelations == NIL);
-	Assert(glob->rootResultRelations == NIL);
-	top_plan = set_plan_references(root, top_plan);
+	Assert(plannerGlobal->finalrtable == NIL);
+	Assert(plannerGlobal->finalrowmarks == NIL);
+	Assert(plannerGlobal->resultRelations == NIL);
+	Assert(plannerGlobal->rootResultRelations == NIL);
+    topPlan = set_plan_references(root, topPlan);
 	/* ... and the subplans (both regular subplans and initplans) */
-	Assert(list_length(glob->subplans) == list_length(glob->subroots));
-	forboth(lp, glob->subplans, lr, glob->subroots)
-	{
+	Assert(list_length(plannerGlobal->subplans) == list_length(plannerGlobal->subroots));
+	forboth(lp, plannerGlobal->subplans, lr, plannerGlobal->subroots) {
 		Plan	   *subplan = (Plan *) lfirst(lp);
 		PlannerInfo *subroot = lfirst_node(PlannerInfo, lr);
 
 		lfirst(lp) = set_plan_references(subroot, subplan);
 	}
 
-	/* build the PlannedStmt result */
-	result = makeNode(PlannedStmt);
+	/* build the PlannedStmt plannedStmt */
+	plannedStmt = makeNode(PlannedStmt);
 
-	result->commandType = parse->commandType;
-	result->queryId = parse->queryId;
-	result->hasReturning = (parse->returningList != NIL);
-	result->hasModifyingCTE = parse->hasModifyingCTE;
-	result->canSetTag = parse->canSetTag;
-	result->transientPlan = glob->transientPlan;
-	result->dependsOnRole = glob->dependsOnRole;
-	result->parallelModeNeeded = glob->parallelModeNeeded;
-	result->planTree = top_plan;
-	result->rtable = glob->finalrtable;
-	result->resultRelations = glob->resultRelations;
-	result->rootResultRelations = glob->rootResultRelations;
-	result->subplans = glob->subplans;
-	result->rewindPlanIDs = glob->rewindPlanIDs;
-	result->rowMarks = glob->finalrowmarks;
-	result->relationOids = glob->relationOids;
-	result->invalItems = glob->invalItems;
-	result->paramExecTypes = glob->paramExecTypes;
+    plannedStmt->commandType = parse->commandType;
+    plannedStmt->queryId = parse->queryId;
+    plannedStmt->hasReturning = (parse->returningList != NIL);
+    plannedStmt->hasModifyingCTE = parse->hasModifyingCTE;
+    plannedStmt->canSetTag = parse->canSetTag;
+    plannedStmt->transientPlan = plannerGlobal->transientPlan;
+    plannedStmt->dependsOnRole = plannerGlobal->dependsOnRole;
+    plannedStmt->parallelModeNeeded = plannerGlobal->parallelModeNeeded;
+    plannedStmt->planTree = topPlan;
+    plannedStmt->rtable = plannerGlobal->finalrtable;
+    plannedStmt->resultRelations = plannerGlobal->resultRelations;
+    plannedStmt->rootResultRelations = plannerGlobal->rootResultRelations;
+    plannedStmt->subplans = plannerGlobal->subplans;
+    plannedStmt->rewindPlanIDs = plannerGlobal->rewindPlanIDs;
+    plannedStmt->rowMarks = plannerGlobal->finalrowmarks;
+    plannedStmt->relationOids = plannerGlobal->relationOids;
+    plannedStmt->invalItems = plannerGlobal->invalItems;
+    plannedStmt->paramExecTypes = plannerGlobal->paramExecTypes;
 	/* utilityStmt should be null, but we might as well copy it */
-	result->utilityStmt = parse->utilityStmt;
-	result->stmt_location = parse->stmt_location;
-	result->stmt_len = parse->stmt_len;
+	plannedStmt->utilityStmt = parse->utilityStmt;
+    plannedStmt->stmt_location = parse->stmt_location;
+    plannedStmt->stmt_len = parse->stmt_len;
 
-	result->jitFlags = PGJIT_NONE;
-	if (jit_enabled && jit_above_cost >= 0 &&
-		top_plan->total_cost > jit_above_cost)
-	{
-		result->jitFlags |= PGJIT_PERFORM;
+    plannedStmt->jitFlags = PGJIT_NONE;
+	if (jit_enabled && jit_above_cost >= 0 && topPlan->total_cost > jit_above_cost) {
+        plannedStmt->jitFlags |= PGJIT_PERFORM;
 
-		/*
-		 * Decide how much effort should be put into generating better code.
-		 */
-		if (jit_optimize_above_cost >= 0 &&
-			top_plan->total_cost > jit_optimize_above_cost)
-			result->jitFlags |= PGJIT_OPT3;
-		if (jit_inline_above_cost >= 0 &&
-			top_plan->total_cost > jit_inline_above_cost)
-			result->jitFlags |= PGJIT_INLINE;
+		// Decide how much effort should be put into generating better code.
+		if (jit_optimize_above_cost >= 0 && topPlan->total_cost > jit_optimize_above_cost) {
+            plannedStmt->jitFlags |= PGJIT_OPT3;
+        }
 
-		/*
-		 * Decide which operations should be JITed.
-		 */
-		if (jit_expressions)
-			result->jitFlags |= PGJIT_EXPR;
-		if (jit_tuple_deforming)
-			result->jitFlags |= PGJIT_DEFORM;
+		if (jit_inline_above_cost >= 0 && topPlan->total_cost > jit_inline_above_cost) {
+            plannedStmt->jitFlags |= PGJIT_INLINE;
+        }
+
+		// decide which operations should be JITed.
+		if (jit_expressions) {
+            plannedStmt->jitFlags |= PGJIT_EXPR;
+        }
+		if (jit_tuple_deforming) {
+            plannedStmt->jitFlags |= PGJIT_DEFORM;
+        }
 	}
 
-	if (glob->partition_directory != NULL)
-		DestroyPartitionDirectory(glob->partition_directory);
+	if (plannerGlobal->partition_directory != NULL)
+		DestroyPartitionDirectory(plannerGlobal->partition_directory);
 
-	return result;
+	return plannedStmt;
 }
 
 
@@ -658,7 +643,7 @@ subquery_planner(PlannerGlobal *glob, Query *parse,
 		pull_up_sublinks(root);
 
 	/*
-	 * Scan the rangetable for set-returning functions, and inline them if
+	 * Scan the range table for set-returning functions, and inline them if
 	 * possible (producing subqueries that might get pulled up next).
 	 * Recursion issues here are handled in the same way as for SubLinks.
 	 */
@@ -763,9 +748,9 @@ subquery_planner(PlannerGlobal *glob, Query *parse,
 	 * Do expression preprocessing on targetlist and quals, as well as other
 	 * random expressions in the querytree.  Note that we do not need to
 	 * handle sort/group expressions explicitly, because they are actually
-	 * part of the targetlist.
+	 * part of the target list.
 	 */
-	parse->targetList = (List *)
+	parse->targetList = (List *) // 要得的column
 		preprocess_expression(root, (Node *) parse->targetList,
 							  EXPRKIND_TARGET);
 

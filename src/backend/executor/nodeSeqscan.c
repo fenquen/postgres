@@ -104,12 +104,10 @@ SeqRecheck(SeqScanState *node, TupleTableSlot *slot)
  *		access method functions.
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *
-ExecSeqScan(PlanState *pstate)
-{
-	SeqScanState *node = castNode(SeqScanState, pstate);
+static TupleTableSlot *ExecSeqScan(PlanState *pstate) {
+	SeqScanState *seqScanState = castNode(SeqScanState, pstate);
 
-	return ExecScan(&node->ss,
+	return ExecScan(&seqScanState->ss,
 					(ExecScanAccessMtd) SeqNext,
 					(ExecScanRecheckMtd) SeqRecheck);
 }

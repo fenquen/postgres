@@ -135,18 +135,15 @@ static TupleTableSlot *ExecProcNodeInstr(PlanState *node);
  *		Returns a PlanState node corresponding to the given Plan node.
  * ------------------------------------------------------------------------
  */
-PlanState *
-ExecInitNode(Plan *node, EState *estate, int eflags)
-{
+PlanState *ExecInitNode(Plan *node, EState *estate, int eflags) {
 	PlanState  *result;
 	List	   *subps;
 	ListCell   *l;
 
-	/*
-	 * do nothing when we get to the end of a leaf on tree.
-	 */
-	if (node == NULL)
-		return NULL;
+	// do nothing when we get to the end of a leaf on tree.
+	if (node == NULL) {
+        return NULL;
+    }
 
 	/*
 	 * Make sure there's enough stack available. Need to check here, in
@@ -155,12 +152,8 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 	 */
 	check_stack_depth();
 
-	switch (nodeTag(node))
-	{
-			/*
-			 * control nodes
-			 */
-		case T_Result:
+	switch (nodeTag(node)) {
+		case T_Result: // control nodes
 			result = (PlanState *) ExecInitResult((Result *) node,
 												  estate, eflags);
 			break;
@@ -204,8 +197,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 			 * scan nodes
 			 */
 		case T_SeqScan:
-			result = (PlanState *) ExecInitSeqScan((SeqScan *) node,
-												   estate, eflags);
+			result = (PlanState *) ExecInitSeqScan((SeqScan *) node, estate, eflags);
 			break;
 
 		case T_SampleScan:
@@ -372,13 +364,9 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 
 	ExecSetExecProcNode(result, result->ExecProcNode);
 
-	/*
-	 * Initialize any initPlans present in this node.  The planner put them in
-	 * a separate list for us.
-	 */
+	// initialize any initPlans present in this node.  The planner put them in a separate list for us.
 	subps = NIL;
-	foreach(l, node->initPlan)
-	{
+	foreach(l, node->initPlan) {
 		SubPlan    *subplan = (SubPlan *) lfirst(l);
 		SubPlanState *sstate;
 
@@ -389,8 +377,9 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 	result->initPlan = subps;
 
 	/* Set up instrumentation for this node if requested */
-	if (estate->es_instrument)
-		result->instrument = InstrAlloc(1, estate->es_instrument);
+	if (estate->es_instrument) {
+        result->instrument = InstrAlloc(1, estate->es_instrument);
+    }
 
 	return result;
 }
@@ -420,9 +409,7 @@ ExecSetExecProcNode(PlanState *node, ExecProcNodeMtd function)
  * ExecProcNode wrapper that performs some one-time checks, before calling
  * the relevant node method (possibly via an instrumentation wrapper).
  */
-static TupleTableSlot *
-ExecProcNodeFirst(PlanState *node)
-{
+static TupleTableSlot *ExecProcNodeFirst(PlanState *node){
 	/*
 	 * Perform stack depth check during the first execution of the node.  We
 	 * only do so the first time round because it turns out to not be cheap on

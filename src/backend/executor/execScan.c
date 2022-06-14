@@ -155,105 +155,78 @@ ExecScanFetch(ScanState *node,
  *			 "cursor" is positioned before the first qualifying tuple.
  * ----------------------------------------------------------------
  */
-TupleTableSlot *
-ExecScan(ScanState *node,
-		 ExecScanAccessMtd accessMtd,	/* function returning a tuple */
-		 ExecScanRecheckMtd recheckMtd)
-{
-	ExprContext *econtext;
-	ExprState  *qual;
-	ProjectionInfo *projInfo;
+TupleTableSlot *ExecScan(ScanState *scanState,
+                         ExecScanAccessMtd accessMethod,    /* function returning a tuple */
+                         ExecScanRecheckMtd recheckMethod) {
+    ExprContext *exprContext;
+    ExprState *exprState;
+    ProjectionInfo *projectionInfo;
 
-	/*
-	 * Fetch data from node
-	 */
-	qual = node->ps.qual;
-	projInfo = node->ps.ps_ProjInfo;
-	econtext = node->ps.ps_ExprContext;
+    // Fetch data from scanState
+    exprState = scanState->ps.qual;
+    projectionInfo = scanState->ps.ps_ProjInfo;
+    exprContext = scanState->ps.ps_ExprContext;
 
-	/* interrupt checks are in ExecScanFetch */
+    /* interrupt checks are in ExecScanFetch */
 
-	/*
-	 * If we have neither a qual to check nor a projection to do, just skip
-	 * all the overhead and return the raw scan tuple.
-	 */
-	if (!qual && !projInfo)
-	{
-		ResetExprContext(econtext);
-		return ExecScanFetch(node, accessMtd, recheckMtd);
-	}
+    /*
+     * If we have neither a exprState to check nor a projection to do, just skip
+     * all the overhead and return the raw scan tuple.
+     */
+    if (!exprState && !projectionInfo) {
+        ResetExprContext(exprContext);
+        return ExecScanFetch(scanState, accessMethod, recheckMethod);
+    }
 
-	/*
-	 * Reset per-tuple memory context to free any expression evaluation
-	 * storage allocated in the previous tuple cycle.
-	 */
-	ResetExprContext(econtext);
+    /*
+     * Reset per-tuple memory context to free any expression evaluation
+     * storage allocated in the previous tuple cycle.
+     */
+    ResetExprContext(exprContext);
 
-	/*
-	 * get a tuple from the access method.  Loop until we obtain a tuple that
-	 * passes the qualification.
-	 */
-	for (;;)
-	{
-		TupleTableSlot *slot;
+    // get a tuple from the access method.  Loop until we obtain a tuple that passes the qualification.
+    for (;;) {
+        TupleTableSlot *tupleTableSlot;
 
-		slot = ExecScanFetch(node, accessMtd, recheckMtd);
+        tupleTableSlot = ExecScanFetch(scanState, accessMethod, recheckMethod);
 
-		/*
-		 * if the slot returned by the accessMtd contains NULL, then it means
-		 * there is nothing more to scan so we just return an empty slot,
-		 * being careful to use the projection result slot so it has correct
-		 * tupleDesc.
-		 */
-		if (TupIsNull(slot))
-		{
-			if (projInfo)
-				return ExecClearTuple(projInfo->pi_state.resultslot);
-			else
-				return slot;
-		}
+        /*
+         * if the tupleTableSlot returned by the accessMethod contains NULL, then it means
+         * there is nothing more to scan so we just return an empty tupleTableSlot,
+         * being careful to use the projection result tupleTableSlot so it has correct tupleDesc.
+         */
+        if (TupIsNull(tupleTableSlot)) {
+            if (projectionInfo) {
+                return ExecClearTuple(projectionInfo->pi_state.resultslot);
+            }
 
-		/*
-		 * place the current tuple into the expr context
-		 */
-		econtext->ecxt_scantuple = slot;
+            return tupleTableSlot;
+        }
 
-		/*
-		 * check that the current tuple satisfies the qual-clause
-		 *
-		 * check for non-null qual here to avoid a function call to ExecQual()
-		 * when the qual is null ... saves only a few cycles, but they add up
-		 * ...
-		 */
-		if (qual == NULL || ExecQual(qual, econtext))
-		{
-			/*
-			 * Found a satisfactory scan tuple.
-			 */
-			if (projInfo)
-			{
-				/*
-				 * Form a projection tuple, store it in the result tuple slot
-				 * and return it.
-				 */
-				return ExecProject(projInfo);
-			}
-			else
-			{
-				/*
-				 * Here, we aren't projecting, so just return scan tuple.
-				 */
-				return slot;
-			}
-		}
-		else
-			InstrCountFiltered1(node, 1);
+        // place the current tuple into the expr context
+        exprContext->ecxt_scantuple = tupleTableSlot;
 
-		/*
-		 * Tuple fails qual, so free per-tuple memory and try again.
-		 */
-		ResetExprContext(econtext);
-	}
+        /*
+         * check that the current tuple satisfies the exprState-clause
+         *
+         * check for non-null exprState here to avoid a function call to ExecQual()
+         * when the exprState is null ... saves only a few cycles, but they add up
+         * ...
+         */
+        if (exprState == NULL || ExecQual(exprState, exprContext)) { // Found a satisfactory scan tuple.
+            if (projectionInfo) { // Form a projection tuple, store it in the result tuple tupleTableSlot and return it.
+                return ExecProject(projectionInfo);
+            }
+
+             // Here, we aren't projecting, so just return scan tuple.
+             return tupleTableSlot;
+        } else {
+            InstrCountFiltered1(scanState, 1);
+        }
+
+        // Tuple fails exprState, so free per-tuple memory and try again.
+        ResetExprContext(exprContext);
+    }
 }
 
 /*

@@ -439,10 +439,11 @@ FetchStatementTargetList(Node *stmt)
  * On return, portal is ready to accept PortalRun() calls, and the result
  * tupdesc (if any) is known.
  */
-void
-PortalStart(Portal portal, ParamListInfo params,
-			int eflags, Snapshot snapshot)
-{
+void PortalStart(Portal portal,
+                 ParamListInfo params,
+			     int eflags,
+                 Snapshot snapshot) {
+
 	Portal		saveActivePortal;
 	ResourceOwner saveResourceOwner;
 	MemoryContext savePortalContext;
@@ -479,8 +480,7 @@ PortalStart(Portal portal, ParamListInfo params,
 		/*
 		 * Fire her up according to the strategy
 		 */
-		switch (portal->strategy)
-		{
+		switch (portal->strategy) {
 			case PORTAL_ONE_SELECT:
 
 				/* Must set snapshot before starting executor. */
@@ -498,10 +498,7 @@ PortalStart(Portal portal, ParamListInfo params,
 				 * non-default nesting level for the snapshot.
 				 */
 
-				/*
-				 * Create QueryDesc in portal's context; for the moment, set
-				 * the destination to DestNone.
-				 */
+				// Create QueryDesc in portal's context; for the moment, set the destination to DestNone.
 				queryDesc = CreateQueryDesc(linitial_node(PlannedStmt, portal->stmts),
 											portal->sourceText,
 											GetActiveSnapshot(),
@@ -516,29 +513,22 @@ PortalStart(Portal portal, ParamListInfo params,
 				 * REWIND and backwards scan, as well as whatever the caller
 				 * might've asked for.
 				 */
-				if (portal->cursorOptions & CURSOR_OPT_SCROLL)
-					myeflags = eflags | EXEC_FLAG_REWIND | EXEC_FLAG_BACKWARD;
-				else
-					myeflags = eflags;
+                if (portal->cursorOptions & CURSOR_OPT_SCROLL) {
+                    myeflags = eflags | EXEC_FLAG_REWIND | EXEC_FLAG_BACKWARD;
+                } else {
+                    myeflags = eflags;
+                }
 
-				/*
-				 * Call ExecutorStart to prepare the plan for execution
-				 */
+				// Call ExecutorStart to prepare the plan for execution
 				ExecutorStart(queryDesc, myeflags);
 
-				/*
-				 * This tells PortalCleanup to shut down the executor
-				 */
+				// This tells PortalCleanup to shut down the executor
 				portal->queryDesc = queryDesc;
 
-				/*
-				 * Remember tuple descriptor (computed by ExecutorStart)
-				 */
+				// Remember tuple descriptor (computed by ExecutorStart)
 				portal->tupDesc = queryDesc->tupDesc;
 
-				/*
-				 * Reset cursor position data to "start of query"
-				 */
+				// Reset cursor position data to "start of query"
 				portal->atStart = true;
 				portal->atEnd = false;	/* allow fetches */
 				portal->portalPos = 0;
@@ -691,11 +681,13 @@ PortalSetResultFormat(Portal portal, int nFormats, int16 *formats)
  * Returns true if the portal's execution is complete, false if it was
  * suspended due to exhaustion of the count parameter.
  */
-bool
-PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
-		  DestReceiver *dest, DestReceiver *altdest,
-		  char *completionTag)
-{
+bool PortalRun(Portal portal,
+               long count,
+               bool isTopLevel,
+               bool run_once,
+               DestReceiver *dest,
+               DestReceiver *altdest,
+               char *completionTag) {
 	bool		result;
 	uint64		nprocessed;
 	ResourceOwner saveTopTransactionResourceOwner;
@@ -710,19 +702,17 @@ PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
 	TRACE_POSTGRESQL_QUERY_EXECUTE_START();
 
 	/* Initialize completion tag to empty string */
-	if (completionTag)
+	if (completionTag) {
 		completionTag[0] = '\0';
+    }
 
-	if (log_executor_stats && portal->strategy != PORTAL_MULTI_QUERY)
-	{
-		elog(DEBUG3, "PortalRun");
-		/* PORTAL_MULTI_QUERY logs its own stats per query */
-		ResetUsage();
-	}
+    if (log_executor_stats && portal->strategy != PORTAL_MULTI_QUERY) {
+        elog(DEBUG3, "PortalRun");
+        /* PORTAL_MULTI_QUERY logs its own stats per query */
+        ResetUsage();
+    }
 
-	/*
-	 * Check for improper portal use, and mark portal active.
-	 */
+	// check for improper portal use, and mark portal active.
 	MarkPortalActive(portal);
 
 	/* Set run_once flag.  Shouldn't be clear if previously set. */
@@ -749,6 +739,7 @@ PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
 	saveResourceOwner = CurrentResourceOwner;
 	savePortalContext = PortalContext;
 	saveMemoryContext = CurrentMemoryContext;
+
 	PG_TRY();
 	{
 		ActivePortal = portal;
@@ -758,8 +749,7 @@ PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
 
 		MemoryContextSwitchTo(PortalContext);
 
-		switch (portal->strategy)
-		{
+		switch (portal->strategy) {
 			case PORTAL_ONE_SELECT:
 			case PORTAL_ONE_RETURNING:
 			case PORTAL_ONE_MOD_WITH:
@@ -783,11 +773,9 @@ PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
 				 * gave us a pointer to store it, copy it. Patch the "SELECT"
 				 * tag to also provide the rowcount.
 				 */
-				if (completionTag && portal->commandTag)
-				{
+				if (completionTag && portal->commandTag) {
 					if (strcmp(portal->commandTag, "SELECT") == 0)
-						snprintf(completionTag, COMPLETION_TAG_BUFSIZE,
-								 "SELECT " UINT64_FORMAT, nprocessed);
+						snprintf(completionTag, COMPLETION_TAG_BUFSIZE, "SELECT " UINT64_FORMAT, nprocessed);
 					else
 						strcpy(completionTag, portal->commandTag);
 				}
@@ -840,19 +828,25 @@ PortalRun(Portal portal, long count, bool isTopLevel, bool run_once,
 	}
 	PG_END_TRY();
 
-	if (saveMemoryContext == saveTopTransactionContext)
-		MemoryContextSwitchTo(TopTransactionContext);
-	else
-		MemoryContextSwitchTo(saveMemoryContext);
+    if (saveMemoryContext == saveTopTransactionContext) {
+        MemoryContextSwitchTo(TopTransactionContext);
+    } else {
+        MemoryContextSwitchTo(saveMemoryContext);
+    }
+
 	ActivePortal = saveActivePortal;
-	if (saveResourceOwner == saveTopTransactionResourceOwner)
-		CurrentResourceOwner = TopTransactionResourceOwner;
-	else
-		CurrentResourceOwner = saveResourceOwner;
+
+    if (saveResourceOwner == saveTopTransactionResourceOwner) {
+        CurrentResourceOwner = TopTransactionResourceOwner;
+    } else {
+        CurrentResourceOwner = saveResourceOwner;
+    }
+
 	PortalContext = savePortalContext;
 
-	if (log_executor_stats && portal->strategy != PORTAL_MULTI_QUERY)
-		ShowUsage("EXECUTOR STATISTICS");
+	if (log_executor_stats && portal->strategy != PORTAL_MULTI_QUERY) {
+        ShowUsage("EXECUTOR STATISTICS");
+    }
 
 	TRACE_POSTGRESQL_QUERY_EXECUTE_DONE();
 
@@ -881,10 +875,9 @@ static uint64
 PortalRunSelect(Portal portal,
 				bool forward,
 				long count,
-				DestReceiver *dest)
-{
+				DestReceiver *dest) {
 	QueryDesc  *queryDesc;
-	ScanDirection direction;
+	ScanDirection scanDirection;
 	uint64		nprocessed;
 
 	/*
@@ -906,9 +899,9 @@ PortalRunSelect(Portal portal,
 		queryDesc->dest = dest;
 
 	/*
-	 * Determine which direction to go in, and check to see if we're already
-	 * at the end of the available tuples in that direction.  If so, set the
-	 * direction to NoMovement to avoid trying to fetch any tuples.  (This
+	 * Determine which scanDirection to go in, and check to see if we're already
+	 * at the end of the available tuples in that scanDirection.  If so, set the
+	 * scanDirection to NoMovement to avoid trying to fetch any tuples.  (This
 	 * check exists because not all plan node types are robust about being
 	 * called again if they've already returned NULL once.)  Then call the
 	 * executor (we must not skip this, because the destination needs to see a
@@ -916,88 +909,79 @@ PortalRunSelect(Portal portal,
 	 * the portal position state depending on the number of tuples that were
 	 * retrieved.
 	 */
-	if (forward)
-	{
-		if (portal->atEnd || count <= 0)
-		{
-			direction = NoMovementScanDirection;
-			count = 0;			/* don't pass negative count to executor */
-		}
-		else
-			direction = ForwardScanDirection;
+    if (forward) {
+        if (portal->atEnd || count <= 0) {
+            scanDirection = NoMovementScanDirection;
+            count = 0;            /* don't pass negative count to executor */
+        } else {
+            scanDirection = ForwardScanDirection;
+        }
 
-		/* In the executor, zero count processes all rows */
-		if (count == FETCH_ALL)
-			count = 0;
+        /* In the executor, zero count processes all rows */
+        if (count == FETCH_ALL) {
+            count = 0;
+        }
 
-		if (portal->holdStore)
-			nprocessed = RunFromStore(portal, direction, (uint64) count, dest);
-		else
-		{
-			PushActiveSnapshot(queryDesc->snapshot);
-			ExecutorRun(queryDesc, direction, (uint64) count,
-						portal->run_once);
-			nprocessed = queryDesc->estate->es_processed;
-			PopActiveSnapshot();
-		}
+        if (portal->holdStore)
+            nprocessed = RunFromStore(portal, scanDirection, (uint64) count, dest);
+        else {
+            PushActiveSnapshot(queryDesc->snapshot);
+            ExecutorRun(queryDesc, scanDirection, (uint64) count, portal->run_once);
+            nprocessed = queryDesc->estate->es_processed;
+            PopActiveSnapshot();
+        }
 
-		if (!ScanDirectionIsNoMovement(direction))
-		{
-			if (nprocessed > 0)
-				portal->atStart = false;	/* OK to go backward now */
-			if (count == 0 || nprocessed < (uint64) count)
-				portal->atEnd = true;	/* we retrieved 'em all */
-			portal->portalPos += nprocessed;
-		}
-	}
-	else
-	{
-		if (portal->cursorOptions & CURSOR_OPT_NO_SCROLL)
-			ereport(ERROR,
-					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-					 errmsg("cursor can only scan forward"),
-					 errhint("Declare it with SCROLL option to enable backward scan.")));
+        if (!ScanDirectionIsNoMovement(scanDirection)) {
+            if (nprocessed > 0)
+                portal->atStart = false;    /* OK to go backward now */
 
-		if (portal->atStart || count <= 0)
-		{
-			direction = NoMovementScanDirection;
-			count = 0;			/* don't pass negative count to executor */
-		}
-		else
-			direction = BackwardScanDirection;
+            if (count == 0 || nprocessed < (uint64) count)
+                portal->atEnd = true;    /* we retrieved 'em all */
 
-		/* In the executor, zero count processes all rows */
-		if (count == FETCH_ALL)
-			count = 0;
+            portal->portalPos += nprocessed;
+        }
+    } else {
+		if (portal->cursorOptions & CURSOR_OPT_NO_SCROLL) {
+            ereport(ERROR,
+                    (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+                            errmsg("cursor can only scan forward"),
+                            errhint("Declare it with SCROLL option to enable backward scan.")));
+        }
 
-		if (portal->holdStore)
-			nprocessed = RunFromStore(portal, direction, (uint64) count, dest);
-		else
-		{
-			PushActiveSnapshot(queryDesc->snapshot);
-			ExecutorRun(queryDesc, direction, (uint64) count,
-						portal->run_once);
-			nprocessed = queryDesc->estate->es_processed;
-			PopActiveSnapshot();
-		}
+        if (portal->atStart || count <= 0) {
+            scanDirection = NoMovementScanDirection;
+            count = 0;            /* don't pass negative count to executor */
+        } else {
+            scanDirection = BackwardScanDirection;
+        }
 
-		if (!ScanDirectionIsNoMovement(direction))
-		{
-			if (nprocessed > 0 && portal->atEnd)
-			{
-				portal->atEnd = false;	/* OK to go forward now */
-				portal->portalPos++;	/* adjust for endpoint case */
-			}
-			if (count == 0 || nprocessed < (uint64) count)
-			{
-				portal->atStart = true; /* we retrieved 'em all */
-				portal->portalPos = 0;
-			}
-			else
-			{
-				portal->portalPos -= nprocessed;
-			}
-		}
+        /* In the executor, zero count processes all rows */
+        if (count == FETCH_ALL) {
+            count = 0;
+        }
+
+        if (portal->holdStore) {
+            nprocessed = RunFromStore(portal, scanDirection, (uint64) count, dest);
+        } else {
+            PushActiveSnapshot(queryDesc->snapshot);
+            ExecutorRun(queryDesc, scanDirection, (uint64) count, portal->run_once);
+            nprocessed = queryDesc->estate->es_processed;
+            PopActiveSnapshot();
+        }
+
+        if (!ScanDirectionIsNoMovement(scanDirection)) {
+            if (nprocessed > 0 && portal->atEnd) {
+                portal->atEnd = false;    /* OK to go forward now */
+                portal->portalPos++;    /* adjust for endpoint case */
+            }
+
+            if (count == 0 || nprocessed < (uint64) count) {
+                portal->atStart = true; /* we retrieved 'em all */
+                portal->portalPos = 0;
+            } else {
+                portal->portalPos -= nprocessed;
+            }
+        }
 	}
 
 	return nprocessed;

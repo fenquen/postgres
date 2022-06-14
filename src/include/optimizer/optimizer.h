@@ -104,8 +104,8 @@ typedef enum
 extern int	force_parallel_mode;
 extern bool parallel_leader_participation;
 
-extern struct PlannedStmt *planner(Query *parse, int cursorOptions,
-								   struct ParamListInfoData *boundParams);
+extern struct PlannedStmt *planner(Query *query, int cursorOptions,
+                                   struct ParamListInfoData *boundParams);
 
 extern Expr *expression_planner(Expr *expr);
 extern Expr *expression_planner_with_deps(Expr *expr,

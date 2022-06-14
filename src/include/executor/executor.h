@@ -172,7 +172,7 @@ extern TupleTableSlot *ExecFilterJunk(JunkFilter *junkfilter,
 extern void ExecutorStart(QueryDesc *queryDesc, int eflags);
 extern void standard_ExecutorStart(QueryDesc *queryDesc, int eflags);
 extern void ExecutorRun(QueryDesc *queryDesc,
-						ScanDirection direction, uint64 count, bool execute_once);
+						ScanDirection direction, uint64 count, bool executeOnce);
 extern void standard_ExecutorRun(QueryDesc *queryDesc,
 								 ScanDirection direction, uint64 count, bool execute_once);
 extern void ExecutorFinish(QueryDesc *queryDesc);
@@ -233,13 +233,13 @@ extern void ExecSetTupleBound(int64 tuples_needed, PlanState *child_node);
  * ----------------------------------------------------------------
  */
 #ifndef FRONTEND
-static inline TupleTableSlot *
-ExecProcNode(PlanState *node)
-{
-	if (node->chgParam != NULL) /* something changed? */
-		ExecReScan(node);		/* let ReScan handle this */
+static inline TupleTableSlot *ExecProcNode(PlanState *planState) {
+    // something changed let ReScan handle this
+	if (planState->chgParam != NULL) {
+		ExecReScan(planState);
+    }
 
-	return node->ExecProcNode(node);
+	return planState->ExecProcNode(planState);
 }
 #endif
 
@@ -433,8 +433,8 @@ extern Datum ExecMakeFunctionResultSet(SetExprState *fcache,
 typedef TupleTableSlot *(*ExecScanAccessMtd) (ScanState *node);
 typedef bool (*ExecScanRecheckMtd) (ScanState *node, TupleTableSlot *slot);
 
-extern TupleTableSlot *ExecScan(ScanState *node, ExecScanAccessMtd accessMtd,
-								ExecScanRecheckMtd recheckMtd);
+extern TupleTableSlot *ExecScan(ScanState *scanState, ExecScanAccessMtd accessMethod,
+                                ExecScanRecheckMtd recheckMethod);
 extern void ExecAssignScanProjectionInfo(ScanState *node);
 extern void ExecAssignScanProjectionInfoWithVarno(ScanState *node, Index varno);
 extern void ExecScanReScan(ScanState *node);

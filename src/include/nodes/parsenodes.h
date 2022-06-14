@@ -134,10 +134,10 @@ typedef struct Query
 
 	List	   *cteList;		/* WITH list (of CommonTableExpr's) */
 
-	List	   *rtable;			/* list of range table entries */
+	List	   *rtable;			/* list of range table entries(种类 RangeTblEntry),select * from user1 中的 user1 */
 	FromExpr   *jointree;		/* table join tree (FROM and WHERE clauses) */
 
-	List	   *targetList;		/* target list (of TargetEntry) */
+	List	   *targetList;		/* target list (种类 TargetEntry),select * from user1 对应的4个column */
 
 	OverridingKind override;	/* OVERRIDING clause */
 

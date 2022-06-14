@@ -35,7 +35,7 @@ typedef struct QueryDesc
 	/* These fields are provided by CreateQueryDesc */
 	CmdType		operation;		/* CMD_SELECT, CMD_UPDATE, etc. */
 	PlannedStmt *plannedstmt;	/* planner's output (could be utility, too) */
-	const char *sourceText;		/* source text of the query */
+	const char *sourceText;		/* 原始的sql,source text of the query */
 	Snapshot	snapshot;		/* snapshot to use for query */
 	Snapshot	crosscheck_snapshot;	/* crosscheck for RI update/delete */
 	DestReceiver *dest;			/* the destination for tuple output */

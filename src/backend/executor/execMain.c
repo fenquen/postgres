@@ -80,14 +80,14 @@ static void InitPlan(QueryDesc *queryDesc, int eflags);
 static void CheckValidRowMarkRel(Relation rel, RowMarkType markType);
 static void ExecPostprocessPlan(EState *estate);
 static void ExecEndPlan(PlanState *planstate, EState *estate);
-static void ExecutePlan(EState *estate, PlanState *planstate,
-						bool use_parallel_mode,
+static void ExecutePlan(EState *estate, PlanState *planState,
+						bool useParallelMode,
 						CmdType operation,
 						bool sendTuples,
 						uint64 numberTuples,
 						ScanDirection direction,
-						DestReceiver *dest,
-						bool execute_once);
+						DestReceiver *destReceiver,
+						bool executeOnce);
 static bool ExecCheckRTEPerms(RangeTblEntry *rte);
 static bool ExecCheckRTEPermsModified(Oid relOid, Oid userid,
 									  Bitmapset *modifiedCols,
@@ -125,18 +125,15 @@ static void EvalPlanQualStart(EPQState *epqstate, Plan *planTree);
  *
  * ----------------------------------------------------------------
  */
-void
-ExecutorStart(QueryDesc *queryDesc, int eflags)
-{
-	if (ExecutorStart_hook)
-		(*ExecutorStart_hook) (queryDesc, eflags);
-	else
-		standard_ExecutorStart(queryDesc, eflags);
+void ExecutorStart(QueryDesc *queryDesc, int eflags) {
+    if (ExecutorStart_hook) {
+        (*ExecutorStart_hook)(queryDesc, eflags);
+    } else {
+        standard_ExecutorStart(queryDesc, eflags);
+    }
 }
 
-void
-standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
-{
+void standard_ExecutorStart(QueryDesc *queryDesc, int eflags) {
 	EState	   *estate;
 	MemoryContext oldcontext;
 
@@ -163,50 +160,35 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 		!(eflags & EXEC_FLAG_EXPLAIN_ONLY))
 		ExecCheckXactReadOnly(queryDesc->plannedstmt);
 
-	/*
-	 * Build EState, switch into per-query memory context for startup.
-	 */
-	estate = CreateExecutorState();
+	// Build EState, switch into per-query memory context for startup.
+	estate = CreateExecutorState(); // 内部创建ExecutorState 的 memoryContext
 	queryDesc->estate = estate;
 
-	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
+	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt); // 切换到上边的ExecutorState
 
-	/*
-	 * Fill in external parameters, if any, from queryDesc; and allocate
-	 * workspace for internal parameters
-	 */
+	// Fill in external parameters, if any, from queryDesc; and allocate workspace for internal parameters
 	estate->es_param_list_info = queryDesc->params;
 
-	if (queryDesc->plannedstmt->paramExecTypes != NIL)
-	{
-		int			nParamExec;
+	if (queryDesc->plannedstmt->paramExecTypes != NIL) {
+		int	nParamExec;
 
 		nParamExec = list_length(queryDesc->plannedstmt->paramExecTypes);
-		estate->es_param_exec_vals = (ParamExecData *)
-			palloc0(nParamExec * sizeof(ParamExecData));
+		estate->es_param_exec_vals = (ParamExecData *) palloc0(nParamExec * sizeof(ParamExecData));
 	}
 
 	estate->es_sourceText = queryDesc->sourceText;
 
-	/*
-	 * Fill in the query environment, if any, from queryDesc.
-	 */
+	// Fill in the query environment, if any, from queryDesc.
 	estate->es_queryEnv = queryDesc->queryEnv;
 
-	/*
-	 * If non-read-only query, set the command ID to mark output tuples with
-	 */
-	switch (queryDesc->operation)
-	{
+	// If non-read-only query, set the command ID to mark output tuples with
+	switch (queryDesc->operation) {
 		case CMD_SELECT:
 
-			/*
-			 * SELECT FOR [KEY] UPDATE/SHARE and modifying CTEs need to mark
-			 * tuples
-			 */
-			if (queryDesc->plannedstmt->rowMarks != NIL ||
-				queryDesc->plannedstmt->hasModifyingCTE)
-				estate->es_output_cid = GetCurrentCommandId(true);
+			// SELECT FOR [KEY] UPDATE/SHARE and modifying CTEs need to mark tuples
+			if (queryDesc->plannedstmt->rowMarks != NIL || queryDesc->plannedstmt->hasModifyingCTE) {
+                estate->es_output_cid = GetCurrentCommandId(true);
+            }
 
 			/*
 			 * A SELECT without modifying CTEs can't possibly queue triggers,
@@ -225,14 +207,11 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 			break;
 
 		default:
-			elog(ERROR, "unrecognized operation code: %d",
-				 (int) queryDesc->operation);
+			elog(ERROR, "unrecognized operation code: %d", (int) queryDesc->operation);
 			break;
 	}
 
-	/*
-	 * Copy other important information into the EState
-	 */
+	// Copy other important information into the EState
 	estate->es_snapshot = RegisterSnapshot(queryDesc->snapshot);
 	estate->es_crosscheck_snapshot = RegisterSnapshot(queryDesc->crosscheck_snapshot);
 	estate->es_top_eflags = eflags;
@@ -243,12 +222,11 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	 * Set up an AFTER-trigger statement context, unless told not to, or
 	 * unless it's EXPLAIN-only mode (when ExecutorFinish won't be called).
 	 */
-	if (!(eflags & (EXEC_FLAG_SKIP_TRIGGERS | EXEC_FLAG_EXPLAIN_ONLY)))
-		AfterTriggerBeginQuery();
+	if (!(eflags & (EXEC_FLAG_SKIP_TRIGGERS | EXEC_FLAG_EXPLAIN_ONLY))) {
+        AfterTriggerBeginQuery();
+    }
 
-	/*
-	 * Initialize the plan state tree
-	 */
+	// Initialize the plan state tree
 	InitPlan(queryDesc, eflags);
 
 	MemoryContextSwitchTo(oldcontext);
@@ -283,91 +261,90 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
  *
  * ----------------------------------------------------------------
  */
-void
-ExecutorRun(QueryDesc *queryDesc,
-			ScanDirection direction, uint64 count,
-			bool execute_once)
-{
-	if (ExecutorRun_hook)
-		(*ExecutorRun_hook) (queryDesc, direction, count, execute_once);
-	else
-		standard_ExecutorRun(queryDesc, direction, count, execute_once);
+void ExecutorRun(QueryDesc *queryDesc,
+                 ScanDirection direction,
+                 uint64 count,
+                 bool executeOnce) {
+    if (ExecutorRun_hook) {
+        (*ExecutorRun_hook)(queryDesc, direction, count, executeOnce);
+    } else {
+        standard_ExecutorRun(queryDesc, direction, count, executeOnce);
+    }
 }
 
-void
-standard_ExecutorRun(QueryDesc *queryDesc,
-					 ScanDirection direction, uint64 count, bool execute_once)
-{
-	EState	   *estate;
-	CmdType		operation;
-	DestReceiver *dest;
-	bool		sendTuples;
-	MemoryContext oldcontext;
+void standard_ExecutorRun(QueryDesc *queryDesc,
+                          ScanDirection direction,
+                          uint64 count,
+                          bool execute_once) {
+    EState *estate;
+    CmdType operation;
+    DestReceiver *dest;
+    bool sendTuples;
+    MemoryContext oldcontext;
 
-	/* sanity checks */
-	Assert(queryDesc != NULL);
+    /* sanity checks */
+    Assert(queryDesc != NULL);
 
-	estate = queryDesc->estate;
+    estate = queryDesc->estate;
 
-	Assert(estate != NULL);
-	Assert(!(estate->es_top_eflags & EXEC_FLAG_EXPLAIN_ONLY));
+    Assert(estate != NULL);
+    Assert(!(estate->es_top_eflags & EXEC_FLAG_EXPLAIN_ONLY));
 
-	/*
-	 * Switch into per-query memory context
-	 */
-	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
+    /*
+     * Switch into per-query memory context
+     */
+    oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
-	/* Allow instrumentation of Executor overall runtime */
-	if (queryDesc->totaltime)
-		InstrStartNode(queryDesc->totaltime);
+    /* Allow instrumentation of Executor overall runtime */
+    if (queryDesc->totaltime)
+        InstrStartNode(queryDesc->totaltime);
 
-	/*
-	 * extract information from the query descriptor and the query feature.
-	 */
-	operation = queryDesc->operation;
-	dest = queryDesc->dest;
+    /*
+     * extract information from the query descriptor and the query feature.
+     */
+    operation = queryDesc->operation;
+    dest = queryDesc->dest;
 
-	/*
-	 * startup tuple receiver, if we will be emitting tuples
-	 */
-	estate->es_processed = 0;
+    /*
+     * startup tuple receiver, if we will be emitting tuples
+     */
+    estate->es_processed = 0;
 
-	sendTuples = (operation == CMD_SELECT ||
-				  queryDesc->plannedstmt->hasReturning);
+    sendTuples = (operation == CMD_SELECT || queryDesc->plannedstmt->hasReturning);
 
-	if (sendTuples)
-		dest->rStartup(dest, operation, queryDesc->tupDesc);
+    if (sendTuples)
+        dest->rStartup(dest, operation, queryDesc->tupDesc);
 
-	/*
-	 * run plan
-	 */
-	if (!ScanDirectionIsNoMovement(direction))
-	{
-		if (execute_once && queryDesc->already_executed)
-			elog(ERROR, "can't re-execute query flagged for single execution");
-		queryDesc->already_executed = true;
+    /*
+     * run plan
+     */
+    if (!ScanDirectionIsNoMovement(direction)) {
+        if (execute_once && queryDesc->already_executed)
+            elog(ERROR, "can't re-execute query flagged for single execution");
 
-		ExecutePlan(estate,
-					queryDesc->planstate,
-					queryDesc->plannedstmt->parallelModeNeeded,
-					operation,
-					sendTuples,
-					count,
-					direction,
-					dest,
-					execute_once);
-	}
+        queryDesc->already_executed = true;
 
-	/*
-	 * shutdown tuple receiver, if we started it
-	 */
-	if (sendTuples)
-		dest->rShutdown(dest);
+        ExecutePlan(estate,
+                    queryDesc->planstate,
+                    queryDesc->plannedstmt->parallelModeNeeded,
+                    operation,
+                    sendTuples,
+                    count,
+                    direction,
+                    dest,
+                    execute_once);
+    }
 
-	if (queryDesc->totaltime)
-		InstrStopNode(queryDesc->totaltime, estate->es_processed);
+    /*
+     * shutdown tuple receiver, if we started it
+     */
+    if (sendTuples)
+        dest->rShutdown(dest);
 
-	MemoryContextSwitchTo(oldcontext);
+    if (queryDesc->totaltime)
+        InstrStopNode(queryDesc->totaltime, estate->es_processed);
+
+    MemoryContextSwitchTo(oldcontext);
 }
 
 /* ----------------------------------------------------------------
@@ -788,265 +765,236 @@ ExecCheckXactReadOnly(PlannedStmt *plannedstmt)
  *		and start up the rule manager
  * ----------------------------------------------------------------
  */
-static void
-InitPlan(QueryDesc *queryDesc, int eflags)
-{
-	CmdType		operation = queryDesc->operation;
-	PlannedStmt *plannedstmt = queryDesc->plannedstmt;
-	Plan	   *plan = plannedstmt->planTree;
-	List	   *rangeTable = plannedstmt->rtable;
-	EState	   *estate = queryDesc->estate;
-	PlanState  *planstate;
-	TupleDesc	tupType;
-	ListCell   *l;
-	int			i;
+static void InitPlan(QueryDesc *queryDesc, int eflags) {
+    CmdType operation = queryDesc->operation;
+    PlannedStmt *plannedstmt = queryDesc->plannedstmt;
+    Plan *plan = plannedstmt->planTree;
+    List *rangeTable = plannedstmt->rtable;
+    EState *estate = queryDesc->estate;
+    PlanState *planstate;
+    TupleDesc tupleDesc;
+    ListCell *l;
+    int i;
 
-	/*
-	 * Do permissions checks
-	 */
-	ExecCheckRTPerms(rangeTable, true);
+    // permissions check
+    ExecCheckRTPerms(rangeTable, true);
 
-	/*
-	 * initialize the node's execution state
-	 */
-	ExecInitRangeTable(estate, rangeTable);
+    // initialize the node's execution state
+    ExecInitRangeTable(estate, rangeTable);
 
-	estate->es_plannedstmt = plannedstmt;
+    estate->es_plannedstmt = plannedstmt;
 
-	/*
-	 * Initialize ResultRelInfo data structures, and open the result rels.
-	 */
-	if (plannedstmt->resultRelations)
-	{
-		List	   *resultRelations = plannedstmt->resultRelations;
-		int			numResultRelations = list_length(resultRelations);
-		ResultRelInfo *resultRelInfos;
-		ResultRelInfo *resultRelInfo;
+    /*
+     * Initialize ResultRelInfo data structures, and open the result rels.
+     */
+    if (plannedstmt->resultRelations) {
+        List *resultRelations = plannedstmt->resultRelations;
+        int numResultRelations = list_length(resultRelations);
+        ResultRelInfo *resultRelInfos;
+        ResultRelInfo *resultRelInfo;
 
-		resultRelInfos = (ResultRelInfo *)
-			palloc(numResultRelations * sizeof(ResultRelInfo));
-		resultRelInfo = resultRelInfos;
-		foreach(l, resultRelations)
-		{
-			Index		resultRelationIndex = lfirst_int(l);
-			Relation	resultRelation;
+        resultRelInfos = (ResultRelInfo *) palloc(numResultRelations * sizeof(ResultRelInfo));
+        resultRelInfo = resultRelInfos;
 
-			resultRelation = ExecGetRangeTableRelation(estate,
-													   resultRelationIndex);
-			InitResultRelInfo(resultRelInfo,
-							  resultRelation,
-							  resultRelationIndex,
-							  NULL,
-							  estate->es_instrument);
-			resultRelInfo++;
-		}
-		estate->es_result_relations = resultRelInfos;
-		estate->es_num_result_relations = numResultRelations;
+        foreach(l, resultRelations) {
+            Index resultRelationIndex = lfirst_int(l);
+            Relation resultRelation;
 
-		/* es_result_relation_info is NULL except when within ModifyTable */
-		estate->es_result_relation_info = NULL;
+            resultRelation = ExecGetRangeTableRelation(estate,
+                                                       resultRelationIndex);
+            InitResultRelInfo(resultRelInfo,
+                              resultRelation,
+                              resultRelationIndex,
+                              NULL,
+                              estate->es_instrument);
+            resultRelInfo++;
+        }
+        estate->es_result_relations = resultRelInfos;
+        estate->es_num_result_relations = numResultRelations;
 
-		/*
-		 * In the partitioned result relation case, also build ResultRelInfos
-		 * for all the partitioned table roots, because we will need them to
-		 * fire statement-level triggers, if any.
-		 */
-		if (plannedstmt->rootResultRelations)
-		{
-			int			num_roots = list_length(plannedstmt->rootResultRelations);
+        // es_result_relation_info is NULL except when within ModifyTable
+        estate->es_result_relation_info = NULL;
 
-			resultRelInfos = (ResultRelInfo *)
-				palloc(num_roots * sizeof(ResultRelInfo));
-			resultRelInfo = resultRelInfos;
-			foreach(l, plannedstmt->rootResultRelations)
-			{
-				Index		resultRelIndex = lfirst_int(l);
-				Relation	resultRelDesc;
+        /*
+         * In the partitioned result relation case, also build ResultRelInfos
+         * for all the partitioned table roots, because we will need them to
+         * fire statement-level triggers, if any.
+         */
+        if (plannedstmt->rootResultRelations) {
+            int num_roots = list_length(plannedstmt->rootResultRelations);
 
-				resultRelDesc = ExecGetRangeTableRelation(estate,
-														  resultRelIndex);
-				InitResultRelInfo(resultRelInfo,
-								  resultRelDesc,
-								  resultRelIndex,
-								  NULL,
-								  estate->es_instrument);
-				resultRelInfo++;
-			}
+            resultRelInfos = (ResultRelInfo *) palloc(num_roots * sizeof(ResultRelInfo));
+            resultRelInfo = resultRelInfos;
 
-			estate->es_root_result_relations = resultRelInfos;
-			estate->es_num_root_result_relations = num_roots;
-		}
-		else
-		{
-			estate->es_root_result_relations = NULL;
-			estate->es_num_root_result_relations = 0;
-		}
-	}
-	else
-	{
-		/*
-		 * if no result relation, then set state appropriately
-		 */
-		estate->es_result_relations = NULL;
-		estate->es_num_result_relations = 0;
-		estate->es_result_relation_info = NULL;
-		estate->es_root_result_relations = NULL;
-		estate->es_num_root_result_relations = 0;
-	}
+            foreach(l, plannedstmt->rootResultRelations) {
+                Index resultRelIndex = lfirst_int(l);
+                Relation resultRelDesc;
 
-	/*
-	 * Next, build the ExecRowMark array from the PlanRowMark(s), if any.
-	 */
-	if (plannedstmt->rowMarks)
-	{
-		estate->es_rowmarks = (ExecRowMark **)
-			palloc0(estate->es_range_table_size * sizeof(ExecRowMark *));
-		foreach(l, plannedstmt->rowMarks)
-		{
-			PlanRowMark *rc = (PlanRowMark *) lfirst(l);
-			Oid			relid;
-			Relation	relation;
-			ExecRowMark *erm;
+                resultRelDesc = ExecGetRangeTableRelation(estate,
+                                                          resultRelIndex);
+                InitResultRelInfo(resultRelInfo,
+                                  resultRelDesc,
+                                  resultRelIndex,
+                                  NULL,
+                                  estate->es_instrument);
 
-			/* ignore "parent" rowmarks; they are irrelevant at runtime */
-			if (rc->isParent)
-				continue;
+                resultRelInfo++;
+            }
 
-			/* get relation's OID (will produce InvalidOid if subquery) */
-			relid = exec_rt_fetch(rc->rti, estate)->relid;
+            estate->es_root_result_relations = resultRelInfos;
+            estate->es_num_root_result_relations = num_roots;
+        } else {
+            estate->es_root_result_relations = NULL;
+            estate->es_num_root_result_relations = 0;
+        }
+    } else { // if no result relation, then set state appropriately
+        estate->es_result_relations = NULL;
+        estate->es_num_result_relations = 0;
+        estate->es_result_relation_info = NULL;
+        estate->es_root_result_relations = NULL;
+        estate->es_num_root_result_relations = 0;
+    }
 
-			/* open relation, if we need to access it for this mark type */
-			switch (rc->markType)
-			{
-				case ROW_MARK_EXCLUSIVE:
-				case ROW_MARK_NOKEYEXCLUSIVE:
-				case ROW_MARK_SHARE:
-				case ROW_MARK_KEYSHARE:
-				case ROW_MARK_REFERENCE:
-					relation = ExecGetRangeTableRelation(estate, rc->rti);
-					break;
-				case ROW_MARK_COPY:
-					/* no physical table access is required */
-					relation = NULL;
-					break;
-				default:
-					elog(ERROR, "unrecognized markType: %d", rc->markType);
-					relation = NULL;	/* keep compiler quiet */
-					break;
-			}
+    // build the ExecRowMark array from the PlanRowMark(s), if any.
+    if (plannedstmt->rowMarks) {
+        estate->es_rowmarks = (ExecRowMark **) palloc0(estate->es_range_table_size * sizeof(ExecRowMark *));
 
-			/* Check that relation is a legal target for marking */
-			if (relation)
-				CheckValidRowMarkRel(relation, rc->markType);
+        foreach(l, plannedstmt->rowMarks) {
+            PlanRowMark *rc = (PlanRowMark *) lfirst(l);
+            Oid relid;
+            Relation relation;
+            ExecRowMark *erm;
 
-			erm = (ExecRowMark *) palloc(sizeof(ExecRowMark));
-			erm->relation = relation;
-			erm->relid = relid;
-			erm->rti = rc->rti;
-			erm->prti = rc->prti;
-			erm->rowmarkId = rc->rowmarkId;
-			erm->markType = rc->markType;
-			erm->strength = rc->strength;
-			erm->waitPolicy = rc->waitPolicy;
-			erm->ermActive = false;
-			ItemPointerSetInvalid(&(erm->curCtid));
-			erm->ermExtra = NULL;
+            /* ignore "parent" rowmarks; they are irrelevant at runtime */
+            if (rc->isParent)
+                continue;
 
-			Assert(erm->rti > 0 && erm->rti <= estate->es_range_table_size &&
-				   estate->es_rowmarks[erm->rti - 1] == NULL);
+            /* get relation's OID (will produce InvalidOid if subquery) */
+            relid = exec_rt_fetch(rc->rti, estate)->relid;
 
-			estate->es_rowmarks[erm->rti - 1] = erm;
-		}
-	}
+            /* open relation, if we need to access it for this mark type */
+            switch (rc->markType) {
+                case ROW_MARK_EXCLUSIVE:
+                case ROW_MARK_NOKEYEXCLUSIVE:
+                case ROW_MARK_SHARE:
+                case ROW_MARK_KEYSHARE:
+                case ROW_MARK_REFERENCE:
+                    relation = ExecGetRangeTableRelation(estate, rc->rti);
+                    break;
+                case ROW_MARK_COPY:
+                    /* no physical table access is required */
+                    relation = NULL;
+                    break;
+                default:
+                    elog(ERROR, "unrecognized markType: %d", rc->markType);
+                    relation = NULL;    /* keep compiler quiet */
+                    break;
+            }
 
-	/*
-	 * Initialize the executor's tuple table to empty.
-	 */
-	estate->es_tupleTable = NIL;
+            /* Check that relation is a legal target for marking */
+            if (relation)
+                CheckValidRowMarkRel(relation, rc->markType);
 
-	/* signal that this EState is not used for EPQ */
-	estate->es_epq_active = NULL;
+            erm = (ExecRowMark *) palloc(sizeof(ExecRowMark));
+            erm->relation = relation;
+            erm->relid = relid;
+            erm->rti = rc->rti;
+            erm->prti = rc->prti;
+            erm->rowmarkId = rc->rowmarkId;
+            erm->markType = rc->markType;
+            erm->strength = rc->strength;
+            erm->waitPolicy = rc->waitPolicy;
+            erm->ermActive = false;
+            ItemPointerSetInvalid(&(erm->curCtid));
+            erm->ermExtra = NULL;
 
-	/*
-	 * Initialize private state information for each SubPlan.  We must do this
-	 * before running ExecInitNode on the main query tree, since
-	 * ExecInitSubPlan expects to be able to find these entries.
-	 */
-	Assert(estate->es_subplanstates == NIL);
-	i = 1;						/* subplan indices count from 1 */
-	foreach(l, plannedstmt->subplans)
-	{
-		Plan	   *subplan = (Plan *) lfirst(l);
-		PlanState  *subplanstate;
-		int			sp_eflags;
+            Assert(erm->rti > 0 && erm->rti <= estate->es_range_table_size &&
+                   estate->es_rowmarks[erm->rti - 1] == NULL);
 
-		/*
-		 * A subplan will never need to do BACKWARD scan nor MARK/RESTORE. If
-		 * it is a parameterless subplan (not initplan), we suggest that it be
-		 * prepared to handle REWIND efficiently; otherwise there is no need.
-		 */
-		sp_eflags = eflags
-			& (EXEC_FLAG_EXPLAIN_ONLY | EXEC_FLAG_WITH_NO_DATA);
-		if (bms_is_member(i, plannedstmt->rewindPlanIDs))
-			sp_eflags |= EXEC_FLAG_REWIND;
+            estate->es_rowmarks[erm->rti - 1] = erm;
+        }
+    }
 
-		subplanstate = ExecInitNode(subplan, estate, sp_eflags);
+    // Initialize the executor's tuple table to empty.
+    estate->es_tupleTable = NIL;
 
-		estate->es_subplanstates = lappend(estate->es_subplanstates,
-										   subplanstate);
+    /* signal that this EState is not used for EPQ */
+    estate->es_epq_active = NULL;
 
-		i++;
-	}
+    /*
+     * Initialize private state information for each SubPlan.  We must do this
+     * before running ExecInitNode on the main query tree, since
+     * ExecInitSubPlan expects to be able to find these entries.
+     */
+    Assert(estate->es_subplanstates == NIL);
 
-	/*
-	 * Initialize the private state information for all the nodes in the query
-	 * tree.  This opens files, allocates storage and leaves us ready to start
-	 * processing tuples.
-	 */
-	planstate = ExecInitNode(plan, estate, eflags);
+    i = 1;                        /* subplan indices count from 1 */
 
-	/*
-	 * Get the tuple descriptor describing the type of tuples to return.
-	 */
-	tupType = ExecGetResultType(planstate);
+    foreach(l, plannedstmt->subplans) {
+        Plan *subplan = (Plan *) lfirst(l);
+        PlanState *subplanstate;
+        int sp_eflags;
 
-	/*
-	 * Initialize the junk filter if needed.  SELECT queries need a filter if
-	 * there are any junk attrs in the top-level tlist.
-	 */
-	if (operation == CMD_SELECT)
-	{
-		bool		junk_filter_needed = false;
-		ListCell   *tlist;
+        /*
+         * A subplan will never need to do BACKWARD scan nor MARK/RESTORE. If
+         * it is a parameterless subplan (not initplan), we suggest that it be
+         * prepared to handle REWIND efficiently; otherwise there is no need.
+         */
+        sp_eflags = eflags & (EXEC_FLAG_EXPLAIN_ONLY | EXEC_FLAG_WITH_NO_DATA);
 
-		foreach(tlist, plan->targetlist)
-		{
-			TargetEntry *tle = (TargetEntry *) lfirst(tlist);
+        if (bms_is_member(i, plannedstmt->rewindPlanIDs)) {
+            sp_eflags |= EXEC_FLAG_REWIND;
+        }
 
-			if (tle->resjunk)
-			{
-				junk_filter_needed = true;
-				break;
-			}
-		}
+        subplanstate = ExecInitNode(subplan, estate, sp_eflags);
 
-		if (junk_filter_needed)
-		{
-			JunkFilter *j;
-			TupleTableSlot *slot;
+        estate->es_subplanstates = lappend(estate->es_subplanstates, subplanstate);
 
-			slot = ExecInitExtraTupleSlot(estate, NULL, &TTSOpsVirtual);
-			j = ExecInitJunkFilter(planstate->plan->targetlist,
-								   slot);
-			estate->es_junkFilter = j;
+        i++;
+    }
 
-			/* Want to return the cleaned tuple type */
-			tupType = j->jf_cleanTupType;
-		}
-	}
+    /*
+     * Initialize the private state information for all the nodes in the query
+     * tree.  This opens files, allocates storage and leaves us ready to start processing tuples.
+     */
+    planstate = ExecInitNode(plan, estate, eflags);
 
-	queryDesc->tupDesc = tupType;
-	queryDesc->planstate = planstate;
+    // get the tuple descriptor describing the type of tuples to return.
+    tupleDesc = ExecGetResultType(planstate);
+
+    /*
+     * Initialize the junk filter if needed.  SELECT queries need a filter if
+     * there are any junk attrs in the top-level tlist.
+     */
+    if (operation == CMD_SELECT) {
+        bool junkFilterNeeded = false;
+        ListCell *targetEntryCell;
+
+        foreach(targetEntryCell, plan->targetlist) {
+            TargetEntry *targetEntry = (TargetEntry *) lfirst(targetEntryCell);
+
+            if (targetEntry->resjunk) {
+                junkFilterNeeded = true;
+                break;
+            }
+        }
+
+        if (junkFilterNeeded) {
+            JunkFilter *j;
+            TupleTableSlot *slot;
+
+            slot = ExecInitExtraTupleSlot(estate, NULL, &TTSOpsVirtual);
+            j = ExecInitJunkFilter(planstate->plan->targetlist,
+                                   slot);
+            estate->es_junkFilter = j;
+
+            /* Want to return the cleaned tuple type */
+            tupleDesc = j->jf_cleanTupType;
+        }
+    }
+
+    queryDesc->tupDesc = tupleDesc;
+    queryDesc->planstate = planstate;
 }
 
 /*
@@ -1583,114 +1531,98 @@ ExecEndPlan(PlanState *planstate, EState *estate)
  * user can see it
  * ----------------------------------------------------------------
  */
-static void
-ExecutePlan(EState *estate,
-			PlanState *planstate,
-			bool use_parallel_mode,
-			CmdType operation,
-			bool sendTuples,
-			uint64 numberTuples,
-			ScanDirection direction,
-			DestReceiver *dest,
-			bool execute_once)
-{
-	TupleTableSlot *slot;
-	uint64		current_tuple_count;
+static void ExecutePlan(EState *estate,
+                        PlanState *planState,
+                        bool useParallelMode,
+                        CmdType operation,
+                        bool sendTuples,
+                        uint64 numberTuples,
+                        ScanDirection direction,
+                        DestReceiver *destReceiver,
+                        bool executeOnce) {
+    TupleTableSlot *tupleTableSlot;
+    uint64 currentTupleCount;
 
-	/*
-	 * initialize local variables
-	 */
-	current_tuple_count = 0;
+    // initialize local variables
+    currentTupleCount = 0;
 
-	/*
-	 * Set the direction.
-	 */
-	estate->es_direction = direction;
+    // set the direction.
+    estate->es_direction = direction;
 
-	/*
-	 * If the plan might potentially be executed multiple times, we must force
-	 * it to run without parallelism, because we might exit early.
-	 */
-	if (!execute_once)
-		use_parallel_mode = false;
+    /*
+     * If the plan might potentially be executed multiple times, we must force
+     * it to run without parallelism, because we might exit early.
+     */
+    if (!executeOnce) {
+        useParallelMode = false;
+    }
 
-	estate->es_use_parallel_mode = use_parallel_mode;
-	if (use_parallel_mode)
-		EnterParallelMode();
+    estate->es_use_parallel_mode = useParallelMode;
+    if (useParallelMode) {
+        EnterParallelMode();
+    }
 
-	/*
-	 * Loop until we've processed the proper number of tuples from the plan.
-	 */
-	for (;;)
-	{
-		/* Reset the per-output-tuple exprcontext */
-		ResetPerTupleExprContext(estate);
+    // Loop until we've processed the proper number of tuples from the plan.
+    for (;;) {
+        /* Reset the per-output-tuple exprcontext */
+        ResetPerTupleExprContext(estate);
 
-		/*
-		 * Execute the plan and obtain a tuple
-		 */
-		slot = ExecProcNode(planstate);
+        // Execute the plan and obtain a tuple
+        tupleTableSlot = ExecProcNode(planState);
 
-		/*
-		 * if the tuple is null, then we assume there is nothing more to
-		 * process so we just end the loop...
-		 */
-		if (TupIsNull(slot))
-			break;
+        // if the tuple is null, then we assume there is nothing more to process so we just end the loop...
+        if (TupIsNull(tupleTableSlot)) {
+            break;
+        }
 
-		/*
-		 * If we have a junk filter, then project a new tuple with the junk
-		 * removed.
-		 *
-		 * Store this new "clean" tuple in the junkfilter's resultSlot.
-		 * (Formerly, we stored it back over the "dirty" tuple, which is WRONG
-		 * because that tuple slot has the wrong descriptor.)
-		 */
-		if (estate->es_junkFilter != NULL)
-			slot = ExecFilterJunk(estate->es_junkFilter, slot);
+        /*
+         * If we have a junk filter, then project a new tuple with the junk
+         * removed.
+         *
+         * Store this new "clean" tuple in the junkfilter's resultSlot.
+         * (Formerly, we stored it back over the "dirty" tuple, which is WRONG
+         * because that tuple tupleTableSlot has the wrong descriptor.)
+         */
+        if (estate->es_junkFilter != NULL) {
+            tupleTableSlot = ExecFilterJunk(estate->es_junkFilter, tupleTableSlot);
+        }
 
-		/*
-		 * If we are supposed to send the tuple somewhere, do so. (In
-		 * practice, this is probably always the case at this point.)
-		 */
-		if (sendTuples)
-		{
-			/*
-			 * If we are not able to send the tuple, we assume the destination
-			 * has closed and no more tuples can be sent. If that's the case,
-			 * end the loop.
-			 */
-			if (!dest->receiveSlot(slot, dest))
-				break;
-		}
+        // we are supposed to send the tuple somewhere(In practice, this is probably always the case at this point.)
+        if (sendTuples) {
+            /*
+             * If we are not able to send the tuple, we assume the destination
+             * has closed and no more tuples can be sent. If that's the case, end the loop.
+             */
+            if (!destReceiver->receiveSlot(tupleTableSlot, destReceiver))
+                break;
+        }
 
-		/*
-		 * Count tuples processed, if this is a SELECT.  (For other operation
-		 * types, the ModifyTable plan node must count the appropriate
-		 * events.)
-		 */
-		if (operation == CMD_SELECT)
-			(estate->es_processed)++;
+        /*
+         * Count tuples processed, if this is a SELECT.  (For other operation
+         * types, the ModifyTable plan node must count the appropriate events.)
+         */
+        if (operation == CMD_SELECT) {
+            (estate->es_processed)++;
+        }
 
-		/*
-		 * check our tuple count.. if we've processed the proper number then
-		 * quit, else loop again and process more tuples.  Zero numberTuples
-		 * means no limit.
-		 */
-		current_tuple_count++;
-		if (numberTuples && numberTuples == current_tuple_count)
-			break;
-	}
+        /*
+         * check our tuple count.. if we've processed the proper number then
+         * quit, else loop again and process more tuples.  Zero numberTuples means no limit.
+         */
+        currentTupleCount++;
+        if (numberTuples && numberTuples == currentTupleCount) {
+            break;
+        }
+    }
 
-	/*
-	 * If we know we won't need to back up, we can release resources at this
-	 * point.
-	 */
-	if (!(estate->es_top_eflags & EXEC_FLAG_BACKWARD))
-		(void) ExecShutdownNode(planstate);
+    // if we know we won't need to back up, we can release resources at this point.
+    if (!(estate->es_top_eflags & EXEC_FLAG_BACKWARD)) {
+        (void) ExecShutdownNode(planState);
+    }
 
-	if (use_parallel_mode)
-		ExitParallelMode();
+    if (useParallelMode) {
+        ExitParallelMode();
+    }
 }
 
 

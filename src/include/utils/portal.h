@@ -131,9 +131,9 @@ typedef struct PortalData
 	SubTransactionId activeSubid;	/* the last subxact with activity */
 
 	/* The query or queries the portal will execute */
-	const char *sourceText;		/* text of query (as of 8.4, never NULL) */
+	const char *sourceText;		/* 原始的sql, text of query (as of 8.4, never NULL) */
 	const char *commandTag;		/* command tag for original query */
-	List	   *stmts;			/* list of PlannedStmts */
+	List	   *stmts;			/* list of plannedStmt */
 	CachedPlan *cplan;			/* CachedPlan, if stmts are from one */
 
 	ParamListInfo portalParams; /* params to pass to query */

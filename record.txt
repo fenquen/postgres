@@ -96,13 +96,21 @@ repalloc中有意思的 GetMemoryChunkContext
     BackendStartup
 
 通过signal_child可以知道
-
     进程组id(pgid)是组长进程的pid
     setsid 用来把当前的进程的设置为进程组的组长
     kill -进程组id 用来把组内的全部都干掉
 
 子进程在ps中显示的名字 postgres: a postgres 127.0.0.1(60240) idle
     详见 init_ps_display
+
+c语言中的各个种类的最大值
+/* C90/99 5.2.4.2.1 */
+#define SCHAR_MAX __SCHAR_MAX__
+#define SHRT_MAX  __SHRT_MAX__
+#define INT_MAX   __INT_MAX__
+#define LONG_MAX  __LONG_MAX__
+
+foreach宏本质是对链表list遍历
 重要的文件
 data/PG_VERSION 内容是pg的版本号
 data/global/pg_control ControlFileData二进制内容
@@ -116,3 +124,9 @@ data/postermaster.opts 内容是启动的命令
  ./configure --enable-debug --enable-cassert --enable-thread-safety --prefix=/Users/a/program/pg12 CFLAGS="-g -O0"
 
   make -sj
+
+  SELECT pg_backend_pid();
+
+  PlannerInfo* root
+  Plan* top_plan
+  PlannedStmt* result
