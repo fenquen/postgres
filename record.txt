@@ -126,7 +126,6 @@ data/postermaster.opts 内容是启动的命令
   make -sj
 
   SELECT pg_backend_pid();
-
   PlannerInfo* root
   Plan* top_plan
   PlannedStmt* result

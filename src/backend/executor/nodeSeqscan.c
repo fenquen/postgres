@@ -46,40 +46,33 @@ static TupleTableSlot *SeqNext(SeqScanState *node);
  *		This is a workhorse for ExecSeqScan
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *
-SeqNext(SeqScanState *node)
-{
-	TableScanDesc scandesc;
-	EState	   *estate;
-	ScanDirection direction;
-	TupleTableSlot *slot;
+static TupleTableSlot *SeqNext(SeqScanState *node) {
+    TableScanDesc tableScanDesc;
+    EState *estate;
+    ScanDirection scanDirection;
+    TupleTableSlot *tupleTableSlot;
 
-	/*
-	 * get information from the estate and scan state
-	 */
-	scandesc = node->ss.ss_currentScanDesc;
-	estate = node->ss.ps.state;
-	direction = estate->es_direction;
-	slot = node->ss.ss_ScanTupleSlot;
+    // get information from the estate and scan state
+    tableScanDesc = node->ss.ss_currentScanDesc;
+    estate = node->ss.ps.state;
+    scanDirection = estate->es_direction;
+    tupleTableSlot = node->ss.ss_ScanTupleSlot;
 
-	if (scandesc == NULL)
-	{
-		/*
-		 * We reach here if the scan is not parallel, or if we're serially
-		 * executing a scan that was planned to be parallel.
-		 */
-		scandesc = table_beginscan(node->ss.ss_currentRelation,
-								   estate->es_snapshot,
-								   0, NULL);
-		node->ss.ss_currentScanDesc = scandesc;
-	}
+    if (tableScanDesc == NULL) {
+        /*
+         * We reach here if the scan is not parallel, or if we're serially
+         * executing a scan that was planned to be parallel.
+         */
+        tableScanDesc = table_beginscan(node->ss.ss_currentRelation, estate->es_snapshot, 0, NULL);
+        node->ss.ss_currentScanDesc = tableScanDesc;
+    }
 
-	/*
-	 * get the next tuple from the table
-	 */
-	if (table_scan_getnextslot(scandesc, direction, slot))
-		return slot;
-	return NULL;
+    // get the next tuple from the table
+    if (table_scan_getnextslot(tableScanDesc, scanDirection, tupleTableSlot)) {
+        return tupleTableSlot;
+    }
+
+    return NULL;
 }
 
 /*

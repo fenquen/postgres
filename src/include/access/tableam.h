@@ -159,8 +159,7 @@ typedef void (*IndexBuildCallback) (Relation index,
  * GetTableAmRoutine() asserts that required callbacks are filled in, remember
  * to update when adding a callback.
  */
-typedef struct TableAmRoutine
-{
+typedef struct TableAmRoutine {
 	/* this must be set to T_TableAmRoutine */
 	NodeTag		type;
 
@@ -199,7 +198,8 @@ typedef struct TableAmRoutine
 	 */
 	TableScanDesc (*scan_begin) (Relation rel,
 								 Snapshot snapshot,
-								 int nkeys, struct ScanKeyData *key,
+								 int nkeys,
+                                 struct ScanKeyData *key,
 								 ParallelTableScanDesc pscan,
 								 uint32 flags);
 
@@ -730,17 +730,17 @@ extern TupleTableSlot *table_slot_create(Relation rel, List **reglist);
  */
 
 /*
- * Start a scan of `rel`. Returned tuples pass a visibility test of
+ * Start a scan of `relation`. Returned tuples pass a visibility test of
  * `snapshot`, and if nkeys != 0, the results are filtered by those scan keys.
  */
-static inline TableScanDesc
-table_beginscan(Relation rel, Snapshot snapshot,
-				int nkeys, struct ScanKeyData *key)
-{
-	uint32		flags = SO_TYPE_SEQSCAN |
-	SO_ALLOW_STRAT | SO_ALLOW_SYNC | SO_ALLOW_PAGEMODE;
+static inline TableScanDesc table_beginscan(Relation relation,
+                                            Snapshot snapshot,
+                                            int nkeys,
+                                            struct ScanKeyData *scanKeyData) {
 
-	return rel->rd_tableam->scan_begin(rel, snapshot, nkeys, key, NULL, flags);
+    uint32 flags = SO_TYPE_SEQSCAN | SO_ALLOW_STRAT | SO_ALLOW_SYNC | SO_ALLOW_PAGEMODE;
+
+    return relation->rd_tableam->scan_begin(relation, snapshot, nkeys, scanKeyData, NULL, flags);
 }
 
 /*
@@ -880,13 +880,13 @@ table_rescan_set_params(TableScanDesc scan, struct ScanKeyData *key,
 extern void table_scan_update_snapshot(TableScanDesc scan, Snapshot snapshot);
 
 /*
- * Return next tuple from `scan`, store in slot.
+ * Return next tuple from `scan`, store in tupleTableSlot.
  */
-static inline bool
-table_scan_getnextslot(TableScanDesc sscan, ScanDirection direction, TupleTableSlot *slot)
-{
-	slot->tts_tableOid = RelationGetRelid(sscan->rs_rd);
-	return sscan->rs_rd->rd_tableam->scan_getnextslot(sscan, direction, slot);
+static inline bool table_scan_getnextslot(TableScanDesc tableScanDesc,
+                                          ScanDirection scanDirection,
+                                          TupleTableSlot *tupleTableSlot) {
+    tupleTableSlot->tts_tableOid = RelationGetRelid(tableScanDesc->rs_rd);
+	return tableScanDesc->rs_rd->rd_tableam->scan_getnextslot(tableScanDesc, scanDirection, tupleTableSlot);
 }
 
 

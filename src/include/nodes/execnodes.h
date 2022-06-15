@@ -496,13 +496,12 @@ typedef struct ResultRelInfo
 } ResultRelInfo;
 
 /* ----------------
- *	  EState information
+ *	  executor state
  *
  * Master working state for an Executor invocation
  * ----------------
  */
-typedef struct EState
-{
+typedef struct EState {
 	NodeTag		type;
 
 	/* Basic state for all query types: */

@@ -108,8 +108,8 @@ typedef enum
 #define HeapScanIsValid(scan) PointerIsValid(scan)
 
 extern TableScanDesc heap_beginscan(Relation relation, Snapshot snapshot,
-									int nkeys, ScanKey key,
-									ParallelTableScanDesc parallel_scan,
+									int nkeys, ScanKey scanKey,
+									ParallelTableScanDesc parallelTableScanDesc,
 									uint32 flags);
 extern void heap_setscanlimits(TableScanDesc scan, BlockNumber startBlk,
 							   BlockNumber endBlk);
@@ -118,8 +118,8 @@ extern void heap_rescan(TableScanDesc scan, ScanKey key, bool set_params,
 						bool allow_strat, bool allow_sync, bool allow_pagemode);
 extern void heap_endscan(TableScanDesc scan);
 extern HeapTuple heap_getnext(TableScanDesc scan, ScanDirection direction);
-extern bool heap_getnextslot(TableScanDesc sscan,
-							 ScanDirection direction, struct TupleTableSlot *slot);
+extern bool heap_getnextslot(TableScanDesc tableScanDesc,
+                             ScanDirection scanDirection, struct TupleTableSlot *tupleTableSlot);
 
 extern bool heap_fetch(Relation relation, Snapshot snapshot,
 					   HeapTuple tuple, Buffer *userbuf);
