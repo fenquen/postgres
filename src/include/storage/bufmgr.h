@@ -165,9 +165,9 @@ extern bool ComputeIoConcurrency(int io_concurrency, double *target);
 extern void PrefetchBuffer(Relation reln, ForkNumber forkNum,
 						   BlockNumber blockNum);
 extern Buffer ReadBuffer(Relation reln, BlockNumber blockNum);
-extern Buffer ReadBufferExtended(Relation reln, ForkNumber forkNum,
-								 BlockNumber blockNum, ReadBufferMode mode,
-								 BufferAccessStrategy strategy);
+extern Buffer ReadBufferExtended(Relation relation, ForkNumber forkNumber,
+                                 BlockNumber blockNumber, ReadBufferMode readBufferMode,
+                                 BufferAccessStrategy bufferAccessStrategy);
 extern Buffer ReadBufferWithoutRelcache(RelFileNode rnode,
 										ForkNumber forkNum, BlockNumber blockNum,
 										ReadBufferMode mode, BufferAccessStrategy strategy);

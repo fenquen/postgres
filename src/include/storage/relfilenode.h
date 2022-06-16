@@ -72,7 +72,7 @@ typedef struct RelFileNode
 typedef struct RelFileNodeBackend
 {
 	RelFileNode node;
-	BackendId	backend;
+	BackendId	backend; // // 属于后台哪个进程,值为-1表示普通表
 } RelFileNodeBackend;
 
 #define RelFileNodeBackendIsTemp(rnode) \

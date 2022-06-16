@@ -125,7 +125,7 @@ extern void hash_destroy(HTAB *hashp);
 extern void hash_stats(const char *where, HTAB *hashp);
 extern void *hash_search(HTAB *hashp, const void *keyPtr, HASHACTION action,
 						 bool *foundPtr);
-extern uint32 get_hash_value(HTAB *hashp, const void *keyPtr);
+extern uint32 get_hash_value(HTAB *htab, const void *keyPtr);
 extern void *hash_search_with_hash_value(HTAB *hashp, const void *keyPtr,
 										 uint32 hashvalue, HASHACTION action,
 										 bool *foundPtr);

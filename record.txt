@@ -110,7 +110,12 @@ c语言中的各个种类的最大值
 #define INT_MAX   __INT_MAX__
 #define LONG_MAX  __LONG_MAX__
 
+
 foreach宏本质是对链表list遍历
+
+
+GetRelationPath描述了数据目录下表的数据的路径结构
+
 重要的文件
 data/PG_VERSION 内容是pg的版本号
 data/global/pg_control ControlFileData二进制内容

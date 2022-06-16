@@ -32,8 +32,8 @@
 
 typedef struct PGSemaphoreData
 {
-	int			semId;			/* semaphore set identifier */
-	int			semNum;			/* semaphore number within set */
+	int			semId;			/* semaphore set id */
+	int			semNum;			/* semaphore 在该 set 索引 */
 } PGSemaphoreData;
 
 #ifndef HAVE_UNION_SEMUN
@@ -410,9 +410,9 @@ PGSemaphoreLock(PGSemaphore sema)
 	int			errStatus;
 	struct sembuf sops;
 
+    sops.sem_num = sema->semNum;
 	sops.sem_op = -1;			/* decrement */
-	sops.sem_flg = 0;
-	sops.sem_num = sema->semNum;
+    sops.sem_flg = 0;
 
 	/*
 	 * Note: if errStatus is -1 and errno == EINTR then it means we returned

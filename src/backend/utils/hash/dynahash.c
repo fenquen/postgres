@@ -857,9 +857,9 @@ hash_stats(const char *where, HTAB *hashp)
  * searching.
  */
 uint32
-get_hash_value(HTAB *hashp, const void *keyPtr)
+get_hash_value(HTAB *htab, const void *keyPtr)
 {
-	return hashp->hash(keyPtr, hashp->keysize);
+	return htab->hash(keyPtr, htab->keysize);
 }
 
 /* Convert a hash value to a bucket number */

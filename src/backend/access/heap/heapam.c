@@ -338,116 +338,111 @@ heap_setscanlimits(TableScanDesc sscan, BlockNumber startBlk, BlockNumber numBlk
  * In page-at-a-time mode it performs additional work, namely determining
  * which tuples on the page are visible.
  */
-void
-heapgetpage(TableScanDesc sscan, BlockNumber page)
-{
-	HeapScanDesc scan = (HeapScanDesc) sscan;
-	Buffer		buffer;
-	Snapshot	snapshot;
-	Page		dp;
-	int			lines;
-	int			ntup;
-	OffsetNumber lineoff;
-	ItemId		lpp;
-	bool		all_visible;
+void heapgetpage(TableScanDesc tableScanDesc, BlockNumber page) {
+    HeapScanDesc heapScanDesc = (HeapScanDesc) tableScanDesc;
+    Buffer buffer;
+    Snapshot snapshot;
+    Page dp;
+    int lines;
+    int ntup;
+    OffsetNumber lineOffset;
+    ItemId lpp;
+    bool allVisible;
 
-	Assert(page < scan->rs_nblocks);
+    Assert(page < heapScanDesc->rs_nblocks);
 
-	/* release previous scan buffer, if any */
-	if (BufferIsValid(scan->rs_cbuf))
-	{
-		ReleaseBuffer(scan->rs_cbuf);
-		scan->rs_cbuf = InvalidBuffer;
-	}
+    /* release previous heapScanDesc buffer, if any */
+    if (BufferIsValid(heapScanDesc->rs_cbuf)) {
+        ReleaseBuffer(heapScanDesc->rs_cbuf);
+        heapScanDesc->rs_cbuf = InvalidBuffer;
+    }
 
-	/*
-	 * Be sure to check for interrupts at least once per page.  Checks at
-	 * higher code levels won't be able to stop a seqscan that encounters many
-	 * pages' worth of consecutive dead tuples.
-	 */
-	CHECK_FOR_INTERRUPTS();
+    /*
+     * Be sure to check for interrupts at least once per page.  Checks at
+     * higher code levels won't be able to stop a seqscan that encounters many
+     * pages' worth of consecutive dead tuples.
+     */
+    CHECK_FOR_INTERRUPTS();
 
-	/* read page using selected strategy */
-	scan->rs_cbuf = ReadBufferExtended(scan->rs_base.rs_rd, MAIN_FORKNUM, page,
-									   RBM_NORMAL, scan->rs_strategy);
-	scan->rs_cblock = page;
+    /* read page using selected strategy */
+    heapScanDesc->rs_cbuf = ReadBufferExtended(heapScanDesc->rs_base.rs_rd, MAIN_FORKNUM, page, RBM_NORMAL, heapScanDesc->rs_strategy);
+    heapScanDesc->rs_cblock = page;
 
-	if (!(scan->rs_base.rs_flags & SO_ALLOW_PAGEMODE))
-		return;
+    if (!(heapScanDesc->rs_base.rs_flags & SO_ALLOW_PAGEMODE)) {
+        return;
+    }
 
-	buffer = scan->rs_cbuf;
-	snapshot = scan->rs_base.rs_snapshot;
+    buffer = heapScanDesc->rs_cbuf;
+    snapshot = heapScanDesc->rs_base.rs_snapshot;
 
-	/*
-	 * Prune and repair fragmentation for the whole page, if possible.
-	 */
-	heap_page_prune_opt(scan->rs_base.rs_rd, buffer);
+    /*
+     * Prune and repair fragmentation for the whole page, if possible.
+     */
+    heap_page_prune_opt(heapScanDesc->rs_base.rs_rd, buffer);
 
-	/*
-	 * We must hold share lock on the buffer content while examining tuple
-	 * visibility.  Afterwards, however, the tuples we have found to be
-	 * visible are guaranteed good as long as we hold the buffer pin.
-	 */
-	LockBuffer(buffer, BUFFER_LOCK_SHARE);
+    /*
+     * We must hold share lock on the buffer content while examining tuple
+     * visibility.  Afterwards, however, the tuples we have found to be
+     * visible are guaranteed good as long as we hold the buffer pin.
+     */
+    LockBuffer(buffer, BUFFER_LOCK_SHARE);
 
-	dp = BufferGetPage(buffer);
-	TestForOldSnapshot(snapshot, scan->rs_base.rs_rd, dp);
-	lines = PageGetMaxOffsetNumber(dp);
-	ntup = 0;
+    dp = BufferGetPage(buffer);
+    TestForOldSnapshot(snapshot, heapScanDesc->rs_base.rs_rd, dp);
+    lines = PageGetMaxOffsetNumber(dp);
+    ntup = 0;
 
-	/*
-	 * If the all-visible flag indicates that all tuples on the page are
-	 * visible to everyone, we can skip the per-tuple visibility tests.
-	 *
-	 * Note: In hot standby, a tuple that's already visible to all
-	 * transactions in the master might still be invisible to a read-only
-	 * transaction in the standby. We partly handle this problem by tracking
-	 * the minimum xmin of visible tuples as the cut-off XID while marking a
-	 * page all-visible on master and WAL log that along with the visibility
-	 * map SET operation. In hot standby, we wait for (or abort) all
-	 * transactions that can potentially may not see one or more tuples on the
-	 * page. That's how index-only scans work fine in hot standby. A crucial
-	 * difference between index-only scans and heap scans is that the
-	 * index-only scan completely relies on the visibility map where as heap
-	 * scan looks at the page-level PD_ALL_VISIBLE flag. We are not sure if
-	 * the page-level flag can be trusted in the same way, because it might
-	 * get propagated somehow without being explicitly WAL-logged, e.g. via a
-	 * full page write. Until we can prove that beyond doubt, let's check each
-	 * tuple for visibility the hard way.
-	 */
-	all_visible = PageIsAllVisible(dp) && !snapshot->takenDuringRecovery;
+    /*
+     * If the all-visible flag indicates that all tuples on the page are
+     * visible to everyone, we can skip the per-tuple visibility tests.
+     *
+     * Note: In hot standby, a tuple that's already visible to all
+     * transactions in the master might still be invisible to a read-only
+     * transaction in the standby. We partly handle this problem by tracking
+     * the minimum xmin of visible tuples as the cut-off XID while marking a
+     * page all-visible on master and WAL log that along with the visibility
+     * map SET operation. In hot standby, we wait for (or abort) all
+     * transactions that can potentially may not see one or more tuples on the
+     * page. That's how index-only scans work fine in hot standby. A crucial
+     * difference between index-only scans and heap scans is that the
+     * index-only heapScanDesc completely relies on the visibility map where as heap
+     * heapScanDesc looks at the page-level PD_ALL_VISIBLE flag. We are not sure if
+     * the page-level flag can be trusted in the same way, because it might
+     * get propagated somehow without being explicitly WAL-logged, e.g. via a
+     * full page write. Until we can prove that beyond doubt, let's check each
+     * tuple for visibility the hard way.
+     */
+    allVisible = PageIsAllVisible(dp) && !snapshot->takenDuringRecovery;
 
-	for (lineoff = FirstOffsetNumber, lpp = PageGetItemId(dp, lineoff);
-		 lineoff <= lines;
-		 lineoff++, lpp++)
-	{
-		if (ItemIdIsNormal(lpp))
-		{
-			HeapTupleData loctup;
-			bool		valid;
+    for (lineOffset = FirstOffsetNumber, lpp = PageGetItemId(dp, lineOffset);
+         lineOffset <= lines;
+         lineOffset++, lpp++) {
+        if (ItemIdIsNormal(lpp)) {
+            HeapTupleData loctup;
+            bool valid;
 
-			loctup.t_tableOid = RelationGetRelid(scan->rs_base.rs_rd);
-			loctup.t_data = (HeapTupleHeader) PageGetItem((Page) dp, lpp);
-			loctup.t_len = ItemIdGetLength(lpp);
-			ItemPointerSet(&(loctup.t_self), page, lineoff);
+            loctup.t_tableOid = RelationGetRelid(heapScanDesc->rs_base.rs_rd);
+            loctup.t_data = (HeapTupleHeader) PageGetItem((Page) dp, lpp);
+            loctup.t_len = ItemIdGetLength(lpp);
+            ItemPointerSet(&(loctup.t_self), page, lineOffset);
 
-			if (all_visible)
-				valid = true;
-			else
-				valid = HeapTupleSatisfiesVisibility(&loctup, snapshot, buffer);
+            if (allVisible)
+                valid = true;
+            else
+                valid = HeapTupleSatisfiesVisibility(&loctup, snapshot, buffer);
 
-			CheckForSerializableConflictOut(valid, scan->rs_base.rs_rd,
-											&loctup, buffer, snapshot);
+            CheckForSerializableConflictOut(valid, heapScanDesc->rs_base.rs_rd,
+                                            &loctup, buffer, snapshot);
 
-			if (valid)
-				scan->rs_vistuples[ntup++] = lineoff;
-		}
-	}
+            if (valid)
+                heapScanDesc->rs_vistuples[ntup++] = lineOffset;
+        }
+    }
 
-	LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
+    LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 
-	Assert(ntup <= MaxHeapTuplesPerPage);
-	scan->rs_ntuples = ntup;
+    Assert(ntup <= MaxHeapTuplesPerPage);
+    heapScanDesc->rs_ntuples = ntup;
 }
 
 /* ----------------
@@ -808,9 +803,7 @@ static void heapgettup_pagemode(HeapScanDesc heapScanDesc,
     int linesleft;
     ItemId lpp;
 
-    /*
-     * calculate next starting lineindex, given heapScanDesc direction
-     */
+    // calculate next starting lineindex, given heapScanDesc direction
     if (ScanDirectionIsForward(scanDirection)) {
         if (!heapScanDesc->rs_inited) {
             // 目标的表是没有哦数据的 return null
@@ -821,14 +814,11 @@ static void heapgettup_pagemode(HeapScanDesc heapScanDesc,
             }
 
             if (heapScanDesc->rs_base.rs_parallel != NULL) {
-                ParallelBlockTableScanDesc pbscan =
-                        (ParallelBlockTableScanDesc) heapScanDesc->rs_base.rs_parallel;
+                ParallelBlockTableScanDesc pbscan = (ParallelBlockTableScanDesc) heapScanDesc->rs_base.rs_parallel;
 
-                table_block_parallelscan_startblock_init(heapScanDesc->rs_base.rs_rd,
-                                                         pbscan);
+                table_block_parallelscan_startblock_init(heapScanDesc->rs_base.rs_rd, pbscan);
 
-                page = table_block_parallelscan_nextpage(heapScanDesc->rs_base.rs_rd,
-                                                         pbscan);
+                page = table_block_parallelscan_nextpage(heapScanDesc->rs_base.rs_rd, pbscan);
 
                 /* Other processes might have already finished the heapScanDesc. */
                 if (page == InvalidBlockNumber) {
@@ -860,9 +850,7 @@ static void heapgettup_pagemode(HeapScanDesc heapScanDesc,
         Assert(heapScanDesc->rs_base.rs_parallel == NULL);
 
         if (!heapScanDesc->rs_inited) {
-            /*
-             * return null immediately if relation is empty
-             */
+            // return null immediately if relation is empty
             if (heapScanDesc->rs_nblocks == 0 || heapScanDesc->rs_numblocks == 0) {
                 Assert(!BufferIsValid(heapScanDesc->rs_cbuf));
                 heapTuple->t_data = NULL;
@@ -907,9 +895,7 @@ static void heapgettup_pagemode(HeapScanDesc heapScanDesc,
 
         linesleft = lineindex + 1;
     } else {
-        /*
-         * ``no movement'' heapScanDesc direction: refetch prior heapTuple
-         */
+        // ``no movement'' heapScanDesc direction: refetch prior heapTuple
         if (!heapScanDesc->rs_inited) {
             Assert(!BufferIsValid(heapScanDesc->rs_cbuf));
             heapTuple->t_data = NULL;
@@ -936,11 +922,8 @@ static void heapgettup_pagemode(HeapScanDesc heapScanDesc,
 
         return;
     }
+    // advance the heapScanDesc until we find a qualifying heapTuple or run out of stuff to heapScanDesc
 
-    /*
-     * advance the heapScanDesc until we find a qualifying heapTuple or run out of stuff
-     * to heapScanDesc
-     */
     for (;;) {
         while (linesleft > 0) {
             lineoff = heapScanDesc->rs_vistuples[lineindex];
@@ -968,14 +951,14 @@ static void heapgettup_pagemode(HeapScanDesc heapScanDesc,
                 return;
             }
 
-            /*
-             * otherwise move to the next item on the page
-             */
+            // otherwise move to the next item on the page
             --linesleft;
-            if (backward)
+
+            if (backward) {
                 --lineindex;
-            else
+            } else {
                 ++lineindex;
+            }
         }
 
         /*
@@ -1317,33 +1300,33 @@ heap_getnext(TableScanDesc sscan, ScanDirection direction)
 bool heap_getnextslot(TableScanDesc tableScanDesc,
                       ScanDirection scanDirection,
                       TupleTableSlot *tupleTableSlot) {
-    HeapScanDesc scan = (HeapScanDesc) tableScanDesc;
+    HeapScanDesc heapScanDesc = (HeapScanDesc) tableScanDesc;
 
     /* Note: no locking manipulations needed */
 
     HEAPAMSLOTDEBUG_1;            /* heap_getnextslot( info ) */
 
     if (tableScanDesc->rs_flags & SO_ALLOW_PAGEMODE)
-        heapgettup_pagemode(scan, scanDirection, tableScanDesc->rs_nkeys, tableScanDesc->rs_key);
+        heapgettup_pagemode(heapScanDesc, scanDirection, tableScanDesc->rs_nkeys, tableScanDesc->rs_key);
     else
-        heapgettup(scan, scanDirection, tableScanDesc->rs_nkeys, tableScanDesc->rs_key);
+        heapgettup(heapScanDesc, scanDirection, tableScanDesc->rs_nkeys, tableScanDesc->rs_key);
 
-    if (scan->rs_ctup.t_data == NULL) {
+    if (heapScanDesc->rs_ctup.t_data == NULL) {
         HEAPAMSLOTDEBUG_2;        /* heap_getnextslot returning EOS */
         ExecClearTuple(tupleTableSlot);
         return false;
     }
 
     /*
-     * if we get here it means we have a new current scan tuple, so point to
+     * if we get here it means we have a new current heapScanDesc tuple, so point to
      * the proper return buffer and return the tuple.
      */
     HEAPAMSLOTDEBUG_3;            /* heap_getnextslot returning tuple */
 
-    pgstat_count_heap_getnext(scan->rs_base.rs_rd);
+    pgstat_count_heap_getnext(heapScanDesc->rs_base.rs_rd);
 
-    ExecStoreBufferHeapTuple(&scan->rs_ctup, tupleTableSlot,
-                             scan->rs_cbuf);
+    ExecStoreBufferHeapTuple(&heapScanDesc->rs_ctup, tupleTableSlot,
+                             heapScanDesc->rs_cbuf);
     return true;
 }
 

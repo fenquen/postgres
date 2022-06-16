@@ -42,9 +42,7 @@ typedef pg_atomic_uint32 pg_atomic_flag;
 
 #ifndef PG_HAVE_ATOMIC_READ_U32
 #define PG_HAVE_ATOMIC_READ_U32
-static inline uint32
-pg_atomic_read_u32_impl(volatile pg_atomic_uint32 *ptr)
-{
+static inline uint32 pg_atomic_read_u32_impl(volatile pg_atomic_uint32 *ptr) {
 	return ptr->value;
 }
 #endif

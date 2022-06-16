@@ -185,7 +185,7 @@ mdcreate(SMgrRelation reln, ForkNumber forkNum, bool isRedo)
 
 	Assert(reln->md_num_open_segs[forkNum] == 0);
 
-	path = relpath(reln->smgr_rnode, forkNum);
+	path = relpath(reln->smgr_rnode, forkNum); // 得到对应的文件的路径
 
 	fd = PathNameOpenFile(path, O_RDWR | O_CREAT | O_EXCL | PG_BINARY);
 

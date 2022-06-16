@@ -164,10 +164,9 @@ pg_atomic_clear_flag_impl(volatile pg_atomic_flag *ptr)
 }
 
 #define PG_HAVE_ATOMIC_COMPARE_EXCHANGE_U32
-static inline bool
-pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
-									uint32 *expected, uint32 newval)
-{
+static inline bool pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
+									                   uint32 *expected,
+                                                       uint32 newval){
 	char	ret;
 
 	/*

@@ -240,9 +240,7 @@ pg_atomic_init_u32(volatile pg_atomic_uint32 *ptr, uint32 val)
  *
  * No barrier semantics.
  */
-static inline uint32
-pg_atomic_read_u32(volatile pg_atomic_uint32 *ptr)
-{
+static inline uint32 pg_atomic_read_u32(volatile pg_atomic_uint32 *ptr) {
 	AssertPointerAlignment(ptr, 4);
 	return pg_atomic_read_u32_impl(ptr);
 }
@@ -302,7 +300,7 @@ pg_atomic_exchange_u32(volatile pg_atomic_uint32 *ptr, uint32 newval)
 /*
  * pg_atomic_compare_exchange_u32 - CAS operation
  *
- * Atomically compare the current value of ptr with *expected and store newval
+ * Atomically compare the current value of ptr with *expected and store newVal
  * iff ptr and *expected have the same value. The current value of *ptr will
  * always be stored in *expected.
  *
@@ -310,14 +308,13 @@ pg_atomic_exchange_u32(volatile pg_atomic_uint32 *ptr, uint32 newval)
  *
  * Full barrier semantics.
  */
-static inline bool
-pg_atomic_compare_exchange_u32(volatile pg_atomic_uint32 *ptr,
-							   uint32 *expected, uint32 newval)
-{
-	AssertPointerAlignment(ptr, 4);
-	AssertPointerAlignment(expected, 4);
+static inline bool pg_atomic_compare_exchange_u32(volatile pg_atomic_uint32 *ptr,
+                                                  uint32 *expected,
+                                                  uint32 newVal) {
+    AssertPointerAlignment(ptr, 4);
+    AssertPointerAlignment(expected, 4);
 
-	return pg_atomic_compare_exchange_u32_impl(ptr, expected, newval);
+    return pg_atomic_compare_exchange_u32_impl(ptr, expected, newVal);
 }
 
 /*

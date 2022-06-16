@@ -77,9 +77,9 @@ InitBufTable(int size)
  * to do the hash computation twice (hash_any is a bit slow).
  */
 uint32
-BufTableHashCode(BufferTag *tagPtr)
+BufTableHashCode(BufferTag *bufferTag)
 {
-	return get_hash_value(SharedBufHash, (void *) tagPtr);
+	return get_hash_value(SharedBufHash, (void *) bufferTag);
 }
 
 /*
@@ -89,13 +89,13 @@ BufTableHashCode(BufferTag *tagPtr)
  * Caller must hold at least share lock on BufMappingLock for tag's partition
  */
 int
-BufTableLookup(BufferTag *tagPtr, uint32 hashcode)
+BufTableLookup(BufferTag *bufferTag, uint32 hashcode)
 {
 	BufferLookupEnt *result;
 
 	result = (BufferLookupEnt *)
 		hash_search_with_hash_value(SharedBufHash,
-									(void *) tagPtr,
+									(void *) bufferTag,
 									hashcode,
 									HASH_FIND,
 									NULL);
