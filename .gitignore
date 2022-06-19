@@ -31,9 +31,8 @@ win32ver.rc
 *.exe
 lib*dll.def
 lib*.pc
-
-# Local excludes in root directory
 /GNUmakefile
+
 /config.cache
 /config.log
 /config.status
@@ -43,3 +42,4 @@ lib*.pc
 /Release/
 /tmp_install/
 .idea
+.Ds_store

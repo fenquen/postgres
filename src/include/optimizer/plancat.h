@@ -1,8 +1,6 @@
 /*-------------------------------------------------------------------------
- *
  * plancat.h
  *	  prototypes for plancat.c.
- *
  *
  * Portions Copyright (c) 1996-2019, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -21,7 +19,14 @@
 typedef void (*get_relation_info_hook_type) (PlannerInfo *root,
 											 Oid relationObjectId,
 											 bool inhparent,
+
 											 RelOptInfo *rel);
+/*
+ * hook for plugins to get control in get_relation_info()
+ * Allow a plugin to editorialize on the info we obtained from the
+ * catalogs.  Actions might include altering the assumed relation size,
+ * removing an index, or adding a hypothetical index to the indexlist.
+ */
 extern PGDLLIMPORT get_relation_info_hook_type get_relation_info_hook;
 
 

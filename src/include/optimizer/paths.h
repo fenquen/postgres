@@ -30,6 +30,13 @@ typedef void (*set_rel_pathlist_hook_type) (PlannerInfo *root,
 											RelOptInfo *rel,
 											Index rti,
 											RangeTblEntry *rte);
+/*
+ * Hook for plugins to get control in set_rel_pathlist() which builds access paths to a base relation
+ * Allow a plugin to editorialize on the set of Paths for this base
+ * relation.  It could add new paths (such as CustomPaths) by calling
+ * add_path(), or add_partial_path() if parallel aware.  It could also
+ * delete or modify paths added by the core code.
+ */
 extern PGDLLIMPORT set_rel_pathlist_hook_type set_rel_pathlist_hook;
 
 /* Hook for plugins to get control in add_paths_to_joinrel() */

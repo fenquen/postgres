@@ -123,8 +123,19 @@ data/postmaster.pid
 data/postermaster.opts 内容是启动的命令
     详见 CreateOptsFile
 
+得到当前的函数的名字
+    得到当前函数的oid再得到名字
+
+    (psprintf("%s()", fcinfo->flinfo ? get_func_name(FC_FN_OID(fcinfo)) : __func__))
 
 
+如何在程序的维度遍历扫描
+   详见timescaledb的 hypertable_validate_constraints() , relation_has_tuples()
+
+正常的表都是日志型的
+    static bool table_is_logged(Oid tableRelid) {
+    	return get_rel_persistence(tableRelid) == RELPERSISTENCE_PERMANENT;
+    }
 
  ./configure --enable-debug --enable-cassert --enable-thread-safety --prefix=/Users/a/program/pg12 CFLAGS="-g -O0"
 

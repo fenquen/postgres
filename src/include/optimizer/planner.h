@@ -34,6 +34,8 @@ typedef void (*create_upper_paths_hook_type) (PlannerInfo *root,
 											  RelOptInfo *input_rel,
 											  RelOptInfo *output_rel,
 											  void *extra);
+
+// get control when grouping_planner() plans upper relations
 extern PGDLLIMPORT create_upper_paths_hook_type create_upper_paths_hook;
 
 
