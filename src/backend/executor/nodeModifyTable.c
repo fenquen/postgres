@@ -2147,8 +2147,9 @@ ExecModifyTable(PlanState *pstate)
 		 * returning clauses, to free any expression evaluation storage
 		 * allocated in the previous cycle.
 		 */
-		if (pstate->ps_ExprContext)
+		if (pstate->ps_ExprContext) {
 			ResetExprContext(pstate->ps_ExprContext);
+        }
 
 		planSlot = ExecProcNode(subplanstate);
 

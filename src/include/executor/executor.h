@@ -246,6 +246,42 @@ static inline TupleTableSlot *ExecProcNode(PlanState *planState) {
 /*
  * prototypes from functions in execExpr.c
  */
+
+/*
+ * ExecInitExpr: prepare an expression tree for execution
+ *
+ * This function builds and returns an ExprState implementing the given
+ * Expr node tree.  The return ExprState can then be handed to ExecEvalExpr
+ * for execution.  Because the Expr tree itself is read-only as far as
+ * ExecInitExpr and ExecEvalExpr are concerned, several different executions
+ * of the same plan tree can occur concurrently.  (But note that an ExprState
+ * does mutate at runtime, so it can't be re-used concurrently.)
+ *
+ * This must be called in a memory context that will last as long as repeated
+ * executions of the expression are needed.  Typically the context will be
+ * the same as the per-query context of the associated ExprContext.
+ *
+ * Any Aggref, WindowFunc, or SubPlan nodes found in the tree are added to
+ * the lists of such nodes held by the parent PlanState (or more accurately,
+ * the AggrefExprState etc. nodes created for them are added).
+ *
+ * Note: there is no ExecEndExpr function; we assume that any resource
+ * cleanup needed will be handled by just releasing the memory context
+ * in which the state tree is built.  Functions that require additional
+ * cleanup work can register a shutdown callback in the ExprContext.
+ *
+ *	'node' is the root of the expression tree to compile.
+ *	'parent' is the PlanState node that owns the expression.
+ *
+ * 'parent' may be NULL if we are preparing an expression that is not
+ * associated with a plan tree.  (If so, it can't have aggs or subplans.)
+ * Such cases should usually come through ExecPrepareExpr, not directly here.
+ *
+ * Also, if 'node' is NULL, we just return NULL.  This is convenient for some
+ * callers that may or may not have an expression that needs to be compiled.
+ * Note that a NULL ExprState pointer *cannot* be handed to ExecEvalExpr,
+ * although ExecQual and ExecCheck will accept one (and treat it as "true").
+ */
 extern ExprState *ExecInitExpr(Expr *node, PlanState *parent);
 extern ExprState *ExecInitExprWithParams(Expr *node, ParamListInfo ext_params);
 extern ExprState *ExecInitQual(List *qual, PlanState *parent);

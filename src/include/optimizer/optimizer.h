@@ -107,6 +107,34 @@ extern bool parallel_leader_participation;
 extern struct PlannedStmt *planner(Query *query, int cursorOptions,
                                    struct ParamListInfoData *boundParams);
 
+/*
+ * expression_planner
+ *		Perform planner's transformations on a standalone expression.
+ *
+ * Various utility commands need to evaluate expressions that are not part
+ * of a plannable query.  They can do so using the executor's regular
+ * expression-execution machinery, but first the expression has to be fed
+ * through here to transform it from parser output to something executable.
+ *
+ * Currently, we disallow sublinks in standalone expressions, so there's no
+ * real "planning" involved here.  (That might not always be true though.)
+ * What we must do is run eval_const_expressions to ensure that any function
+ * calls are converted to positional notation and function default arguments
+ * get inserted.  The fact that constant subexpressions get simplified is a
+ * side-effect that is useful when the expression will get evaluated more than
+ * once.  Also, we must fix operator function IDs.
+ *
+ * This does not return any information about dependencies of the expression.
+ * Hence callers should use the results only for the duration of the current
+ * query.  Callers that would like to cache the results for longer should use
+ * expression_planner_with_deps, probably via the plancache.
+ *
+ * Note: this must not make any damaging changes to the passed-in expression
+ * tree.  (It would actually be okay to apply fix_opfuncids to it, but since
+ * we first do an expression_tree_mutator-based walk, what is returned will
+ * be a new node tree.)  The result is constructed in the current memory
+ * context; beware that this can leak a lot of additional stuff there, too.
+ */
 extern Expr *expression_planner(Expr *expr);
 extern Expr *expression_planner_with_deps(Expr *expr,
 										  List **relationOids,

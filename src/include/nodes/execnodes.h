@@ -389,7 +389,7 @@ typedef struct OnConflictSetState
  * ResultRelInfo
  *
  * Whenever we update an existing relation, we have to update indexes on the
- * relation, and perhaps also fire triggers.  ResultRelInfo holds all the
+ * relation, and perhaps also do triggers.  ResultRelInfo holds all the
  * information needed about a result relation, including indexes.
  *
  * Normally, a ResultRelInfo refers to a table that is in the query's range
@@ -421,7 +421,7 @@ typedef struct ResultRelInfo
 	/* array of key/attr info for indices */
 	IndexInfo **ri_IndexRelationInfo;
 
-	/* triggers to be fired, if any */
+	/* triggers to be done, if any */
 	TriggerDesc *ri_TrigDesc;
 
 	/* cached lookup info for trigger functions */
