@@ -167,7 +167,7 @@ typedef struct Expr
 typedef struct Var
 {
 	Expr		xpr;
-	Index		varno;			/* index of this var's relation in the range
+	Index		varno;			/* index of this var's 隶属 relation in the range
 								 * table, or INNER_VAR/OUTER_VAR/INDEX_VAR */
 	AttrNumber	varattno;		/* attribute number of this var, or zero for
 								 * all attrs ("whole-row Var") */
@@ -562,6 +562,7 @@ typedef enum BoolExprType
 	AND_EXPR, OR_EXPR, NOT_EXPR
 } BoolExprType;
 
+// 对应 a.id = 0 and b.id = 1 其中两边都是OpExpr
 typedef struct BoolExpr
 {
 	Expr		xpr;

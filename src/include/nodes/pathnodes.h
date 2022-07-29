@@ -665,7 +665,7 @@ typedef struct RelOptInfo
 	Relids		lateral_relids; /* minimum parameterization of rel */
 
 	/* information about a base rel (not set for join rels!) */
-	Index		relid;
+	Index		relid;          // 对应的table在sql中的位置(1based)
 	Oid			reltablespace;	/* containing tablespace */
 	RTEKind		rtekind;		/* RELATION, SUBQUERY, FUNCTION, etc */
 	AttrNumber	min_attr;		/* smallest attrno of rel (often <0) */
