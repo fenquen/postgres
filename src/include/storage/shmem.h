@@ -32,7 +32,7 @@ typedef struct SHM_QUEUE
 } SHM_QUEUE;
 
 /* shmem.c */
-extern void InitShmemAccess(void *seghdr);
+extern void InitShmemAccess(void *ptr);
 extern void InitShmemAllocation(void);
 extern void *ShmemAlloc(Size size);
 extern void *ShmemAllocNoError(Size size);

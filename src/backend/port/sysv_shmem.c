@@ -68,7 +68,6 @@
  * to sysv (though this is not the default).
  */
 
-
 typedef key_t IpcMemoryKey;		/* shared memory key passed to shmget(2) */
 typedef int IpcMemoryId;		/* shared memory ID returned by shmget(2) */
 
@@ -83,8 +82,7 @@ typedef int IpcMemoryId;		/* shared memory ID returned by shmget(2) */
  * attempt to recycle a given key.  We'll waste keys longer in some cases, but
  * avoiding the problems of the alternative justifies that loss.
  */
-typedef enum
-{
+typedef enum {
 	SHMSTATE_ANALYSIS_FAILURE,	/* unexpected failure to analyze the ID */
 	SHMSTATE_ATTACHED,			/* pertinent to DataDir, has attached PIDs */
 	SHMSTATE_ENOENT,			/* no segment of that ID */
@@ -97,7 +95,7 @@ unsigned long UsedShmemSegID = 0;
 void	   *UsedShmemSegAddr = NULL;
 
 static Size AnonymousShmemSize;
-static void *AnonymousShmem = NULL;
+static void *AnonymousShmem = NULL; // mmap内存地址 头部是PGShmemHeader
 
 static void *InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size);
 static void IpcMemoryDetach(int status, Datum shmaddr);
@@ -105,7 +103,6 @@ static void IpcMemoryDelete(int status, Datum shmId);
 static IpcMemoryState PGSharedMemoryAttach(IpcMemoryId shmId,
 										   void *attachAt,
 										   PGShmemHeader **addr);
-
 
 /*
  *	InternalIpcMemoryCreate(memKey, size)
@@ -119,12 +116,10 @@ static IpcMemoryState PGSharedMemoryAttach(IpcMemoryId shmId,
  * If we fail with a failure code other than collision-with-existing-segment,
  * print out an error and abort.  Other types of errors are not recoverable.
  */
-static void *
-InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
-{
+static void *InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size) {
 	IpcMemoryId shmid;
 	void	   *requestedAddress = NULL;
-	void	   *memAddress;
+	void	   *sharedMemAddr;
 
 	/*
 	 * Normally we just pass requestedAddress = NULL to shmat(), allowing the
@@ -157,9 +152,8 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 
 	shmid = shmget(memKey, size, IPC_CREAT | IPC_EXCL | IPCProtection);
 
-	if (shmid < 0)
-	{
-		int			shmget_errno = errno;
+	if (shmid < 0) {
+		int	shmget_errno = errno;
 
 		/*
 		 * Fail quietly if error indicates a collision with existing segment.
@@ -183,12 +177,10 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 		 * against SHMMIN in the preexisting-segment case, so we will not get
 		 * EINVAL a second time if there is such a segment.
 		 */
-		if (shmget_errno == EINVAL)
-		{
+		if (shmget_errno == EINVAL) {
 			shmid = shmget(memKey, 0, IPC_CREAT | IPC_EXCL | IPCProtection);
 
-			if (shmid < 0)
-			{
+			if (shmid < 0) {
 				/* As above, fail quietly if we verify a collision */
 				if (errno == EEXIST || errno == EACCES
 #ifdef EIDRM
@@ -197,18 +189,16 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 					)
 					return NULL;
 				/* Otherwise, fall through to report the original error */
-			}
-			else
-			{
+			} else {
 				/*
 				 * On most platforms we cannot get here because SHMMIN is
 				 * greater than zero.  However, if we do succeed in creating a
 				 * zero-size segment, free it and then fall through to report
 				 * the original error.
 				 */
-				if (shmctl(shmid, IPC_RMID, NULL) < 0)
-					elog(LOG, "shmctl(%d, %d, 0) failed: %m",
-						 (int) shmid, IPC_RMID);
+				if (shmctl(shmid, IPC_RMID, NULL) < 0) {
+					elog(LOG, "shmctl(%d, %d, 0) failed: %m", (int) shmid, IPC_RMID);
+                }
 			}
 		}
 
@@ -230,8 +220,7 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 				 (shmget_errno == EINVAL) ?
 				 errhint("This error usually means that PostgreSQL's request for a shared memory "
 						 "segment exceeded your kernel's SHMMAX parameter, or possibly that "
-						 "it is less than "
-						 "your kernel's SHMMIN parameter.\n"
+						 "it is less than your kernel's SHMMIN parameter.\n"
 						 "The PostgreSQL documentation contains more information about shared "
 						 "memory configuration.") : 0,
 				 (shmget_errno == ENOMEM) ?
@@ -253,15 +242,15 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 	/* Register on-exit routine to delete the new segment */
 	on_shmem_exit(IpcMemoryDelete, Int32GetDatum(shmid));
 
-	/* OK, should be able to attach to the segment */
-	memAddress = shmat(shmid, requestedAddress, PG_SHMAT_FLAGS);
+	// OK, should be able to attach to the segment */
+    sharedMemAddr = shmat(shmid, requestedAddress, PG_SHMAT_FLAGS);
 
-	if (memAddress == (void *) -1)
-		elog(FATAL, "shmat(id=%d, addr=%p, flags=0x%x) failed: %m",
-			 shmid, requestedAddress, PG_SHMAT_FLAGS);
+	if (sharedMemAddr == (void *) -1) {
+		elog(FATAL, "shmat(id=%d, addr=%p, flags=0x%x) failed: %m", shmid, requestedAddress, PG_SHMAT_FLAGS);
+    }
 
 	/* Register on-exit routine to detach new segment before deleting */
-	on_shmem_exit(IpcMemoryDetach, PointerGetDatum(memAddress));
+	on_shmem_exit(IpcMemoryDetach, PointerGetDatum(sharedMemAddr));
 
 	/*
 	 * Store shmem key and ID in data directory lockfile.  Format to try to
@@ -276,7 +265,7 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 		AddToDataDirLockFile(LOCK_FILE_LINE_SHMEM_KEY, line);
 	}
 
-	return memAddress;
+	return sharedMemAddr;
 }
 
 /****************************************************************************/
@@ -529,15 +518,13 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 #endif							/* MAP_HUGETLB */
 
 /*
- * Creates an anonymous mmap()ed shared memory segment.
+ * 调用了mmap
  *
  * Pass the requested size in *size.  This function will modify *size to the
  * actual size of the allocation, if it ends up allocating a segment that is
  * larger than requested.
  */
-static void *
-CreateAnonymousSegment(Size *size)
-{
+static void * CreateAnonymousSegment(Size *size) {
 	Size		allocsize = *size;
 	void	   *ptr = MAP_FAILED;
 	int			mmap_errno = 0;
@@ -568,20 +555,17 @@ CreateAnonymousSegment(Size *size)
 	}
 #endif
 
-	if (ptr == MAP_FAILED && huge_pages != HUGE_PAGES_ON)
-	{
-		/*
-		 * Use the original size, not the rounded-up value, when falling back
-		 * to non-huge pages.
-		 */
+	if (ptr == MAP_FAILED && huge_pages != HUGE_PAGES_ON) {
+		// Use the original size, not the rounded-up value, when falling back to non-huge pages.
 		allocsize = *size;
-		ptr = mmap(NULL, allocsize, PROT_READ | PROT_WRITE,
+		ptr = mmap(NULL,
+                   allocsize,
+                   PROT_READ | PROT_WRITE,
 				   PG_MMAP_FLAGS, -1, 0);
 		mmap_errno = errno;
 	}
 
-	if (ptr == MAP_FAILED)
-	{
+	if (ptr == MAP_FAILED) {
 		errno = mmap_errno;
 		ereport(FATAL,
 				(errmsg("could not map anonymous shared memory: %m"),
@@ -617,7 +601,7 @@ AnonymousShmemDetach(int status, Datum arg)
 }
 
 /*
- * PGSharedMemoryCreate
+ * 返回的是mmap内存的头部
  *
  * Create a shared memory segment of the given size and initialize its
  * standard header.  Also, register an on_shmem_exit callback to release
@@ -631,13 +615,12 @@ AnonymousShmemDetach(int status, Datum arg)
  * The port number is passed for possible use as a key (for SysV, we use
  * it to generate the starting shmem key).
  */
-PGShmemHeader *
-PGSharedMemoryCreate(Size size, int port,
-					 PGShmemHeader **shim)
-{
+PGShmemHeader * PGSharedMemoryCreate(Size size,
+                                     int port,
+                                     PGShmemHeader **pgshmemeHeaderInShareMem) {
 	IpcMemoryKey NextShmemSegID;
-	void	   *memAddress;
-	PGShmemHeader *hdr;
+	void	   *sharedMemAddr;
+	PGShmemHeader *pgShmemHeader;
 	struct stat statbuf;
 	Size		sysvsize;
 
@@ -650,27 +633,28 @@ PGSharedMemoryCreate(Size size, int port,
 #endif
 
 	/* For now, we don't support huge pages in SysV memory */
-	if (huge_pages == HUGE_PAGES_ON && shared_memory_type != SHMEM_TYPE_MMAP)
+	if (huge_pages == HUGE_PAGES_ON && shared_memory_type != SHMEM_TYPE_MMAP) {
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("huge pages not supported with the current shared_memory_type setting")));
+    }
 
 	/* Room for a header? */
 	Assert(size > MAXALIGN(sizeof(PGShmemHeader)));
 
-	if (shared_memory_type == SHMEM_TYPE_MMAP)
-	{
+	if (shared_memory_type == SHMEM_TYPE_MMAP) {
+        // 调用了mmap
 		AnonymousShmem = CreateAnonymousSegment(&size);
 		AnonymousShmemSize = size;
 
 		/* Register on-exit routine to unmap the anonymous segment */
 		on_shmem_exit(AnonymousShmemDetach, (Datum) 0);
 
-		/* Now we need only allocate a minimal-sized SysV shmem block. */
+		// now we need only allocate a minimal-sized SysV shmem block
 		sysvsize = sizeof(PGShmemHeader);
-	}
-	else
-		sysvsize = size;
+	} else {
+        sysvsize = size;
+    }
 
 	/*
 	 * Loop till we find a free IPC key.  Trust CreateDataDirLockFile() to
@@ -680,16 +664,16 @@ PGSharedMemoryCreate(Size size, int port,
 	 */
 	NextShmemSegID = 1 + port * 1000;
 
-	for (;;)
-	{
+	for (;;) {
 		IpcMemoryId shmid;
 		PGShmemHeader *oldhdr;
 		IpcMemoryState state;
 
-		/* Try to create new segment */
-		memAddress = InternalIpcMemoryCreate(NextShmemSegID, sysvsize);
-		if (memAddress)
-			break;				/* successful create and attach */
+		// 调用shmget Try to create new segment
+		sharedMemAddr = InternalIpcMemoryCreate(NextShmemSegID, sysvsize);
+		if (sharedMemAddr) { // successful create and attach
+            break;
+        }
 
 		/* Check shared memory and possibly remove and recreate */
 
@@ -699,16 +683,13 @@ PGSharedMemoryCreate(Size size, int port,
 		 * safely treat SHMSTATE_ENOENT like SHMSTATE_FOREIGN.
 		 */
 		shmid = shmget(NextShmemSegID, sizeof(PGShmemHeader), 0);
-		if (shmid < 0)
-		{
+		if (shmid < 0) {
 			oldhdr = NULL;
 			state = SHMSTATE_FOREIGN;
-		}
-		else
+		} else
 			state = PGSharedMemoryAttach(shmid, NULL, &oldhdr);
 
-		switch (state)
-		{
+		switch (state) {
 			case SHMSTATE_ANALYSIS_FAILURE:
 			case SHMSTATE_ATTACHED:
 				ereport(FATAL,
@@ -735,7 +716,6 @@ PGSharedMemoryCreate(Size size, int port,
 				NextShmemSegID++;
 				break;
 			case SHMSTATE_UNATTACHED:
-
 				/*
 				 * The segment pertains to DataDir, and every process that had
 				 * used it has died or detached.  Zap it, if possible, and any
@@ -753,45 +733,48 @@ PGSharedMemoryCreate(Size size, int port,
 				break;
 		}
 
-		if (oldhdr && shmdt(oldhdr) < 0)
+		if (oldhdr && shmdt(oldhdr) < 0) {
 			elog(LOG, "shmdt(%p) failed: %m", oldhdr);
+        }
 	}
 
-	/* Initialize new segment. */
-	hdr = (PGShmemHeader *) memAddress;
-	hdr->creatorPID = getpid();
-	hdr->magic = PGShmemMagic;
-	hdr->dsm_control = 0;
+	// Initialize new segment
+	pgShmemHeader = (PGShmemHeader *) sharedMemAddr;
+    pgShmemHeader->creatorPID = getpid();
+    pgShmemHeader->magic = PGShmemMagic;
+    pgShmemHeader->dsm_control = 0;
 
 	/* Fill in the data directory ID info, too */
-	if (stat(DataDir, &statbuf) < 0)
-		ereport(FATAL,
-				(errcode_for_file_access(),
-				 errmsg("could not stat data directory \"%s\": %m",
-						DataDir)));
-	hdr->device = statbuf.st_dev;
-	hdr->inode = statbuf.st_ino;
+	if (stat(DataDir, &statbuf) < 0) {
+		ereport(FATAL,(errcode_for_file_access(),errmsg("could not stat data directory \"%s\": %m", DataDir)));
+    }
 
-	/*
-	 * Initialize space allocation status for segment.
-	 */
-	hdr->totalsize = size;
-	hdr->freeoffset = MAXALIGN(sizeof(PGShmemHeader));
-	*shim = hdr;
+    pgShmemHeader->device = statbuf.st_dev;
+    pgShmemHeader->inode = statbuf.st_ino;
+
+	// Initialize space allocation status for segment.
+	pgShmemHeader->totalsize = size;
+    pgShmemHeader->freeoffset = MAXALIGN(sizeof(PGShmemHeader));
+	*pgshmemeHeaderInShareMem = pgShmemHeader;
 
 	/* Save info for possible future use */
-	UsedShmemSegAddr = memAddress;
+	UsedShmemSegAddr = sharedMemAddr;
 	UsedShmemSegID = (unsigned long) NextShmemSegID;
 
 	/*
 	 * If AnonymousShmem is NULL here, then we're not using anonymous shared
 	 * memory, and should return a pointer to the System V shared memory
-	 * block. Otherwise, the System V shared memory block is only a shim, and
+	 * block. Otherwise, the System V shared memory block is only a pgshmemeHeaderInShareMem, and
 	 * we must return a pointer to the real block.
 	 */
-	if (AnonymousShmem == NULL)
-		return hdr;
-	memcpy(AnonymousShmem, hdr, sizeof(PGShmemHeader));
+	if (AnonymousShmem == NULL) {
+		return pgShmemHeader;
+    }
+
+
+    // 把 sharedMemAddr 头部 copy到 mmap内存
+	memcpy(AnonymousShmem, pgShmemHeader, sizeof(PGShmemHeader));
+
 	return (PGShmemHeader *) AnonymousShmem;
 }
 

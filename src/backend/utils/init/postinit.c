@@ -425,22 +425,20 @@ CheckMyDatabase(const char *name, bool am_superuser, bool override_allow_connect
  *		it should be called something more informative.
  * --------------------------------
  */
-static void
-InitCommunication(void)
-{
-	/*
-	 * initialize shared memory and semaphores appropriately.
-	 */
-	if (!IsUnderPostmaster)		/* postmaster already did this */
-	{
-		/*
-		 * We're running a postgres bootstrap process or a standalone backend.
-		 * Though we won't listen on PostPortNumber, use it to select a shmem
-		 * key.  This increases the chance of detecting a leftover live
-		 * backend of this DataDir.
-		 */
-		CreateSharedMemoryAndSemaphores(PostPortNumber);
+static void InitCommunication(void) {
+	// initialize shared memory and semaphores appropriately.
+    // postmaster already did this
+	if (IsUnderPostmaster) {
+        return;
 	}
+
+    /*
+     * We're running a postgres bootstrap process or a standalone backend.
+     * Though we won't listen on PostPortNumber, use it to select a shmem
+     * key.  This increases the chance of detecting a leftover live
+     * backend of this DataDir.
+     */
+    CreateSharedMemoryAndSemaphores(PostPortNumber);
 }
 
 

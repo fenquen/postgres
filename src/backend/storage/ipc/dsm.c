@@ -72,8 +72,7 @@ struct dsm_segment
 };
 
 /* Shared-memory state for a dynamic shared memory segment. */
-typedef struct dsm_control_item
-{
+typedef struct dsm_control_item {
 	dsm_handle	handle;
 	uint32		refcnt;			/* 2+ = active, 1 = moribund, 0 = gone */
 	void	   *impl_private_pm_handle; /* only needed on Windows */
@@ -81,8 +80,7 @@ typedef struct dsm_control_item
 } dsm_control_item;
 
 /* Layout of the dynamic shared memory control segment. */
-typedef struct dsm_control_header
-{
+typedef struct dsm_control_header {
 	uint32		magic;
 	uint32		nitems;
 	uint32		maxitems;
@@ -133,13 +131,10 @@ static void *dsm_control_impl_private = NULL;
 /*
  * Start up the dynamic shared memory system.
  *
- * This is called just once during each cluster lifetime, at postmaster
- * startup time.
+ * This is called just once during each cluster lifetime, at postmaster startup time.
  */
-void
-dsm_postmaster_startup(PGShmemHeader *shim)
-{
-	void	   *dsm_control_address = NULL;
+void dsm_postmaster_startup(PGShmemHeader *pgshmemeHeaderInShareMem) {
+	void	   *dsm_control_mapped_address = NULL;
 	uint32		maxitems;
 	Size		segsize;
 
@@ -148,43 +143,47 @@ dsm_postmaster_startup(PGShmemHeader *shim)
 	/*
 	 * If we're using the mmap implementations, clean up any leftovers.
 	 * Cleanup isn't needed on Windows, and happens earlier in startup for
-	 * POSIX and System V shared memory, via a direct call to
-	 * dsm_cleanup_using_control_segment.
+	 * POSIX and System V shared memory, via a direct call to dsm_cleanup_using_control_segment.
 	 */
-	if (dynamic_shared_memory_type == DSM_IMPL_MMAP)
+	if (dynamic_shared_memory_type == DSM_IMPL_MMAP) {
 		dsm_cleanup_for_mmap();
+    }
 
 	/* Determine size for new control segment. */
-	maxitems = PG_DYNSHMEM_FIXED_SLOTS
-		+ PG_DYNSHMEM_SLOTS_PER_BACKEND * MaxBackends;
-	elog(DEBUG2, "dynamic shared memory system will support %u segments",
-		 maxitems);
+	maxitems = PG_DYNSHMEM_FIXED_SLOTS + PG_DYNSHMEM_SLOTS_PER_BACKEND * MaxBackends;
+	elog(DEBUG2, "dynamic shared memory system will support %u segments",maxitems);
 	segsize = dsm_control_bytes_needed(maxitems);
 
 	/*
 	 * Loop until we find an unused identifier for the new control segment. We
 	 * sometimes use 0 as a sentinel value indicating that no control segment
-	 * is known to exist, so avoid using that value for a real control
-	 * segment.
+	 * is known to exist, so avoid using that value for a real control segment.
 	 */
-	for (;;)
-	{
-		Assert(dsm_control_address == NULL);
+	for (;;) {
+		Assert(dsm_control_mapped_address == NULL);
 		Assert(dsm_control_mapped_size == 0);
+
 		dsm_control_handle = random();
-		if (dsm_control_handle == DSM_HANDLE_INVALID)
+		if (dsm_control_handle == DSM_HANDLE_INVALID){
 			continue;
-		if (dsm_impl_op(DSM_OP_CREATE, dsm_control_handle, segsize,
-						&dsm_control_impl_private, &dsm_control_address,
-						&dsm_control_mapped_size, ERROR))
+        }
+
+		if (dsm_impl_op(DSM_OP_CREATE,
+                        dsm_control_handle,
+                        segsize,
+						&dsm_control_impl_private,
+                        &dsm_control_mapped_address,
+						&dsm_control_mapped_size,
+                        ERROR)) {
 			break;
+        }
 	}
-	dsm_control = dsm_control_address;
-	on_shmem_exit(dsm_postmaster_shutdown, PointerGetDatum(shim));
-	elog(DEBUG2,
-		 "created dynamic shared memory control segment %u (%zu bytes)",
-		 dsm_control_handle, segsize);
-	shim->dsm_control = dsm_control_handle;
+
+	dsm_control = dsm_control_mapped_address;
+	on_shmem_exit(dsm_postmaster_shutdown, PointerGetDatum(pgshmemeHeaderInShareMem));
+	elog(DEBUG2,"created dynamic shared memory control segment %u (%zu bytes)",dsm_control_handle, segsize);
+
+    pgshmemeHeaderInShareMem->dsm_control = dsm_control_handle;
 
 	/* Initialize control segment. */
 	dsm_control->magic = PG_DYNSHMEM_CONTROL_MAGIC;
@@ -1089,13 +1088,7 @@ dsm_control_segment_sane(dsm_control_header *control, Size mapped_size)
 	return true;
 }
 
-/*
- * Compute the number of control-segment bytes needed to store a given
- * number of items.
- */
-static uint64
-dsm_control_bytes_needed(uint32 nitems)
-{
-	return offsetof(dsm_control_header, item)
-		+ sizeof(dsm_control_item) * (uint64) nitems;
+// Compute the number of control-segment bytes needed to store a given number of items.
+static uint64 dsm_control_bytes_needed(uint32 nitems) {
+	return offsetof(dsm_control_header, item) + sizeof(dsm_control_item) * (uint64) nitems;
 }

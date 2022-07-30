@@ -122,21 +122,21 @@ s_unlock(volatile slock_t *lock)
  * Wait while spinning on a contended spinlock.
  */
 void
-perform_spin_delay(SpinDelayStatus *status)
+perform_spin_delay(SpinDelayStatus *spinDelayStatus)
 {
 	/* CPU-specific delay each time through the loop */
 	SPIN_DELAY();
 
 	/* Block the process every spins_per_delay tries */
-	if (++(status->spins) >= spins_per_delay)
+	if (++(spinDelayStatus->spins) >= spins_per_delay)
 	{
-		if (++(status->delays) > NUM_DELAYS)
-			s_lock_stuck(status->file, status->line, status->func);
+		if (++(spinDelayStatus->delays) > NUM_DELAYS)
+			s_lock_stuck(spinDelayStatus->file, spinDelayStatus->line, spinDelayStatus->func);
 
-		if (status->cur_delay == 0) /* first time to delay? */
-			status->cur_delay = MIN_DELAY_USEC;
+		if (spinDelayStatus->cur_delay == 0) /* first time to delay? */
+			spinDelayStatus->cur_delay = MIN_DELAY_USEC;
 
-		pg_usleep(status->cur_delay);
+		pg_usleep(spinDelayStatus->cur_delay);
 
 #if defined(S_LOCK_TEST)
 		fprintf(stdout, "*");
@@ -144,13 +144,13 @@ perform_spin_delay(SpinDelayStatus *status)
 #endif
 
 		/* increase delay by a random fraction between 1X and 2X */
-		status->cur_delay += (int) (status->cur_delay *
-									((double) random() / (double) MAX_RANDOM_VALUE) + 0.5);
+		spinDelayStatus->cur_delay += (int) (spinDelayStatus->cur_delay *
+                                             ((double) random() / (double) MAX_RANDOM_VALUE) + 0.5);
 		/* wrap back to minimum delay when max is exceeded */
-		if (status->cur_delay > MAX_DELAY_USEC)
-			status->cur_delay = MIN_DELAY_USEC;
+		if (spinDelayStatus->cur_delay > MAX_DELAY_USEC)
+            spinDelayStatus->cur_delay = MIN_DELAY_USEC;
 
-		status->spins = 0;
+        spinDelayStatus->spins = 0;
 	}
 }
 

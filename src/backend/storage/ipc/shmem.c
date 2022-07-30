@@ -75,11 +75,9 @@
 
 /* shared memory global variables */
 
-static PGShmemHeader *ShmemSegHdr;	/* shared mem segment header */
-
-static void *ShmemBase;			/* start address of shared memory */
-
-static void *ShmemEnd;			/* end+1 address of shared memory */
+static PGShmemHeader *pgShmemHeader_global;	/* 对应了mmap头部,shared mem segment header */
+static void *pgShmemHeader_global_base;			/* start address of shared memory */
+static void *pgShmemHeader_global_end;			/* end+1 address of shared memory */
 
 slock_t    *ShmemLock;			/* spinlock for shared memory and LWLock
 								 * allocation */
@@ -90,17 +88,15 @@ static HTAB *ShmemIndex = NULL; /* primary index hashtable for shmem */
 /*
  *	InitShmemAccess() --- set up basic pointers to shared memory.
  *
- * Note: the argument should be declared "PGShmemHeader *seghdr",
+ * Note: the argument should be declared "PGShmemHeader *ptr",
  * but we use void to avoid having to include ipc.h in shmem.h.
  */
-void
-InitShmemAccess(void *seghdr)
-{
-	PGShmemHeader *shmhdr = (PGShmemHeader *) seghdr;
+void InitShmemAccess(void *ptr) {
+	PGShmemHeader *pgShmemHeader = (PGShmemHeader *) ptr;
 
-	ShmemSegHdr = shmhdr;
-	ShmemBase = (void *) shmhdr;
-	ShmemEnd = (char *) ShmemBase + shmhdr->totalsize;
+    pgShmemHeader_global = pgShmemHeader;
+    pgShmemHeader_global_base = (void *) pgShmemHeader;
+    pgShmemHeader_global_end = (char *) pgShmemHeader_global_base + pgShmemHeader->totalsize;
 }
 
 /*
@@ -108,10 +104,8 @@ InitShmemAccess(void *seghdr)
  *
  * This should be called only in the postmaster or a standalone backend.
  */
-void
-InitShmemAllocation(void)
-{
-	PGShmemHeader *shmhdr = ShmemSegHdr;
+void InitShmemAllocation(void) {
+	PGShmemHeader *shmhdr = pgShmemHeader_global;
 	char	   *aligned;
 
 	Assert(shmhdr != NULL);
@@ -141,8 +135,7 @@ InitShmemAllocation(void)
 	 * Initialize ShmemVariableCache for transaction manager. (This doesn't
 	 * really belong here, but not worth moving.)
 	 */
-	ShmemVariableCache = (VariableCache)
-		ShmemAlloc(sizeof(*ShmemVariableCache));
+	ShmemVariableCache = (VariableCache) ShmemAlloc(sizeof(*ShmemVariableCache));
 	memset(ShmemVariableCache, 0, sizeof(*ShmemVariableCache));
 }
 
@@ -151,30 +144,24 @@ InitShmemAllocation(void)
  *
  * Throws error if request cannot be satisfied.
  *
- * Assumes ShmemLock and ShmemSegHdr are initialized.
+ * Assumes ShmemLock and pgShmemHeader_global are initialized.
  */
-void *
-ShmemAlloc(Size size)
-{
-	void	   *newSpace;
+void *ShmemAlloc(Size size) {
+    void *newSpace;
 
-	newSpace = ShmemAllocNoError(size);
-	if (!newSpace)
-		ereport(ERROR,
-				(errcode(ERRCODE_OUT_OF_MEMORY),
-				 errmsg("out of shared memory (%zu bytes requested)",
-						size)));
-	return newSpace;
+    newSpace = ShmemAllocNoError(size);
+    if (!newSpace)
+        ereport(ERROR,
+                (errcode(ERRCODE_OUT_OF_MEMORY), errmsg("out of shared memory (%zu bytes requested)", size)));
+    return newSpace;
 }
 
 /*
  * ShmemAllocNoError -- allocate max-aligned chunk from shared memory
  *
- * As ShmemAlloc, but returns NULL if out of space, rather than erroring.
+ * 要是失败的话 return null 不会去跑异常的
  */
-void *
-ShmemAllocNoError(Size size)
-{
+void *ShmemAllocNoError(Size size) {
 	Size		newStart;
 	Size		newFree;
 	void	   *newSpace;
@@ -192,17 +179,17 @@ ShmemAllocNoError(Size size)
 	 */
 	size = CACHELINEALIGN(size);
 
-	Assert(ShmemSegHdr != NULL);
+	Assert(pgShmemHeader_global != NULL);
 
 	SpinLockAcquire(ShmemLock);
 
-	newStart = ShmemSegHdr->freeoffset;
+	newStart = pgShmemHeader_global->freeoffset;
 
 	newFree = newStart + size;
-	if (newFree <= ShmemSegHdr->totalsize)
+	if (newFree <= pgShmemHeader_global->totalsize)
 	{
-		newSpace = (void *) ((char *) ShmemBase + newStart);
-		ShmemSegHdr->freeoffset = newFree;
+		newSpace = (void *) ((char *) pgShmemHeader_global_base + newStart);
+        pgShmemHeader_global->freeoffset = newFree;
 	}
 	else
 		newSpace = NULL;
@@ -216,6 +203,7 @@ ShmemAllocNoError(Size size)
 }
 
 /*
+ * 在 pgShmemHeader_global_base上圈选内存
  * ShmemAllocUnlocked -- allocate max-aligned chunk from shared memory
  *
  * Allocate space without locking ShmemLock.  This should be used for,
@@ -235,19 +223,18 @@ ShmemAllocUnlocked(Size size)
 	 */
 	size = MAXALIGN(size);
 
-	Assert(ShmemSegHdr != NULL);
+	Assert(pgShmemHeader_global != NULL);
 
-	newStart = ShmemSegHdr->freeoffset;
+	newStart = pgShmemHeader_global->freeoffset;
 
 	newFree = newStart + size;
-	if (newFree > ShmemSegHdr->totalsize)
-		ereport(ERROR,
-				(errcode(ERRCODE_OUT_OF_MEMORY),
-				 errmsg("out of shared memory (%zu bytes requested)",
-						size)));
-	ShmemSegHdr->freeoffset = newFree;
+	if (newFree > pgShmemHeader_global->totalsize) {
+		ereport(ERROR,(errcode(ERRCODE_OUT_OF_MEMORY),errmsg("out of shared memory (%zu bytes requested)",size)));
+    }
 
-	newSpace = (void *) ((char *) ShmemBase + newStart);
+    pgShmemHeader_global->freeoffset = newFree;
+
+	newSpace = (void *) ((char *) pgShmemHeader_global_base + newStart);
 
 	Assert(newSpace == (void *) MAXALIGN(newSpace));
 
@@ -262,7 +249,7 @@ ShmemAllocUnlocked(Size size)
 bool
 ShmemAddrIsValid(const void *addr)
 {
-	return (addr >= ShmemBase) && (addr < ShmemEnd);
+	return (addr >= pgShmemHeader_global_base) && (addr < pgShmemHeader_global_end);
 }
 
 /*
@@ -378,7 +365,7 @@ ShmemInitStruct(const char *name, Size size, bool *foundPtr)
 
 	if (!ShmemIndex)
 	{
-		PGShmemHeader *shmemseghdr = ShmemSegHdr;
+		PGShmemHeader *shmemseghdr = pgShmemHeader_global;
 
 		/* Must be trying to create/attach to ShmemIndex itself */
 		Assert(strcmp(name, "ShmemIndex") == 0);

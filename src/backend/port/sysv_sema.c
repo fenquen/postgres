@@ -313,24 +313,22 @@ PGSemaphoreShmemSize(int maxSemas)
  * doesn't rely on the contents of shared memory, which a failed backend might
  * have clobbered.)
  */
-void
-PGReserveSemaphores(int maxSemas, int port)
-{
+void PGReserveSemaphores(int maxSemas, int port) {
 	/*
 	 * We must use ShmemAllocUnlocked(), since the spinlock protecting
 	 * ShmemAlloc() won't be ready yet.  (This ordering is necessary when we
 	 * are emulating spinlocks with semaphores.)
 	 */
-	sharedSemas = (PGSemaphore)
-		ShmemAllocUnlocked(PGSemaphoreShmemSize(maxSemas));
+	sharedSemas = (PGSemaphore) ShmemAllocUnlocked(PGSemaphoreShmemSize(maxSemas));
 	numSharedSemas = 0;
 	maxSharedSemas = maxSemas;
 
 	maxSemaSets = (maxSemas + SEMAS_PER_SET - 1) / SEMAS_PER_SET;
-	mySemaSets = (IpcSemaphoreId *)
-		malloc(maxSemaSets * sizeof(IpcSemaphoreId));
-	if (mySemaSets == NULL)
+	mySemaSets = (IpcSemaphoreId *)malloc(maxSemaSets * sizeof(IpcSemaphoreId));
+	if (mySemaSets == NULL) {
 		elog(PANIC, "out of memory");
+    }
+
 	numSemaSets = 0;
 	nextSemaKey = port * 1000;
 	nextSemaNumber = SEMAS_PER_SET; /* force sema set alloc on 1st call */
@@ -358,9 +356,7 @@ ReleaseSemaphores(int status, Datum arg)
  *
  * Allocate a PGSemaphore structure with initial count 1
  */
-PGSemaphore
-PGSemaphoreCreate(void)
-{
+PGSemaphore PGSemaphoreCreate(void) {
 	PGSemaphore sema;
 
 	/* Can't do this in a backend, because static state is postmaster's */
@@ -423,8 +419,7 @@ PGSemaphoreLock(PGSemaphore sema)
 	 * interrupts directly from signal handlers. Which is hard to do safely
 	 * and portably.
 	 */
-	do
-	{
+	do {
 		errStatus = semop(sema->semId, &sops, 1);
 	} while (errStatus < 0 && errno == EINTR);
 

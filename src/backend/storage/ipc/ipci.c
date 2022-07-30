@@ -90,14 +90,14 @@ RequestAddinShmemSpace(Size size)
  * check IsUnderPostmaster, rather than EXEC_BACKEND, to detect this case.
  * This is a bit code-wasteful and could be cleaned up.)
  */
-void
-CreateSharedMemoryAndSemaphores(int port)
-{
-	PGShmemHeader *shim = NULL;
+void CreateSharedMemoryAndSemaphores(int port) {
 
-	if (!IsUnderPostmaster)
-	{
-		PGShmemHeader *seghdr;
+    // 它是真正的 PGShmemHeader,是位于共享内存上的
+	PGShmemHeader *pgshmemeHeaderInShareMem = NULL;
+
+	if (!IsUnderPostmaster) {
+        // 这个是在mmap内存上的 是起始的时候共享内存上的header通过memcpy复制到mmap内存上的
+		PGShmemHeader *pgShmemHeaderInMmapMem;
 		Size		size;
 		int			numSemas;
 
@@ -117,8 +117,7 @@ CreateSharedMemoryAndSemaphores(int port)
 		size = 100000;
 		size = add_size(size, PGSemaphoreShmemSize(numSemas));
 		size = add_size(size, SpinlockSemaSize());
-		size = add_size(size, hash_estimate_size(SHMEM_INDEX_SIZE,
-												 sizeof(ShmemIndexEnt)));
+		size = add_size(size, hash_estimate_size(SHMEM_INDEX_SIZE, sizeof(ShmemIndexEnt)));
 		size = add_size(size, BufferShmemSize());
 		size = add_size(size, LockShmemSize());
 		size = add_size(size, PredicateLockShmemSize());
@@ -150,7 +149,6 @@ CreateSharedMemoryAndSemaphores(int port)
 #ifdef EXEC_BACKEND
 		size = add_size(size, ShmemBackendArraySize());
 #endif
-
 		/* freeze the addin request size and include it */
 		addin_request_allowed = false;
 		size = add_size(size, total_addin_request);
@@ -160,16 +158,12 @@ CreateSharedMemoryAndSemaphores(int port)
 
 		elog(DEBUG3, "invoking IpcMemoryCreate(size=%zu)", size);
 
-		/*
-		 * Create the shmem segment
-		 */
-		seghdr = PGSharedMemoryCreate(size, port, &shim);
+		// Create the shared memory segment 返回的是mmap内存的头部,mmap内存和共享内存的头部都用PGShmemHeader表达
+		pgShmemHeaderInMmapMem = PGSharedMemoryCreate(size, port, &pgshmemeHeaderInShareMem);
 
-		InitShmemAccess(seghdr);
+		InitShmemAccess(pgShmemHeaderInMmapMem);
 
-		/*
-		 * Create semaphores
-		 */
+		// Create semaphores
 		PGReserveSemaphores(numSemas, port);
 
 		/*
@@ -179,23 +173,17 @@ CreateSharedMemoryAndSemaphores(int port)
 #ifndef HAVE_SPINLOCKS
 		SpinlockSemaInit();
 #endif
-	}
-	else
-	{
-		/*
-		 * We are reattaching to an existing shared memory segment. This
-		 * should only be reached in the EXEC_BACKEND case.
-		 */
+	} else {
+		// We are reattaching to an existing shared memory segment This should only be reached in the EXEC_BACKEND case.
 #ifndef EXEC_BACKEND
 		elog(PANIC, "should be attached to shared memory already");
 #endif
 	}
 
-	/*
-	 * Set up shared memory allocation mechanism
-	 */
-	if (!IsUnderPostmaster)
-		InitShmemAllocation();
+	// Set up shared memory allocation mechanism
+	if (!IsUnderPostmaster) {
+        InitShmemAllocation();
+    }
 
 	/*
 	 * Now initialize LWLocks, which do shared memory allocation and are
@@ -208,9 +196,7 @@ CreateSharedMemoryAndSemaphores(int port)
 	 */
 	InitShmemIndex();
 
-	/*
-	 * Set up xlog, clog, and buffers
-	 */
+	// Set up xlog, clog, and buffers
 	XLOGShmemInit();
 	CLOGShmemInit();
 	CommitTsShmemInit();
@@ -218,34 +204,26 @@ CreateSharedMemoryAndSemaphores(int port)
 	MultiXactShmemInit();
 	InitBufferPool();
 
-	/*
-	 * Set up lock manager
-	 */
+	// Set up lock manager
 	InitLocks();
 
-	/*
-	 * Set up predicate lock manager
-	 */
+	// Set up predicate lock manager
 	InitPredicateLocks();
 
-	/*
-	 * Set up process table
-	 */
-	if (!IsUnderPostmaster)
+	// Set up process table
+	if (!IsUnderPostmaster) {
 		InitProcGlobal();
+    }
+
 	CreateSharedProcArray();
 	CreateSharedBackendStatus();
 	TwoPhaseShmemInit();
 	BackgroundWorkerShmemInit();
 
-	/*
-	 * Set up shared-inval messaging
-	 */
+	// Set up shared-inval messaging
 	CreateSharedInvalidationState();
 
-	/*
-	 * Set up interprocess signaling mechanisms
-	 */
+	// Set up interprocess signaling mechanisms
 	PMSignalShmemInit();
 	ProcSignalShmemInit();
 	CheckpointerShmemInit();
@@ -256,30 +234,25 @@ CreateSharedMemoryAndSemaphores(int port)
 	WalRcvShmemInit();
 	ApplyLauncherShmemInit();
 
-	/*
-	 * Set up other modules that need some shared memory space
-	 */
+	// Set up other modules that need some shared memory space
 	SnapMgrInit();
 	BTreeShmemInit();
 	SyncScanShmemInit();
 	AsyncShmemInit();
 
 #ifdef EXEC_BACKEND
-
-	/*
-	 * Alloc the win32 shared backend array
-	 */
+	// Alloc the win32 shared backend array
 	if (!IsUnderPostmaster)
 		ShmemBackendArrayAllocation();
 #endif
 
 	/* Initialize dynamic shared memory facilities. */
-	if (!IsUnderPostmaster)
-		dsm_postmaster_startup(shim);
+	if (!IsUnderPostmaster) {
+		dsm_postmaster_startup(pgshmemeHeaderInShareMem);
+    }
 
-	/*
-	 * Now give loadable modules a chance to set up their shmem allocations
-	 */
-	if (shmem_startup_hook)
+	// Now give loadable modules a chance to set up their shmem allocations
+	if (shmem_startup_hook) {
 		shmem_startup_hook();
+    }
 }

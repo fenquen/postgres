@@ -71,7 +71,7 @@ GetSessionDsmHandle(void)
 {
 	shm_toc_estimator estimator;
 	shm_toc    *toc;
-	dsm_segment *seg;
+	dsm_segment *dsmSegment;
 	size_t		typmod_registry_size;
 	size_t		size;
 	void	   *dsa_space;
@@ -102,30 +102,30 @@ GetSessionDsmHandle(void)
 
 	/* Set up segment and TOC. */
 	size = shm_toc_estimate(&estimator);
-	seg = dsm_create(size, DSM_CREATE_NULL_IF_MAXSEGMENTS);
-	if (seg == NULL)
+    dsmSegment = dsm_create(size, DSM_CREATE_NULL_IF_MAXSEGMENTS);
+	if (dsmSegment == NULL)
 	{
 		MemoryContextSwitchTo(old_context);
 
 		return DSM_HANDLE_INVALID;
 	}
 	toc = shm_toc_create(SESSION_MAGIC,
-						 dsm_segment_address(seg),
+						 dsm_segment_address(dsmSegment),
 						 size);
 
 	/* Create per-session DSA area. */
 	dsa_space = shm_toc_allocate(toc, SESSION_DSA_SIZE);
 	dsa = dsa_create_in_place(dsa_space,
-							  SESSION_DSA_SIZE,
-							  LWTRANCHE_SESSION_DSA,
-							  seg);
+                              SESSION_DSA_SIZE,
+                              LWTRANCHE_SESSION_DSA,
+                              dsmSegment);
 	shm_toc_insert(toc, SESSION_KEY_DSA, dsa_space);
 
 
 	/* Create session-scoped shared record typmod registry. */
 	typmod_registry_space = shm_toc_allocate(toc, typmod_registry_size);
 	SharedRecordTypmodRegistryInit((SharedRecordTypmodRegistry *)
-								   typmod_registry_space, seg, dsa);
+								   typmod_registry_space, dsmSegment, dsa);
 	shm_toc_insert(toc, SESSION_KEY_RECORD_TYPMOD_REGISTRY,
 				   typmod_registry_space);
 
@@ -136,16 +136,16 @@ GetSessionDsmHandle(void)
 	 * SharedRecordTypmodRegistry) will run when the DSM segment is detached
 	 * by CurrentResourceOwner so we aren't left with a broken CurrentSession.
 	 */
-	dsm_pin_mapping(seg);
+	dsm_pin_mapping(dsmSegment);
 	dsa_pin_mapping(dsa);
 
 	/* Make segment and area available via CurrentSession. */
-	CurrentSession->segment = seg;
+	CurrentSession->segment = dsmSegment;
 	CurrentSession->area = dsa;
 
 	MemoryContextSwitchTo(old_context);
 
-	return dsm_segment_handle(seg);
+	return dsm_segment_handle(dsmSegment);
 }
 
 /*

@@ -174,7 +174,7 @@ static PrivateRefCountEntry *ReservedRefCountEntry = NULL;
 
 static void ReservePrivateRefCountEntry(void);
 static PrivateRefCountEntry *NewPrivateRefCountEntry(Buffer buffer);
-static PrivateRefCountEntry *GetPrivateRefCountEntry(Buffer buffer, bool do_move);
+static PrivateRefCountEntry *GetPrivateRefCountEntry(Buffer buffer, bool move2ArrWhenFoundInHashTable);
 static inline int32 GetPrivateRefCount(Buffer buffer);
 static void ForgetPrivateRefCountEntry(PrivateRefCountEntry *ref);
 
@@ -246,12 +246,8 @@ ReservePrivateRefCountEntry(void)
 	}
 }
 
-/*
- * Fill a previously reserved refcount entry.
- */
-static PrivateRefCountEntry *
-NewPrivateRefCountEntry(Buffer buffer)
-{
+// Fill a previously reserved refcount entry.
+static PrivateRefCountEntry *NewPrivateRefCountEntry(Buffer buffer){
 	PrivateRefCountEntry *res;
 
 	/* only allowed to be called when a reservation has been made */
@@ -272,82 +268,75 @@ NewPrivateRefCountEntry(Buffer buffer)
  * Return the PrivateRefCount entry for the passed buffer.
  *
  * Returns NULL if a buffer doesn't have a refcount entry. Otherwise, if
- * do_move is true, and the entry resides in the hashtable the entry is
+ * move2ArrWhenFoundInHashTable is true, and the entry resides in the hashtable the entry is
  * optimized for frequent access by moving it to the array.
  */
-static PrivateRefCountEntry *
-GetPrivateRefCountEntry(Buffer buffer, bool do_move)
-{
-	PrivateRefCountEntry *res;
-	int			i;
+static PrivateRefCountEntry *GetPrivateRefCountEntry(Buffer buffer, bool move2ArrWhenFoundInHashTable) {
+    PrivateRefCountEntry *privateRefCountEntry;
+    int i;
 
-	Assert(BufferIsValid(buffer));
-	Assert(!BufferIsLocal(buffer));
+    Assert(BufferIsValid(buffer));
+    Assert(!BufferIsLocal(buffer));
 
-	/*
-	 * First search for references in the array, that'll be sufficient in the
-	 * majority of cases.
-	 */
-	for (i = 0; i < REFCOUNT_ARRAY_ENTRIES; i++)
-	{
-		res = &PrivateRefCountArray[i];
+    // first search for references in the array, that'll be sufficient in the majority of cases.
+    for (i = 0; i < REFCOUNT_ARRAY_ENTRIES; i++) {
+        privateRefCountEntry = &PrivateRefCountArray[i];
 
-		if (res->buffer == buffer)
-			return res;
-	}
+        if (privateRefCountEntry->buffer == buffer) {
+            return privateRefCountEntry;
+        }
+    }
 
-	/*
-	 * By here we know that the buffer, if already pinned, isn't residing in
-	 * the array.
-	 *
-	 * Only look up the buffer in the hashtable if we've previously overflowed
-	 * into it.
-	 */
-	if (PrivateRefCountOverflowed == 0)
-		return NULL;
+    // By here we know that the buffer, if already pinned, isn't residing in the array.
+    // Only look up the buffer in the hashtable if we've previously overflowed into it.
+    if (PrivateRefCountOverflowed == 0) {
+        return NULL;
+    }
 
-	res = hash_search(PrivateRefCountHash,
-					  (void *) &buffer,
-					  HASH_FIND,
-					  NULL);
+    privateRefCountEntry = hash_search(PrivateRefCountHash,
+                                       (void *) &buffer,
+                                       HASH_FIND,
+                                       NULL);
 
-	if (res == NULL)
-		return NULL;
-	else if (!do_move)
-	{
-		/* caller doesn't want us to move the hash entry into the array */
-		return res;
-	}
-	else
-	{
-		/* move buffer from hashtable into the free array slot */
-		bool		found;
-		PrivateRefCountEntry *free;
+    if (privateRefCountEntry == NULL) {
+        return NULL;
+    }
 
-		/* Ensure there's a free array slot */
-		ReservePrivateRefCountEntry();
+    // caller doesn't want us to move the hash entry into the array */
+    if (!move2ArrWhenFoundInHashTable) {
+        return privateRefCountEntry;
+    }
 
-		/* Use up the reserved slot */
-		Assert(ReservedRefCountEntry != NULL);
-		free = ReservedRefCountEntry;
-		ReservedRefCountEntry = NULL;
-		Assert(free->buffer == InvalidBuffer);
 
-		/* and fill it */
-		free->buffer = buffer;
-		free->refcount = res->refcount;
+    // move buffer from hashtable into the free array slot */
+    bool found;
+    PrivateRefCountEntry *free;
 
-		/* delete from hashtable */
-		hash_search(PrivateRefCountHash,
-					(void *) &buffer,
-					HASH_REMOVE,
-					&found);
-		Assert(found);
-		Assert(PrivateRefCountOverflowed > 0);
-		PrivateRefCountOverflowed--;
+    /* Ensure there's a free array slot */
+    ReservePrivateRefCountEntry();
 
-		return free;
-	}
+    /* Use up the reserved slot */
+    Assert(ReservedRefCountEntry != NULL);
+    free = ReservedRefCountEntry;
+    ReservedRefCountEntry = NULL;
+    Assert(free->buffer == InvalidBuffer);
+
+    /* and fill it */
+    free->buffer = buffer;
+    free->refcount = privateRefCountEntry->refcount;
+
+    /* delete from hashtable */
+    hash_search(PrivateRefCountHash,
+                (void *) &buffer,
+                HASH_REMOVE,
+                &found);
+    Assert(found);
+    Assert(PrivateRefCountOverflowed > 0);
+
+    PrivateRefCountOverflowed--;
+
+    return free;
+
 }
 
 /*
@@ -433,7 +422,7 @@ static Buffer ReadBuffer_common(SMgrRelation sMgrRelation, char relpersistence,
                                 ForkNumber forkNum, BlockNumber blockNum,
                                 ReadBufferMode readBufferMode, BufferAccessStrategy strategy,
                                 bool *hit);
-static bool PinBuffer(BufferDesc *buf, BufferAccessStrategy strategy);
+static bool PinBuffer(BufferDesc *bufferDesc, BufferAccessStrategy bufferAccessStrategy);
 static void PinBuffer_Locked(BufferDesc *buf);
 static void UnpinBuffer(BufferDesc *buf, bool fixOwner);
 static void BufferSync(int flags);
@@ -591,10 +580,12 @@ PrefetchBuffer(Relation reln, ForkNumber forkNum, BlockNumber blockNum)
  * ReadBuffer -- a shorthand for ReadBufferExtended, for reading from main
  *		fork with RBM_NORMAL mode and default strategy.
  */
-Buffer
-ReadBuffer(Relation reln, BlockNumber blockNum)
-{
-	return ReadBufferExtended(reln, MAIN_FORKNUM, blockNum, RBM_NORMAL, NULL);
+Buffer ReadBuffer(Relation relation, BlockNumber blockNum){
+	return ReadBufferExtended(relation,
+                              MAIN_FORKNUM,
+                              blockNum,
+                              RBM_NORMAL,
+                              NULL);
 }
 
 /*
@@ -1521,7 +1512,7 @@ ReleaseAndReadBuffer(Buffer buffer,
 /*
  * PinBuffer -- make buffer unavailable for replacement.
  *
- * For the default access strategy, the buffer's usage_count is incremented
+ * For the default access bufferAccessStrategy, the buffer's usage_count is incremented
  * when we first pin it; for other strategies we just make sure the usage_count
  * isn't zero.  (The idea of the latter is that we don't want synchronized
  * heap scans to inflate the count, but we need it to not be zero to discourage
@@ -1540,12 +1531,13 @@ ReleaseAndReadBuffer(Buffer buffer,
  * Returns true if buffer is BM_VALID, else false.  This provision allows
  * some callers to avoid an extra spinlock cycle.
  */
-static bool PinBuffer(BufferDesc *buf, BufferAccessStrategy strategy) {
-    Buffer buffer = BufferDescriptorGetBuffer(buf);
+static bool PinBuffer(BufferDesc *bufferDesc,
+                      BufferAccessStrategy bufferAccessStrategy) {
+    Buffer buffer = BufferDescriptorGetBuffer(bufferDesc);
     bool result;
-    PrivateRefCountEntry *privateRefCountEntry;
 
-    privateRefCountEntry = GetPrivateRefCountEntry(buffer, true);
+    // 之前的pin状态的记录
+    PrivateRefCountEntry *privateRefCountEntry = GetPrivateRefCountEntry(buffer, true);
 
     if (privateRefCountEntry == NULL) {
         uint32 buf_state;
@@ -1554,39 +1546,43 @@ static bool PinBuffer(BufferDesc *buf, BufferAccessStrategy strategy) {
         ReservePrivateRefCountEntry();
         privateRefCountEntry = NewPrivateRefCountEntry(buffer);
 
-        old_buf_state = pg_atomic_read_u32(&buf->state);
+        old_buf_state = pg_atomic_read_u32(&bufferDesc->state);
         for (;;) {
-            if (old_buf_state & BM_LOCKED)
-                old_buf_state = WaitBufHdrUnlocked(buf);
+            if (old_buf_state & BM_LOCKED) {
+                old_buf_state = WaitBufHdrUnlocked(bufferDesc);
+            }
 
             buf_state = old_buf_state;
 
             /* increase refcount */
             buf_state += BUF_REFCOUNT_ONE;
 
-            if (strategy == NULL) {
-                /* Default case: increase usagecount unless already max. */
-                if (BUF_STATE_GET_USAGECOUNT(buf_state) < BM_MAX_USAGE_COUNT)
+            if (bufferAccessStrategy == NULL) {
+                // Default case: increase usage count unless already max
+                if (BUF_STATE_GET_USAGECOUNT(buf_state) < BM_MAX_USAGE_COUNT) {
                     buf_state += BUF_USAGECOUNT_ONE;
+                }
             } else {
                 // Ring buffers shouldn't evict others from pool.  Thus we don't make usagecount more than 1.
-                if (BUF_STATE_GET_USAGECOUNT(buf_state) == 0)
+                if (BUF_STATE_GET_USAGECOUNT(buf_state) == 0) {
                     buf_state += BUF_USAGECOUNT_ONE;
+                }
             }
 
-            if (pg_atomic_compare_exchange_u32(&buf->state, &old_buf_state, buf_state)) {
+            if (pg_atomic_compare_exchange_u32(&bufferDesc->state, &old_buf_state, buf_state)) {
                 result = (buf_state & BM_VALID) != 0;
                 break;
             }
         }
-    } else {
-        /* If we previously pinned the buffer, it must surely be valid */
+    } else { /* If we previously pinned the buffer, it must surely be valid */
         result = true;
     }
 
     privateRefCountEntry->refcount++;
     Assert(privateRefCountEntry->refcount > 0);
+
     ResourceOwnerRememberBuffer(CurrentResourceOwner, buffer);
+
     return result;
 }
 
@@ -4113,9 +4109,7 @@ LockBufHdr(BufferDesc *desc)
  * Obviously the buffer could be locked by the time the value is returned, so
  * this is primarily useful in CAS style loops.
  */
-static uint32
-WaitBufHdrUnlocked(BufferDesc *buf)
-{
+static uint32 WaitBufHdrUnlocked(BufferDesc *buf) {
 	SpinDelayStatus delayStatus;
 	uint32		buf_state;
 
@@ -4123,8 +4117,7 @@ WaitBufHdrUnlocked(BufferDesc *buf)
 
 	buf_state = pg_atomic_read_u32(&buf->state);
 
-	while (buf_state & BM_LOCKED)
-	{
+	while (buf_state & BM_LOCKED) {
 		perform_spin_delay(&delayStatus);
 		buf_state = pg_atomic_read_u32(&buf->state);
 	}
