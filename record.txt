@@ -137,11 +137,41 @@ data/postermaster.opts 内容是启动的命令
     	return get_rel_persistence(tableRelid) == RELPERSISTENCE_PERMANENT;
     }
 
- ./configure --enable-debug --enable-cassert --enable-thread-safety --prefix=/Users/a/program/pg12 CFLAGS="-g -O0"
+编译
+    ./configure --enable-debug --enable-cassert --enable-thread-safety --prefix=/Users/a/program/pg12 CFLAGS="-g -O0"
 
-  make -sj
-
+    make -sj
+其他
   SELECT pg_backend_pid();
   PlannerInfo* root
   Plan* top_plan
   PlannedStmt* result
+
+共享内存
+    sql: select name, setting from pg_settings where name like 'shared_memory_type';
+    global变量: int shared_memory_type
+    typedef enum
+    {
+    	SHMEM_TYPE_WINDOWS,
+    	SHMEM_TYPE_SYSV,
+    	SHMEM_TYPE_MMAP // 默认
+    }			PGShmemType;
+动态共享内存 https://blog.csdn.net/asmartkiller/article/details/118656910
+    使用shm_open()得到在/dev/shm 下的fd
+    使用 ftruncate(fd, size)调整到期望的大小
+    使用mmap对该fd映射
+
+    dynamic shared memory 用在 并行查询 是9.6之后有的
+    对于并行查询而言，执行时创建的 worker 进程与 leader 进程通过共享内存实现数据交互。
+    然而这部分内存无法像普通的共享内存那样在系统启动时预先分配，直到真正执行时才知道有多少 worker 进程，以及需要分配多少内存。
+    动态共享内存，即在执行时动态创建，用于 leader 与 worker 间通信，执行完成后release
+
+    sql: select name, setting from pg_settings where name like 'dynamic_shared_memory_type';
+
+    global变量:int dynamic_shared_memory_type;
+    /* Dynamic shared memory implementations. */
+    #define DSM_IMPL_POSIX			1 // 默认
+    #define DSM_IMPL_SYSV			2
+    #define DSM_IMPL_WINDOWS		3
+    #define DSM_IMPL_MMAP			4
+

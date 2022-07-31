@@ -184,15 +184,14 @@ void *ShmemAllocNoError(Size size) {
 	SpinLockAcquire(ShmemLock);
 
 	newStart = pgShmemHeader_global->freeoffset;
-
 	newFree = newStart + size;
-	if (newFree <= pgShmemHeader_global->totalsize)
-	{
+
+	if (newFree <= pgShmemHeader_global->totalsize) {
 		newSpace = (void *) ((char *) pgShmemHeader_global_base + newStart);
         pgShmemHeader_global->freeoffset = newFree;
-	}
-	else
+	} else {
 		newSpace = NULL;
+    }
 
 	SpinLockRelease(ShmemLock);
 

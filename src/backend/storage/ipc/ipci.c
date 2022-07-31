@@ -46,8 +46,9 @@
 #include "storage/spin.h"
 #include "utils/snapmgr.h"
 
-/* GUCs */
-int			shared_memory_type = DEFAULT_SHARED_MEMORY_TYPE;
+
+// 默认是 mmap
+int	shared_memory_type = DEFAULT_SHARED_MEMORY_TYPE;
 
 shmem_startup_hook_type shmem_startup_hook = NULL;
 
@@ -185,10 +186,7 @@ void CreateSharedMemoryAndSemaphores(int port) {
         InitShmemAllocation();
     }
 
-	/*
-	 * Now initialize LWLocks, which do shared memory allocation and are
-	 * needed for InitShmemIndex.
-	 */
+	// Now initialize LWLocks, which do shared memory allocation and are needed for InitShmemIndex.
 	CreateLWLocks();
 
 	/*

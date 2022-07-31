@@ -33,7 +33,7 @@ typedef struct PGShmemHeader	/* standard header for all Postgres shmem */
 	pid_t		creatorPID;		/* PID of creating process (set but unread) */
 	Size		totalsize;		/* mmap对应的内存大小 total size of segment  */
 	Size		freeoffset;		/* offset to first free space */
-	dsm_handle	dsm_control;	/* ID of dynamic shared memory control seg */
+	dsm_handle	dsmHandle;	/* ID of dynamic shared memory control seg */
 	void	   *index;			/* pointer to ShmemIndex table */
 #ifndef WIN32					/* Windows doesn't have useful inode#s */
 	dev_t		device;			/* device data directory is on */
@@ -58,7 +58,7 @@ typedef enum
 {
 	SHMEM_TYPE_WINDOWS,
 	SHMEM_TYPE_SYSV,
-	SHMEM_TYPE_MMAP
+	SHMEM_TYPE_MMAP // 默认
 }			PGShmemType;
 
 #ifndef WIN32

@@ -95,7 +95,7 @@ unsigned long UsedShmemSegID = 0;
 void	   *UsedShmemSegAddr = NULL;
 
 static Size AnonymousShmemSize;
-static void *AnonymousShmem = NULL; // mmap内存地址 头部是PGShmemHeader
+static void *AnonymousShmem = NULL; // mmap内存地址(匿名的mmap用在亲缘的进程) 头部是PGShmemHeader
 
 static void *InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size);
 static void IpcMemoryDetach(int status, Datum shmaddr);
@@ -260,8 +260,7 @@ static void *InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size) {
 	{
 		char		line[64];
 
-		sprintf(line, "%9lu %9lu",
-				(unsigned long) memKey, (unsigned long) shmid);
+		sprintf(line, "%9lu %9lu", (unsigned long) memKey, (unsigned long) shmid);
 		AddToDataDirLockFile(LOCK_FILE_LINE_SHMEM_KEY, line);
 	}
 
@@ -518,7 +517,7 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 #endif							/* MAP_HUGETLB */
 
 /*
- * 调用了mmap
+ * 调用了mmap 匿名
  *
  * Pass the requested size in *size.  This function will modify *size to the
  * actual size of the allocation, if it ends up allocating a segment that is
@@ -561,7 +560,9 @@ static void * CreateAnonymousSegment(Size *size) {
 		ptr = mmap(NULL,
                    allocsize,
                    PROT_READ | PROT_WRITE,
-				   PG_MMAP_FLAGS, -1, 0);
+				   PG_MMAP_FLAGS,
+                   -1,// 对应fd,如果是-1说明是匿名的mmap
+                   0);
 		mmap_errno = errno;
 	}
 
@@ -643,7 +644,7 @@ PGShmemHeader * PGSharedMemoryCreate(Size size,
 	Assert(size > MAXALIGN(sizeof(PGShmemHeader)));
 
 	if (shared_memory_type == SHMEM_TYPE_MMAP) {
-        // 调用了mmap
+        // 匿名调用了mmap
 		AnonymousShmem = CreateAnonymousSegment(&size);
 		AnonymousShmemSize = size;
 
@@ -726,11 +727,18 @@ PGShmemHeader * PGSharedMemoryCreate(Size size,
 				 * if some other process creates the same shmem key before we
 				 * do, in which case we'll try the next key.
 				 */
-				if (oldhdr->dsm_control != 0)
-					dsm_cleanup_using_control_segment(oldhdr->dsm_control);
-				if (shmctl(shmid, IPC_RMID, NULL) < 0)
+				if (oldhdr->dsmHandle != 0) {
+					dsm_cleanup_using_control_segment(oldhdr->dsmHandle);
+
+                }
+
+				if (shmctl(shmid, IPC_RMID, NULL) < 0) {
 					NextShmemSegID++;
+                }
+
 				break;
+            default:
+                break;
 		}
 
 		if (oldhdr && shmdt(oldhdr) < 0) {
@@ -742,7 +750,7 @@ PGShmemHeader * PGSharedMemoryCreate(Size size,
 	pgShmemHeader = (PGShmemHeader *) sharedMemAddr;
     pgShmemHeader->creatorPID = getpid();
     pgShmemHeader->magic = PGShmemMagic;
-    pgShmemHeader->dsm_control = 0;
+    pgShmemHeader->dsmHandle = 0;
 
 	/* Fill in the data directory ID info, too */
 	if (stat(DataDir, &statbuf) < 0) {
@@ -821,7 +829,7 @@ PGSharedMemoryReAttach(void)
 	if (hdr != origUsedShmemSegAddr)
 		elog(FATAL, "reattaching to shared memory returned unexpected address (got %p, expected %p)",
 			 hdr, origUsedShmemSegAddr);
-	dsm_set_control_handle(hdr->dsm_control);
+	dsm_set_control_handle(hdr->dsmHandle);
 
 	UsedShmemSegAddr = hdr;		/* probably redundant */
 }

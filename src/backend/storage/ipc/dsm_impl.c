@@ -72,9 +72,9 @@
 #include "postmaster/postmaster.h"
 
 #ifdef USE_DSM_POSIX
-static bool dsm_impl_posix(dsm_op op, dsm_handle handle, Size request_size,
-						   void **impl_private, void **mapped_address,
-						   Size *mapped_size, int elevel);
+static bool dsm_impl_posix(dsm_op op, dsm_handle dsmHandle, Size request_size,
+                           void **impl_private, void **mapped_address,
+                           Size *mapped_size, int elevel);
 static int	dsm_impl_posix_resize(int fd, off_t size);
 #endif
 #ifdef USE_DSM_SYSV
@@ -135,8 +135,8 @@ int			dynamic_shared_memory_type;
  *
  * Arguments:
  *	 op: The operation to be performed.
- *	 handle: The handle of an existing object, or for DSM_OP_CREATE, the
- *	   a new handle the caller wants created.
+ *	 dsmHandle: The dsmHandle of an existing object, or for DSM_OP_CREATE, the
+ *	   a new dsmHandle the caller wants created.
  *	 request_size: For DSM_OP_CREATE, the requested size.  Otherwise, 0.
  *	 impl_private: Private, implementation-specific data.  Will be a pointer
  *	   to NULL for the first operation on a shared memory segment within this
@@ -155,7 +155,7 @@ int			dynamic_shared_memory_type;
  *-----
  */
 bool dsm_impl_op(dsm_op op,
-                 dsm_handle handle,
+                 dsm_handle dsmHandle,
                  Size request_size,
                  void **impl_private,
                  void **mapped_address,
@@ -168,7 +168,7 @@ bool dsm_impl_op(dsm_op op,
 #ifdef USE_DSM_POSIX
         case DSM_IMPL_POSIX:
             return dsm_impl_posix(op,
-                                  handle,
+                                  dsmHandle,
                                   request_size,
                                   impl_private,
                                   mapped_address,
@@ -177,22 +177,21 @@ bool dsm_impl_op(dsm_op op,
 #endif
 #ifdef USE_DSM_SYSV
         case DSM_IMPL_SYSV:
-            return dsm_impl_sysv(op, handle, request_size, impl_private,
+            return dsm_impl_sysv(op, dsmHandle, request_size, impl_private,
                                  mapped_address, mapped_size, elevel);
 #endif
 #ifdef USE_DSM_WINDOWS
             case DSM_IMPL_WINDOWS:
-                return dsm_impl_windows(op, handle, request_size, impl_private,
+                return dsm_impl_windows(op, dsmHandle, request_size, impl_private,
                                         mapped_address, mapped_size, elevel);
 #endif
 #ifdef USE_DSM_MMAP
         case DSM_IMPL_MMAP:
-            return dsm_impl_mmap(op, handle, request_size, impl_private,
+            return dsm_impl_mmap(op, dsmHandle, request_size, impl_private,
                                  mapped_address, mapped_size, elevel);
 #endif
         default:
-            elog(ERROR, "unexpected dynamic shared memory type: %d",
-                 dynamic_shared_memory_type);
+            elog(ERROR, "unexpected dynamic shared memory type: %d", dynamic_shared_memory_type);
             return false;
     }
 }
@@ -213,7 +212,7 @@ bool dsm_impl_op(dsm_op op,
  * a different shared memory implementation.
  */
 static bool dsm_impl_posix(dsm_op op,
-                           dsm_handle handle,
+                           dsm_handle dsmHandle,
                            Size request_size,
                            void **impl_private,
                            void **mapped_address,
@@ -224,7 +223,7 @@ static bool dsm_impl_posix(dsm_op op,
     int fd;
     char *address;
 
-    snprintf(name, 64, "/PostgreSQL.%u", handle);
+    snprintf(name, 64, "/PostgreSQL.%u", dsmHandle);
 
     /* Handle teardown cases. */
     if (op == DSM_OP_DETACH || op == DSM_OP_DESTROY) {
@@ -254,10 +253,13 @@ static bool dsm_impl_posix(dsm_op op,
      * returning.
      */
     flags = O_RDWR | (op == DSM_OP_CREATE ? O_CREAT | O_EXCL : 0);
+
     if ((fd = shm_open(name, flags, PG_FILE_MODE_OWNER)) == -1) {
-        if (errno != EEXIST)
+        if (errno != EEXIST) {
             ereport(elevel,(errcode_for_dynamic_shared_memory(),
-                            errmsg("could not open shared memory segment \"%s\": %m", name)));
+                    errmsg("could not open shared memory segment \"%s\": %m", name)));
+        }
+
         return false;
     }
 
@@ -278,8 +280,7 @@ static bool dsm_impl_posix(dsm_op op,
 
             ereport(elevel,
                     (errcode_for_dynamic_shared_memory(),
-                            errmsg("could not stat shared memory segment \"%s\": %m",
-                                   name)));
+                            errmsg("could not stat shared memory segment \"%s\": %m", name)));
             return false;
         }
         request_size = st.st_size;

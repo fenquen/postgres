@@ -14,7 +14,7 @@
 #define DSM_IMPL_H
 
 /* Dynamic shared memory implementations. */
-#define DSM_IMPL_POSIX			1
+#define DSM_IMPL_POSIX			1 // 默认
 #define DSM_IMPL_SYSV			2
 #define DSM_IMPL_WINDOWS		3
 #define DSM_IMPL_MMAP			4
@@ -38,7 +38,8 @@
 #define USE_DSM_MMAP
 #endif
 
-/* GUC. */
+// 调用该sql:
+// select name, setting from pg_settings where name like 'dynamic_shared_memory_type';
 extern int	dynamic_shared_memory_type;
 
 /*
@@ -63,9 +64,9 @@ typedef enum
 } dsm_op;
 
 /* Create, attach to, detach from, resize, or destroy a segment. */
-extern bool dsm_impl_op(dsm_op op, dsm_handle handle, Size request_size,
-						void **impl_private, void **mapped_address, Size *mapped_size,
-						int elevel);
+extern bool dsm_impl_op(dsm_op op, dsm_handle dsmHandle, Size request_size,
+                        void **impl_private, void **mapped_address, Size *mapped_size,
+                        int elevel);
 
 /* Implementation-dependent actions required to keep segment until shutdown. */
 extern void dsm_impl_pin_segment(dsm_handle handle, void *impl_private,

@@ -542,6 +542,7 @@ int			tcp_user_timeout;
 int			ssl_renegotiation_limit;
 
 /*
+ * 默认是 HUGE_PAGES_TRY
  * This really belongs in pg_shmem.c, but is defined here so that it doesn't
  * need to be duplicated in all the different implementations of pg_shmem.c.
  */

@@ -123,7 +123,7 @@ static dlist_head dsm_segment_list = DLIST_STATIC_INIT(dsm_segment_list);
  * reference counted; instead, it lasts for the postmaster's entire
  * life cycle.  For simplicity, it doesn't have a dsm_segment object either.
  */
-static dsm_handle dsm_control_handle;
+static dsm_handle dsm_handle_global;
 static dsm_control_header *dsm_control;
 static Size dsm_control_mapped_size = 0;
 static void *dsm_control_impl_private = NULL;
@@ -163,17 +163,17 @@ void dsm_postmaster_startup(PGShmemHeader *pgshmemeHeaderInShareMem) {
 		Assert(dsm_control_mapped_address == NULL);
 		Assert(dsm_control_mapped_size == 0);
 
-		dsm_control_handle = random();
-		if (dsm_control_handle == DSM_HANDLE_INVALID){
+        dsm_handle_global = random();
+		if (dsm_handle_global == DSM_HANDLE_INVALID){
 			continue;
         }
 
 		if (dsm_impl_op(DSM_OP_CREATE,
-                        dsm_control_handle,
+                        dsm_handle_global,
                         segsize,
-						&dsm_control_impl_private,
+                        &dsm_control_impl_private,
                         &dsm_control_mapped_address,
-						&dsm_control_mapped_size,
+                        &dsm_control_mapped_size,
                         ERROR)) {
 			break;
         }
@@ -181,9 +181,9 @@ void dsm_postmaster_startup(PGShmemHeader *pgshmemeHeaderInShareMem) {
 
 	dsm_control = dsm_control_mapped_address;
 	on_shmem_exit(dsm_postmaster_shutdown, PointerGetDatum(pgshmemeHeaderInShareMem));
-	elog(DEBUG2,"created dynamic shared memory control segment %u (%zu bytes)",dsm_control_handle, segsize);
+	elog(DEBUG2, "created dynamic shared memory control segment %u (%zu bytes)", dsm_handle_global, segsize);
 
-    pgshmemeHeaderInShareMem->dsm_control = dsm_control_handle;
+    pgshmemeHeaderInShareMem->dsmHandle = dsm_handle_global;
 
 	/* Initialize control segment. */
 	dsm_control->magic = PG_DYNSHMEM_CONTROL_MAGIC;
@@ -359,14 +359,14 @@ dsm_postmaster_shutdown(int code, Datum arg)
 
 	/* Remove the control segment itself. */
 	elog(DEBUG2,
-		 "cleaning up dynamic shared memory control segment with ID %u",
-		 dsm_control_handle);
+         "cleaning up dynamic shared memory control segment with ID %u",
+         dsm_handle_global);
 	dsm_control_address = dsm_control;
-	dsm_impl_op(DSM_OP_DESTROY, dsm_control_handle, 0,
-				&dsm_control_impl_private, &dsm_control_address,
-				&dsm_control_mapped_size, LOG);
+	dsm_impl_op(DSM_OP_DESTROY, dsm_handle_global, 0,
+                &dsm_control_impl_private, &dsm_control_address,
+                &dsm_control_mapped_size, LOG);
 	dsm_control = dsm_control_address;
-	shim->dsm_control = 0;
+	shim->dsmHandle = 0;
 }
 
 /*
@@ -382,15 +382,15 @@ dsm_backend_startup(void)
 		void	   *control_address = NULL;
 
 		/* Attach control segment. */
-		Assert(dsm_control_handle != 0);
-		dsm_impl_op(DSM_OP_ATTACH, dsm_control_handle, 0,
+		Assert(dsm_handle_global != 0);
+		dsm_impl_op(DSM_OP_ATTACH, dsm_handle_global, 0,
 					&dsm_control_impl_private, &control_address,
 					&dsm_control_mapped_size, ERROR);
-		dsm_control = control_address;
+		dsmHandle = control_address;
 		/* If control segment doesn't look sane, something is badly wrong. */
-		if (!dsm_control_segment_sane(dsm_control, dsm_control_mapped_size))
+		if (!dsm_control_segment_sane(dsmHandle, dsm_control_mapped_size))
 		{
-			dsm_impl_op(DSM_OP_DETACH, dsm_control_handle, 0,
+			dsm_impl_op(DSM_OP_DETACH, dsm_handle_global, 0,
 						&dsm_control_impl_private, &control_address,
 						&dsm_control_mapped_size, WARNING);
 			ereport(FATAL,
@@ -412,8 +412,8 @@ dsm_backend_startup(void)
 void
 dsm_set_control_handle(dsm_handle h)
 {
-	Assert(dsm_control_handle == 0 && h != 0);
-	dsm_control_handle = h;
+	Assert(dsm_handle_global == 0 && h != 0);
+	dsm_handle_global = h;
 }
 #endif
 
@@ -639,9 +639,9 @@ dsm_detach_all(void)
 	}
 
 	if (control_address != NULL)
-		dsm_impl_op(DSM_OP_DETACH, dsm_control_handle, 0,
-					&dsm_control_impl_private, &control_address,
-					&dsm_control_mapped_size, ERROR);
+		dsm_impl_op(DSM_OP_DETACH, dsm_handle_global, 0,
+                    &dsm_control_impl_private, &control_address,
+                    &dsm_control_mapped_size, ERROR);
 }
 
 /*
