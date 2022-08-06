@@ -15,9 +15,9 @@
 #define BUF_H
 
 /*
- * Buffer identifiers.
+ * Buffer identifiers 其实是对应的id
  *
- * Zero is invalid, positive is the index of a shared buffer (1..NBuffers),
+ * Zero 意味着是invalid的, positive is the index of a shared buffer (1..NBuffers),
  * negative is the index of a local buffer (-1 .. -NLocBuffer).
  */
 typedef int Buffer;

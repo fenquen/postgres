@@ -49,7 +49,7 @@ typedef enum
 /* forward declared, to avoid having to expose buf_internals.h here */
 struct WritebackContext;
 
-/* in globals.c ... this duplicates miscadmin.h */
+/* 1000, in globals.c ... this duplicates miscadmin.h */
 extern PGDLLIMPORT int NBuffers;
 
 /* in bufmgr.c */

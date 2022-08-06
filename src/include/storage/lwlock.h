@@ -25,6 +25,8 @@
 struct PGPROC;
 
 /*
+ * lw 的意思是 light weight
+ *
  * Code outside of lwlock.c should not manipulate the contents of this
  * structure directly, but we have to declare it here to allow LWLocks to be
  * incorporated into other data structures.
@@ -146,7 +148,7 @@ extern bool Trace_lwlocks;
 extern bool LWLockAcquire(LWLock *lwLock, LWLockMode mode);
 extern bool LWLockConditionalAcquire(LWLock *lock, LWLockMode mode);
 extern bool LWLockAcquireOrWait(LWLock *lock, LWLockMode mode);
-extern void LWLockRelease(LWLock *lock);
+extern void LWLockRelease(LWLock *lwLock);
 extern void LWLockReleaseClearVar(LWLock *lock, uint64 *valptr, uint64 val);
 extern void LWLockReleaseAll(void);
 extern bool LWLockHeldByMe(LWLock *lock);

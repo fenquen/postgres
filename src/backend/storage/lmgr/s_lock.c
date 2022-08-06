@@ -63,15 +63,10 @@
 
 slock_t		dummy_spinlock;
 
-static int	spins_per_delay = DEFAULT_SPINS_PER_DELAY;
+static int	spins_per_delay = DEFAULT_SPINS_PER_DELAY; // 100 finish_spin_delay函数会动态调节
 
-
-/*
- * s_lock_stuck() - complain about a stuck spinlock
- */
-static void
-s_lock_stuck(const char *file, int line, const char *func)
-{
+// s_lock_stuck() - panic a stuck spinlock
+static void s_lock_stuck(const char *file, int line, const char *func) {
 	if (!func)
 		func = "(unknown)";
 #if defined(S_LOCK_TEST)
@@ -80,23 +75,17 @@ s_lock_stuck(const char *file, int line, const char *func)
 			func, file, line);
 	exit(1);
 #else
-	elog(PANIC, "stuck spinlock detected at %s, %s:%d",
-		 func, file, line);
+	elog(PANIC, "stuck spinlock detected at %s, %s:%d", func, file, line);
 #endif
 }
 
-/*
- * s_lock(lock) - platform-independent portion of waiting for a spinlock.
- */
-int
-s_lock(volatile slock_t *lock, const char *file, int line, const char *func)
-{
+// s_lock(lock) - platform-independent portion of waiting for a spinlock.
+int s_lock(volatile slock_t *lock, const char *file, int line, const char *func) {
 	SpinDelayStatus delayStatus;
 
 	init_spin_delay(&delayStatus, file, line, func);
 
-	while (TAS_SPIN(lock))
-	{
+	while (TAS_SPIN(lock)) {
 		perform_spin_delay(&delayStatus);
 	}
 
@@ -118,24 +107,23 @@ s_unlock(volatile slock_t *lock)
 }
 #endif
 
-/*
- * Wait while spinning on a contended spinlock.
- */
-void
-perform_spin_delay(SpinDelayStatus *spinDelayStatus)
-{
+// Wait while spinning on a contended spinlock.
+void perform_spin_delay(SpinDelayStatus *spinDelayStatus) {
 	/* CPU-specific delay each time through the loop */
 	SPIN_DELAY();
 
 	/* Block the process every spins_per_delay tries */
-	if (++(spinDelayStatus->spins) >= spins_per_delay)
-	{
-		if (++(spinDelayStatus->delays) > NUM_DELAYS)
+	if (++(spinDelayStatus->spins) >= spins_per_delay) {
+		if (++(spinDelayStatus->delays) > NUM_DELAYS) {
 			s_lock_stuck(spinDelayStatus->file, spinDelayStatus->line, spinDelayStatus->func);
+        }
 
-		if (spinDelayStatus->cur_delay == 0) /* first time to delay? */
+        // first time to delay
+		if (spinDelayStatus->cur_delay == 0) {
 			spinDelayStatus->cur_delay = MIN_DELAY_USEC;
+        }
 
+        // 使用select休眠
 		pg_usleep(spinDelayStatus->cur_delay);
 
 #if defined(S_LOCK_TEST)
@@ -146,9 +134,11 @@ perform_spin_delay(SpinDelayStatus *spinDelayStatus)
 		/* increase delay by a random fraction between 1X and 2X */
 		spinDelayStatus->cur_delay += (int) (spinDelayStatus->cur_delay *
                                              ((double) random() / (double) MAX_RANDOM_VALUE) + 0.5);
+
 		/* wrap back to minimum delay when max is exceeded */
-		if (spinDelayStatus->cur_delay > MAX_DELAY_USEC)
+		if (spinDelayStatus->cur_delay > MAX_DELAY_USEC) {
             spinDelayStatus->cur_delay = MIN_DELAY_USEC;
+        }
 
         spinDelayStatus->spins = 0;
 	}
@@ -171,19 +161,16 @@ perform_spin_delay(SpinDelayStatus *spinDelayStatus)
  * backend might not live long enough to converge on a good value.  That
  * is handled by the two routines below.
  */
-void
-finish_spin_delay(SpinDelayStatus *status)
-{
-	if (status->cur_delay == 0)
-	{
+void finish_spin_delay(SpinDelayStatus *status) {
+	if (status->cur_delay == 0) {
 		/* we never had to delay */
-		if (spins_per_delay < MAX_SPINS_PER_DELAY)
+		if (spins_per_delay < MAX_SPINS_PER_DELAY) {
 			spins_per_delay = Min(spins_per_delay + 100, MAX_SPINS_PER_DELAY);
-	}
-	else
-	{
-		if (spins_per_delay > MIN_SPINS_PER_DELAY)
+        }
+	} else {
+		if (spins_per_delay > MIN_SPINS_PER_DELAY) {
 			spins_per_delay = Max(spins_per_delay - 1, MIN_SPINS_PER_DELAY);
+        }
 	}
 }
 

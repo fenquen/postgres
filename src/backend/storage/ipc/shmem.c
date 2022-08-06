@@ -354,30 +354,24 @@ ShmemInitHash(const char *name,		/* table string name for shmem index */
  *	cases.  Now, it always throws error instead, so callers need not check
  *	for NULL.
  */
-void *
-ShmemInitStruct(const char *name, Size size, bool *foundPtr)
-{
+void *ShmemInitStruct(const char *name, Size size, bool *foundPtr) {
 	ShmemIndexEnt *result;
 	void	   *structPtr;
 
 	LWLockAcquire(ShmemIndexLock, LW_EXCLUSIVE);
 
-	if (!ShmemIndex)
-	{
+	if (!ShmemIndex) {
 		PGShmemHeader *shmemseghdr = pgShmemHeader_global;
 
 		/* Must be trying to create/attach to ShmemIndex itself */
 		Assert(strcmp(name, "ShmemIndex") == 0);
 
-		if (IsUnderPostmaster)
-		{
+		if (IsUnderPostmaster) {
 			/* Must be initializing a (non-standalone) backend */
 			Assert(shmemseghdr->index != NULL);
 			structPtr = shmemseghdr->index;
 			*foundPtr = true;
-		}
-		else
-		{
+		} else {
 			/*
 			 * If the shmem index doesn't exist, we are bootstrapping: we must
 			 * be trying to init the shmem index itself.

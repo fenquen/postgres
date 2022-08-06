@@ -25,7 +25,7 @@
 #if defined(FRONTEND) || !defined(WIN32)
 
 /*
- * pg_usleep --- delay the specified number of microseconds.
+ * pg_usleep --- delay the specified number of 微秒.
  *
  * NOTE: although the delay is specified in microseconds, the effective
  * resolution is only 1/HZ, or 10 milliseconds, on most Unixen.  Expect
@@ -43,11 +43,8 @@
  * prevent the sleep from ever terminating.  Better practice for long sleeps
  * is to use WaitLatch() with a timeout.
  */
-void
-pg_usleep(long microsec)
-{
-	if (microsec > 0)
-	{
+void pg_usleep(long microsec) {
+	if (microsec > 0) {
 #ifndef WIN32
 		struct timeval delay;
 

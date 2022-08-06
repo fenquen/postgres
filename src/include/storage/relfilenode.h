@@ -69,10 +69,9 @@ typedef struct RelFileNode
  * are always transient and removed in case of a database crash; they are
  * never WAL-logged or fsync'd.
  */
-typedef struct RelFileNodeBackend
-{
+typedef struct RelFileNodeBackend {
 	RelFileNode node;
-	BackendId	backend; // // 属于后台哪个进程,值为-1表示普通表
+	BackendId	backend; // 如果是临时表的话表示属于后台哪个进程,值为-1表示普通表
 } RelFileNodeBackend;
 
 #define RelFileNodeBackendIsTemp(rnode) \

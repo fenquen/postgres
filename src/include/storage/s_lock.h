@@ -1039,23 +1039,24 @@ extern void set_spins_per_delay(int shared_spins_per_delay);
 extern int	update_spins_per_delay(int shared_spins_per_delay);
 
 /*
+ * 单个delay 包含多个 spin
+ *
  * Support for spin delay which is useful in various places where
  * spinlock-like procedures take place.
  */
-typedef struct
-{
-	int			spins;
-	int			delays;
-	int			cur_delay;
+typedef struct {
+	int			spins; // 当前的delay已spin趟数 单个的delay容纳的spin数量上限是spins_per_delay 100
+	int			delays; // 已delay趟数 上限是NUM_DELAYS对应1000
+	int			cur_delay; // 达到1个delay后要sleep微秒 上下限MIN_DELAY_USEC
 	const char *file;
 	int			line;
 	const char *func;
 } SpinDelayStatus;
 
-static inline void
-init_spin_delay(SpinDelayStatus *status,
-				const char *file, int line, const char *func)
-{
+static inline void init_spin_delay(SpinDelayStatus *status,
+                                   const char *file,
+                                   int line,
+                                   const char *func) {
 	status->spins = 0;
 	status->delays = 0;
 	status->cur_delay = 0;

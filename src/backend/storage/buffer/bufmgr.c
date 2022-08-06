@@ -68,8 +68,7 @@
 
 #define DROP_RELS_BSEARCH_THRESHOLD		20
 
-typedef struct PrivateRefCountEntry
-{
+typedef struct PrivateRefCountEntry {
 	Buffer		buffer;
 	int32		refcount;
 } PrivateRefCountEntry;
@@ -159,7 +158,6 @@ static BufferDesc *PinCountWaitBuf = NULL;
  * Note that in most scenarios the number of pinned buffers will not exceed
  * REFCOUNT_ARRAY_ENTRIES.
  *
- *
  * To enter a buffer into the refcount tracking mechanism first reserve a free
  * entry using ReservePrivateRefCountEntry() and then later, if necessary,
  * fill it with NewPrivateRefCountEntry(). That split lets us avoid doing
@@ -183,60 +181,43 @@ static void ForgetPrivateRefCountEntry(PrivateRefCountEntry *ref);
  * entry. This has to be called before using NewPrivateRefCountEntry() to fill
  * a new entry - but it's perfectly fine to not use a reserved entry.
  */
-static void
-ReservePrivateRefCountEntry(void)
-{
+static void ReservePrivateRefCountEntry(void) {
 	/* Already reserved (or freed), nothing to do */
-	if (ReservedRefCountEntry != NULL)
+	if (ReservedRefCountEntry != NULL) {
 		return;
+    }
 
-	/*
-	 * First search for a free entry the array, that'll be sufficient in the
-	 * majority of cases.
-	 */
+	// First search for a free entry the array, that'll be sufficient in the majority of cases.
+    {
+        for (int i = 0; i < REFCOUNT_ARRAY_ENTRIES; i++) {
+            PrivateRefCountEntry *privateRefCountEntry = &PrivateRefCountArray[i];
+
+            if (privateRefCountEntry->buffer == InvalidBuffer) {
+                ReservedRefCountEntry = privateRefCountEntry;
+                return;
+            }
+        }
+    }
+
+	// No luck. All array entries are full. Move one array entry into the hash table.
 	{
-		int			i;
-
-		for (i = 0; i < REFCOUNT_ARRAY_ENTRIES; i++)
-		{
-			PrivateRefCountEntry *res;
-
-			res = &PrivateRefCountArray[i];
-
-			if (res->buffer == InvalidBuffer)
-			{
-				ReservedRefCountEntry = res;
-				return;
-			}
-		}
-	}
-
-	/*
-	 * No luck. All array entries are full. Move one array entry into the hash
-	 * table.
-	 */
-	{
-		/*
-		 * Move entry from the current clock position in the array into the
-		 * hashtable. Use that slot.
-		 */
-		PrivateRefCountEntry *hashent;
+		// Move entry from the current clock position in the array into the hashtable. Use that slot.
+		PrivateRefCountEntry *privateRefCountEntry;
 		bool		found;
 
 		/* select victim slot */
-		ReservedRefCountEntry =
-			&PrivateRefCountArray[PrivateRefCountClock++ % REFCOUNT_ARRAY_ENTRIES];
+		ReservedRefCountEntry = &PrivateRefCountArray[PrivateRefCountClock++ % REFCOUNT_ARRAY_ENTRIES];
 
 		/* Better be used, otherwise we shouldn't get here. */
 		Assert(ReservedRefCountEntry->buffer != InvalidBuffer);
 
-		/* enter victim array entry into hashtable */
-		hashent = hash_search(PrivateRefCountHash,
-							  (void *) &(ReservedRefCountEntry->buffer),
-							  HASH_ENTER,
-							  &found);
+		/* 对应hash的put ,enter victim array entry into hashtable */
+		privateRefCountEntry = hash_search(PrivateRefCountHash,
+                                           (void *) &(ReservedRefCountEntry->buffer),
+                                           HASH_ENTER,
+                                           &found);
 		Assert(!found);
-		hashent->refcount = ReservedRefCountEntry->refcount;
+        privateRefCountEntry->refcount = ReservedRefCountEntry->refcount;
 
 		/* clear the now free array slot */
 		ReservedRefCountEntry->buffer = InvalidBuffer;
@@ -268,7 +249,7 @@ static PrivateRefCountEntry *NewPrivateRefCountEntry(Buffer buffer){
  * Return the PrivateRefCount entry for the passed buffer.
  *
  * Returns NULL if a buffer doesn't have a refcount entry. Otherwise, if
- * move2ArrWhenFoundInHashTable is true, and the entry resides in the hashtable the entry is
+ * move2ArrWhenFoundInHashTable is true and the entry resides in the hashtable, the entry is
  * optimized for frequent access by moving it to the array.
  */
 static PrivateRefCountEntry *GetPrivateRefCountEntry(Buffer buffer, bool move2ArrWhenFoundInHashTable) {
@@ -426,10 +407,10 @@ static bool PinBuffer(BufferDesc *bufferDesc, BufferAccessStrategy bufferAccessS
 static void PinBuffer_Locked(BufferDesc *buf);
 static void UnpinBuffer(BufferDesc *buf, bool fixOwner);
 static void BufferSync(int flags);
-static uint32 WaitBufHdrUnlocked(BufferDesc *buf);
+static uint32 WaitBufHdrUnlocked(BufferDesc *bufferDesc);
 static int	SyncOneBuffer(int buf_id, bool skip_recently_used, WritebackContext *flush_context);
 static void WaitIO(BufferDesc *buf);
-static bool StartBufferIO(BufferDesc *buf, bool forInput);
+static bool StartBufferIO(BufferDesc *bufferDesc, bool forInput);
 static void TerminateBufferIO(BufferDesc *buf, bool clear_dirty,
 							  uint32 set_flag_bits);
 static void shared_buffer_write_error_callback(void *arg);
@@ -439,7 +420,7 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
 							   ForkNumber forkNum,
 							   BlockNumber blockNum,
 							   BufferAccessStrategy bufferAccessStrategy,
-							   bool *foundPtr);
+							   bool *found);
 static void FlushBuffer(BufferDesc *buf, SMgrRelation reln);
 static void AtProcExit_Buffers(int code, Datum arg);
 static void CheckForBufferLeaks(void);
@@ -637,7 +618,7 @@ Buffer ReadBufferExtended(Relation relation,
     bool hit;
     Buffer buffer;
 
-    /* Open it at the smgr level if not already done */
+    // Open it at the smgr level if not already done */
     RelationOpenSmgr(relation);
 
     /*
@@ -733,10 +714,10 @@ static Buffer ReadBuffer_common(SMgrRelation sMgrRelation,
             ereport(ERROR,
                     (errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
                             errmsg("cannot extend relation %s beyond %u blocks",
-                                   relpath(sMgrRelation->smgr_rnode, forkNum),
-                                   P_NEW)));
+                                   relpath(sMgrRelation->smgr_rnode, forkNum), P_NEW)));
     }
 
+    // 是不是临时的表
     if (isLocalBuf) {
         bufferDesc = LocalBufferAlloc(sMgrRelation, forkNum, blockNum, &found);
 
@@ -751,7 +732,12 @@ static Buffer ReadBuffer_common(SMgrRelation sMgrRelation,
         }
     } else {
         // lookup the buffer.  IO_IN_PROGRESS is set if the requested block is not currently in memory.
-        bufferDesc = BufferAlloc(sMgrRelation, relpersistence, forkNum, blockNum, strategy, &found);
+        bufferDesc = BufferAlloc(sMgrRelation,
+                                 relpersistence,
+                                 forkNum,
+                                 blockNum,
+                                 strategy,
+                                 &found);
 
         if (found) {
             pgBufferUsage.shared_blks_hit++;
@@ -969,11 +955,11 @@ static Buffer ReadBuffer_common(SMgrRelation sMgrRelation,
  * using the default bufferAccessStrategy, but otherwise possibly not (see PinBuffer).
  *
  * The returned buffer is pinned and is already marked as holding the
- * desired page.  If it already did have the desired page, *foundPtr is
- * set true.  Otherwise, *foundPtr is set false and the buffer is marked
+ * desired page.  If it already did have the desired page, *found is
+ * set true.  Otherwise, *found is set false and the buffer is marked
  * as IO_IN_PROGRESS; ReadBuffer will now need to do I/O to fill it.
  *
- * *foundPtr is actually redundant with the buffer's BM_VALID flag, but
+ * *found is actually redundant with the buffer's BM_VALID flag, but
  * we keep it for simplicity in ReadBuffer.
  *
  * No locks are held either at entry or exit.
@@ -983,7 +969,7 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
                                ForkNumber forkNum,
                                BlockNumber blockNum,
                                BufferAccessStrategy bufferAccessStrategy,
-                               bool *foundPtr) {
+                               bool *found) {
     BufferTag newTag;            /* identity of requested block */
     uint32 newHash;        /* hash value for newTag */
     LWLock *newPartitionLock;    /* buffer partition lock for it */
@@ -996,17 +982,19 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
     bool valid;
     uint32 buf_state;
 
-    /* create a tag so we can lookup the buffer */
+    // 注入tag的各个属性
     INIT_BUFFERTAG(newTag, sMgrRelation->smgr_rnode.node, forkNum, blockNum);
 
     /* determine its hash code and partition lock ID */
+    // 得到tag的hash值
     newHash = BufTableHashCode(&newTag);
+    // 通过hash使用 % 套路到了 MainLWLockArray 数组中得到对应锁
     newPartitionLock = BufMappingPartitionLock(newHash);
 
     /* see if the block is in the buffer pool already */
     LWLockAcquire(newPartitionLock, LW_SHARED);
 
-    // 找到能复用的buffer
+    // 到空闲的地找到能复用的buffer
     bufId = BufTableLookup(&newTag, newHash);
     if (bufId >= 0) {
         /*
@@ -1021,7 +1009,7 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
         /* Can release the mapping lock as soon as we've pinned it */
         LWLockRelease(newPartitionLock);
 
-        *foundPtr = true;
+        *found = true;
 
         if (!valid) {
             /*
@@ -1033,7 +1021,7 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
              */
             if (StartBufferIO(bufferDesc, true)) {
                 // if we get here, previous attempts to read the buffer must have failed ... but we shall bravely try again.
-                *foundPtr = false;
+                *found = false;
             }
         }
 
@@ -1048,16 +1036,10 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
 
     /* Loop here in case we have to try another victim buffer */
     for (;;) {
-        /*
-         * Ensure, while the spinlock's not yet held, that there's a free
-         * refcount entry.
-         */
+        // Ensure, while the spin lock is not yet held, that there's a free refcount entry.
         ReservePrivateRefCountEntry();
 
-        /*
-         * Select a victim buffer.  The buffer is returned with its header
-         * spinlock still held!
-         */
+        // Select a victim buffer.  The buffer is returned with its header spinlock still held!
         bufferDesc = StrategyGetBuffer(bufferAccessStrategy, &buf_state);
 
         Assert(BUF_STATE_GET_REFCOUNT(buf_state) == 0);
@@ -1153,10 +1135,7 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
             oldHash = BufTableHashCode(&oldTag);
             oldPartitionLock = BufMappingPartitionLock(oldHash);
 
-            /*
-             * Must lock the lower-numbered partition first to avoid
-             * deadlocks.
-             */
+            // Must lock the lower-numbered partition first to avoid deadlocks.
             if (oldPartitionLock < newPartitionLock) {
                 LWLockAcquire(oldPartitionLock, LW_EXCLUSIVE);
                 LWLockAcquire(newPartitionLock, LW_EXCLUSIVE);
@@ -1184,6 +1163,7 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
          */
         bufId = BufTableInsert(&newTag, newHash, bufferDesc->buf_id);
 
+        // 和现有的冲突了
         if (bufId >= 0) {
             /*
              * Got a collision. Someone has already done what we were about to
@@ -1195,8 +1175,9 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
 
             /* Can give up that buffer's mapping partition lock now */
             if (oldPartitionLock != NULL &&
-                oldPartitionLock != newPartitionLock)
+                oldPartitionLock != newPartitionLock) {
                 LWLockRelease(oldPartitionLock);
+            }
 
             /* remaining code should match code at top of routine */
 
@@ -1207,7 +1188,7 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
             /* Can release the mapping lock as soon as we've pinned it */
             LWLockRelease(newPartitionLock);
 
-            *foundPtr = true;
+            *found = true;
 
             if (!valid) {
                 /*
@@ -1219,7 +1200,7 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
                  */
                 if (StartBufferIO(bufferDesc, true)) {
                     // if we get here, previous attempts to read the buffer must have failed ... but we shall bravely try again.
-                    *foundPtr = false;
+                    *found = false;
                 }
             }
 
@@ -1236,15 +1217,21 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
          * over with a new victim buffer.
          */
         oldFlags = buf_state & BUF_FLAG_MASK;
-        if (BUF_STATE_GET_REFCOUNT(buf_state) == 1 && !(oldFlags & BM_DIRTY))
+        if (BUF_STATE_GET_REFCOUNT(buf_state) == 1 && !(oldFlags & BM_DIRTY)) {
             break;
+        }
 
         UnlockBufHdr(bufferDesc, buf_state);
+
+        // 拿它到空闲的地清掉
         BufTableDelete(&newTag, newHash);
-        if (oldPartitionLock != NULL &&
-            oldPartitionLock != newPartitionLock)
+
+        if (oldPartitionLock != NULL && oldPartitionLock != newPartitionLock) {
             LWLockRelease(oldPartitionLock);
+        }
+
         LWLockRelease(newPartitionLock);
+
         UnpinBuffer(bufferDesc, true);
     }
 
@@ -1267,17 +1254,19 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
                    BM_CHECKPOINT_NEEDED | BM_IO_ERROR | BM_PERMANENT |
                    BUF_USAGECOUNT_MASK);
 
-    if (relpersistence == RELPERSISTENCE_PERMANENT || forkNum == INIT_FORKNUM)
+    if (relpersistence == RELPERSISTENCE_PERMANENT || forkNum == INIT_FORKNUM) {
         buf_state |= BM_TAG_VALID | BM_PERMANENT | BUF_USAGECOUNT_ONE;
-    else
+    } else {
         buf_state |= BM_TAG_VALID | BUF_USAGECOUNT_ONE;
+    }
 
     UnlockBufHdr(bufferDesc, buf_state);
 
     if (oldPartitionLock != NULL) {
         BufTableDelete(&oldTag, oldHash);
-        if (oldPartitionLock != newPartitionLock)
+        if (oldPartitionLock != newPartitionLock) {
             LWLockRelease(oldPartitionLock);
+        }
     }
 
     LWLockRelease(newPartitionLock);
@@ -1287,10 +1276,11 @@ static BufferDesc *BufferAlloc(SMgrRelation sMgrRelation,
      * lock.  If StartBufferIO returns false, then someone else managed to
      * read it before we did, so there's nothing left for BufferAlloc() to do.
      */
-    if (StartBufferIO(bufferDesc, true))
-        *foundPtr = false;
-    else
-        *foundPtr = true;
+    if (StartBufferIO(bufferDesc, true)) {
+        *found = false;
+    } else {
+        *found = true;
+    }
 
     return bufferDesc;
 }
@@ -1548,17 +1538,18 @@ static bool PinBuffer(BufferDesc *bufferDesc,
 
         old_buf_state = pg_atomic_read_u32(&bufferDesc->state);
         for (;;) {
+            // 要是别人用着要等待
             if (old_buf_state & BM_LOCKED) {
                 old_buf_state = WaitBufHdrUnlocked(bufferDesc);
             }
 
             buf_state = old_buf_state;
 
-            /* increase refcount */
+            // increase refcount
             buf_state += BUF_REFCOUNT_ONE;
 
+            // Default case: increase usage count unless already max
             if (bufferAccessStrategy == NULL) {
-                // Default case: increase usage count unless already max
                 if (BUF_STATE_GET_USAGECOUNT(buf_state) < BM_MAX_USAGE_COUNT) {
                     buf_state += BUF_USAGECOUNT_ONE;
                 }
@@ -3847,7 +3838,7 @@ WaitIO(BufferDesc *buf)
 }
 
 /*
- * StartBufferIO: begin I/O on this buffer
+ * StartBufferIO: begin I/O on this buffer  本质还是更新bufferDesc的state
  *	(Assumptions)
  *	My process is executing no IO
  *	The buffer is Pinned
@@ -3861,12 +3852,10 @@ WaitIO(BufferDesc *buf)
  * and output operations only on buffers that are BM_VALID and BM_DIRTY,
  * so we can always tell if the work is already done.
  *
- * Returns true if we successfully marked the buffer as I/O busy,
- * false if someone else already did the work.
+ * Returns true if we successfully marked the buffer I/O busy,
+ * false if someone else already did the work 意味着别人还在用着的
  */
-static bool
-StartBufferIO(BufferDesc *buf, bool forInput)
-{
+static bool StartBufferIO(BufferDesc *bufferDesc, bool forInput) {
 	uint32		buf_state;
 
 	Assert(!InProgressBuf);
@@ -3877,9 +3866,9 @@ StartBufferIO(BufferDesc *buf, bool forInput)
 		 * Grab the io_in_progress lock so that other processes can wait for
 		 * me to finish the I/O.
 		 */
-		LWLockAcquire(BufferDescriptorGetIOLock(buf), LW_EXCLUSIVE);
+		LWLockAcquire(BufferDescriptorGetIOLock(bufferDesc), LW_EXCLUSIVE);
 
-		buf_state = LockBufHdr(buf);
+		buf_state = LockBufHdr(bufferDesc);
 
 		if (!(buf_state & BM_IO_IN_PROGRESS))
 			break;
@@ -3890,25 +3879,25 @@ StartBufferIO(BufferDesc *buf, bool forInput)
 		 * an error (see AbortBufferIO).  If that's the case, we must wait for
 		 * him to get unwedged.
 		 */
-		UnlockBufHdr(buf, buf_state);
-		LWLockRelease(BufferDescriptorGetIOLock(buf));
-		WaitIO(buf);
+		UnlockBufHdr(bufferDesc, buf_state);
+		LWLockRelease(BufferDescriptorGetIOLock(bufferDesc));
+		WaitIO(bufferDesc);
 	}
 
 	/* Once we get here, there is definitely no I/O active on this buffer */
 
-	if (forInput ? (buf_state & BM_VALID) : !(buf_state & BM_DIRTY))
-	{
-		/* someone else already did the I/O */
-		UnlockBufHdr(buf, buf_state);
-		LWLockRelease(BufferDescriptorGetIOLock(buf));
+    /* someone else already did the I/O */
+    // 如果是读取 当前的buffer上的数据是有效的(说明是别人还在用着的) 如果是写 当前的buffer上是脏的(说明是别人写的还未条)
+	if (forInput ? (buf_state & BM_VALID) : !(buf_state & BM_DIRTY)) {
+		UnlockBufHdr(bufferDesc, buf_state);
+		LWLockRelease(BufferDescriptorGetIOLock(bufferDesc));
 		return false;
 	}
 
 	buf_state |= BM_IO_IN_PROGRESS;
-	UnlockBufHdr(buf, buf_state);
+	UnlockBufHdr(bufferDesc, buf_state);
 
-	InProgressBuf = buf;
+	InProgressBuf = bufferDesc;
 	IsForInput = forInput;
 
 	return true;
@@ -4054,51 +4043,51 @@ local_buffer_write_error_callback(void *arg)
 /*
  * RelFileNode qsort/bsearch comparator; see RelFileNodeEquals.
  */
-static int
-rnode_comparator(const void *p1, const void *p2)
-{
-	RelFileNode n1 = *(const RelFileNode *) p1;
-	RelFileNode n2 = *(const RelFileNode *) p2;
+static int rnode_comparator(const void *p1, const void *p2) {
+    RelFileNode n1 = *(const RelFileNode *) p1;
+    RelFileNode n2 = *(const RelFileNode *) p2;
 
-	if (n1.relNode < n2.relNode)
-		return -1;
-	else if (n1.relNode > n2.relNode)
-		return 1;
+    if (n1.relNode < n2.relNode)
+        return -1;
+    if (n1.relNode > n2.relNode)
+        return 1;
 
-	if (n1.dbNode < n2.dbNode)
-		return -1;
-	else if (n1.dbNode > n2.dbNode)
-		return 1;
+    if (n1.dbNode < n2.dbNode)
+        return -1;
+    if (n1.dbNode > n2.dbNode)
+        return 1;
 
-	if (n1.spcNode < n2.spcNode)
-		return -1;
-	else if (n1.spcNode > n2.spcNode)
-		return 1;
-	else
-		return 0;
+    if (n1.spcNode < n2.spcNode)
+        return -1;
+    if (n1.spcNode > n2.spcNode)
+        return 1;
+
+    return 0;
 }
 
 /*
  * Lock buffer header - set BM_LOCKED in buffer state.
  */
-uint32
-LockBufHdr(BufferDesc *desc)
-{
+uint32 LockBufHdr(BufferDesc *bufferDesc) {
 	SpinDelayStatus delayStatus;
 	uint32		old_buf_state;
 
 	init_local_spin_delay(&delayStatus);
 
-	while (true)
-	{
-		/* set BM_LOCKED flag */
-		old_buf_state = pg_atomic_fetch_or_u32(&desc->state, BM_LOCKED);
-		/* if it wasn't set before we're OK */
-		if (!(old_buf_state & BM_LOCKED))
+	while (true) {
+		// set BM_LOCKED flag
+		old_buf_state = pg_atomic_fetch_or_u32(&bufferDesc->state, BM_LOCKED);
+
+		// if it wasn't BM_LOCKED before
+		if (!(old_buf_state & BM_LOCKED)) {
 			break;
+        }
+
 		perform_spin_delay(&delayStatus);
 	}
+
 	finish_spin_delay(&delayStatus);
+
 	return old_buf_state | BM_LOCKED;
 }
 
@@ -4109,22 +4098,22 @@ LockBufHdr(BufferDesc *desc)
  * Obviously the buffer could be locked by the time the value is returned, so
  * this is primarily useful in CAS style loops.
  */
-static uint32 WaitBufHdrUnlocked(BufferDesc *buf) {
-	SpinDelayStatus delayStatus;
-	uint32		buf_state;
+static uint32 WaitBufHdrUnlocked(BufferDesc *bufferDesc) {
+	SpinDelayStatus spinDelayStatus;
+	uint32		state;
 
-	init_local_spin_delay(&delayStatus);
+	init_local_spin_delay(&spinDelayStatus);
 
-	buf_state = pg_atomic_read_u32(&buf->state);
+    state = pg_atomic_read_u32(&bufferDesc->state);
 
-	while (buf_state & BM_LOCKED) {
-		perform_spin_delay(&delayStatus);
-		buf_state = pg_atomic_read_u32(&buf->state);
+	while (state & BM_LOCKED) {
+		perform_spin_delay(&spinDelayStatus);
+        state = pg_atomic_read_u32(&bufferDesc->state);
 	}
 
-	finish_spin_delay(&delayStatus);
+	finish_spin_delay(&spinDelayStatus);
 
-	return buf_state;
+	return state;
 }
 
 /*

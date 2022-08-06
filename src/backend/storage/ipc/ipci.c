@@ -92,7 +92,6 @@ RequestAddinShmemSpace(Size size)
  * This is a bit code-wasteful and could be cleaned up.)
  */
 void CreateSharedMemoryAndSemaphores(int port) {
-
     // 它是真正的 PGShmemHeader,是位于共享内存上的
 	PGShmemHeader *pgshmemeHeaderInShareMem = NULL;
 
@@ -189,9 +188,7 @@ void CreateSharedMemoryAndSemaphores(int port) {
 	// Now initialize LWLocks, which do shared memory allocation and are needed for InitShmemIndex.
 	CreateLWLocks();
 
-	/*
-	 * Set up shmem.c index hashtable
-	 */
+	// Set up shmem.c index hashtable
 	InitShmemIndex();
 
 	// Set up xlog, clog, and buffers

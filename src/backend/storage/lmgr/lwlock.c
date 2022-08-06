@@ -721,19 +721,21 @@ static bool LWLockAttemptLock(LWLock *lwLock, LWLockMode lwLockMode) {
 
     /* loop until we've determined whether we could acquire the lwLock or not */
     while (true) {
-        uint32 desired_state;
-        bool lock_free;
+        uint32 desiredState;
+        bool lockIsAvailable;
 
-        desired_state = oldState;
+        desiredState = oldState;
 
         if (lwLockMode == LW_EXCLUSIVE) {
-            lock_free = (oldState & LW_LOCK_MASK) == 0;
-            if (lock_free)
-                desired_state += LW_VAL_EXCLUSIVE;
+            lockIsAvailable = (oldState & LW_LOCK_MASK) == 0;// 没任何占用
+            if (lockIsAvailable) {
+                desiredState += LW_VAL_EXCLUSIVE; // 把对应当前模式的值给更新上
+            }
         } else {
-            lock_free = (oldState & LW_VAL_EXCLUSIVE) == 0;
-            if (lock_free)
-                desired_state += LW_VAL_SHARED;
+            lockIsAvailable = (oldState & LW_VAL_EXCLUSIVE) == 0; // 不是独占 共享的占用也是可以的
+            if (lockIsAvailable) {
+                desiredState += LW_VAL_SHARED;// 把对应当前模式的值给更新上
+            }
         }
 
         /*
@@ -746,8 +748,8 @@ static bool LWLockAttemptLock(LWLock *lwLock, LWLockMode lwLockMode) {
          *
          * Retry if the value changed since we last looked at it.
          */
-        if (pg_atomic_compare_exchange_u32(&lwLock->state, &oldState, desired_state)) {
-            if (lock_free) { /* Great! Got the lwLock. */
+        if (pg_atomic_compare_exchange_u32(&lwLock->state, &oldState, desiredState)) {
+            if (lockIsAvailable) { /* Great! Got the lwLock. */
 #ifdef LOCK_DEBUG
                 if (lwLockMode == LW_EXCLUSIVE)
                     lwLock->owner = MyProc;
@@ -827,11 +829,8 @@ LWLockWaitListUnlock(LWLock *lock) {
     Assert(old_state & LW_FLAG_LOCKED);
 }
 
-/*
- * Wakeup all the lockers that currently have a chance to acquire the lock.
- */
-static void
-LWLockWakeup(LWLock *lock) {
+// Wakeup all the lockers that currently have a chance to acquire the lwLock.
+static void LWLockWakeup(LWLock *lwLock) {
     bool new_release_ok;
     bool wokeup_somebody = false;
     proclist_head wakeup;
@@ -841,48 +840,45 @@ LWLockWakeup(LWLock *lock) {
 
     new_release_ok = true;
 
-    /* lock wait list while collecting backends to wake up */
-    LWLockWaitListLock(lock);
+    /* lwLock wait list while collecting backends to wake up */
+    LWLockWaitListLock(lwLock);
 
-    proclist_foreach_modify(iter, &lock->waiters, lwWaitLink) {
+    proclist_foreach_modify(iter, &lwLock->waiters, lwWaitLink) {
         PGPROC *waiter = GetPGProcByNumber(iter.cur);
 
         if (wokeup_somebody && waiter->lwWaitMode == LW_EXCLUSIVE)
             continue;
 
-        proclist_delete(&lock->waiters, iter.cur, lwWaitLink);
+        // 把元素由waiters移动到wakeup
+        proclist_delete(&lwLock->waiters, iter.cur, lwWaitLink);
         proclist_push_tail(&wakeup, iter.cur, lwWaitLink);
 
         if (waiter->lwWaitMode != LW_WAIT_UNTIL_FREE) {
             /*
              * Prevent additional wakeups until retryer gets to run. Backends
-             * that are just waiting for the lock to become free don't retry
+             * that are just waiting for the lwLock to become free don't retry
              * automatically.
              */
             new_release_ok = false;
 
-            /*
-             * Don't wakeup (further) exclusive locks.
-             */
+            // Don't wakeup (further) exclusive locks.
             wokeup_somebody = true;
         }
 
-        /*
-         * Once we've woken up an exclusive lock, there's no point in waking
-         * up anybody else.
-         */
-        if (waiter->lwWaitMode == LW_EXCLUSIVE)
+        // Once we've woken up an exclusive lwLock, there's no point in waking up anybody else.
+        if (waiter->lwWaitMode == LW_EXCLUSIVE) {
             break;
+        }
     }
 
-    Assert(proclist_is_empty(&wakeup) || pg_atomic_read_u32(&lock->state) & LW_FLAG_HAS_WAITERS);
+    Assert(proclist_is_empty(&wakeup) || pg_atomic_read_u32(&lwLock->state) & LW_FLAG_HAS_WAITERS);
 
-    /* unset required flags, and release lock, in one fell swoop */
+    /* unset required flags, and release lwLock, in one fell swoop */
     {
         uint32 old_state;
         uint32 desired_state;
 
-        old_state = pg_atomic_read_u32(&lock->state);
+        old_state = pg_atomic_read_u32(&lwLock->state);
         while (true) {
             desired_state = old_state;
 
@@ -896,10 +892,9 @@ LWLockWakeup(LWLock *lock) {
             if (proclist_is_empty(&wakeup))
                 desired_state &= ~LW_FLAG_HAS_WAITERS;
 
-            desired_state &= ~LW_FLAG_LOCKED;    /* release lock */
+            desired_state &= ~LW_FLAG_LOCKED;    /* release lwLock */
 
-            if (pg_atomic_compare_exchange_u32(&lock->state, &old_state,
-                                               desired_state))
+            if (pg_atomic_compare_exchange_u32(&lwLock->state, &old_state, desired_state))
                 break;
         }
     }
@@ -908,20 +903,21 @@ LWLockWakeup(LWLock *lock) {
     proclist_foreach_modify(iter, &wakeup, lwWaitLink) {
         PGPROC *waiter = GetPGProcByNumber(iter.cur);
 
-        LOG_LWDEBUG("LWLockRelease", lock, "release waiter");
+        LOG_LWDEBUG("LWLockRelease", lwLock, "release waiter");
         proclist_delete(&wakeup, iter.cur, lwWaitLink);
 
         /*
          * Guarantee that lwWaiting being unset only becomes visible once the
          * unlink from the link has completed. Otherwise the target backend
-         * could be woken up for other reason and enqueue for a new lock - if
+         * could be woken up for other reason and enqueue for a new lwLock - if
          * that happens before the list unlink happens, the list would end up
          * being corrupted.
          *
          * The barrier pairs with the LWLockWaitListLock() when enqueuing for
-         * another lock.
+         * another lwLock.
          */
         pg_write_barrier();
+
         waiter->lwWaiting = false;
         PGSemaphoreUnlock(waiter->sem);
     }
@@ -1062,12 +1058,11 @@ LWLockDequeueSelf(LWLock *lock) {
  * LWLockAcquire - acquire a lightweight lwLock in the specified mode
  *
  * If the lwLock is not available, sleep until it is.  Returns true if the lwLock
- * was available immediately, false if we had to sleep.
+ * was available immediately, false if we get the lock after sleep  不管怎样都是能拿到锁 不过是不是能立即拿到
  *
  * Side effect: cancel/die interrupts are held off until lwLock release.
  */
-bool
-LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
+bool LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
     PGPROC *proc = MyProc;
     bool result = true;
     int extraWaits = 0;
@@ -1125,14 +1120,11 @@ LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
      * to run.  See pgsql-hackers archives for 29-Dec-01.
      */
     for (;;) {
-        bool mustWait;
-
         // Try to grab the lwLock the first time, we're not in the wait queue yet/anymore.
-        mustWait = LWLockAttemptLock(lwLock, mode);
-
+        bool mustWait = LWLockAttemptLock(lwLock, mode);
         if (!mustWait) {
             LOG_LWDEBUG("LWLockAcquire", lwLock, "immediately acquired lwLock");
-            break;                /* got the lwLock */
+            break;
         }
 
         /*
@@ -1149,13 +1141,11 @@ LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
         /* add to the queue */
         LWLockQueueSelf(lwLock, mode);
 
-        /* we're now guaranteed to be woken up if necessary */
+        // we're now guaranteed to be woken up if necessary
         mustWait = LWLockAttemptLock(lwLock, mode);
-
-        /* ok, grabbed the lwLock the second time round, need to undo queueing */
+        // ok, grabbed the lwLock the second time round, need to undo queueing
         if (!mustWait) {
             LOG_LWDEBUG("LWLockAcquire", lwLock, "acquired, undoing queue");
-
             LWLockDequeueSelf(lwLock);
             break;
         }
@@ -1179,8 +1169,11 @@ LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
 
         for (;;) {
             PGSemaphoreLock(proc->sem);
-            if (!proc->lwWaiting)
+
+            if (!proc->lwWaiting) {
                 break;
+            }
+            // 这个时候lwWaiting还是true
             extraWaits++;
         }
 
@@ -1195,27 +1188,27 @@ LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
             Assert(nwaiters < MAX_BACKENDS);
         }
 #endif
-
+        // stat
         TRACE_POSTGRESQL_LWLOCK_WAIT_DONE(T_NAME(lock), mode);
         LWLockReportWaitEnd();
-
         LOG_LWDEBUG("LWLockAcquire", lock, "awakened");
 
-        /* Now loop back and try to acquire lwLock again. */
+        // Now loop back and try to acquire lwLock again.
         result = false;
     }
 
     TRACE_POSTGRESQL_LWLOCK_ACQUIRE(T_NAME(lock), mode);
 
-    /* Add lwLock to list of locks held by this backend */
+    // Add lwLock to list of locks held by this backend */
     held_lwlocks[num_held_lwlocks].lock = lwLock;
-    held_lwlocks[num_held_lwlocks++].mode = mode;
+    held_lwlocks[num_held_lwlocks].mode = mode;
 
-    /*
-     * Fix the process wait semaphore's count for any absorbed wake up.
-     */
-    while (extraWaits-- > 0)
+    num_held_lwlocks++;
+
+    // Fix the process wait semaphore's count for any unrelated wake up.
+    while (extraWaits-- > 0) {
         PGSemaphoreUnlock(proc->sem);
+    }
 
     return result;
 }
@@ -1447,8 +1440,7 @@ LWLockConflictsWithVar(LWLock *lock,
  * Note: this function ignores shared lock holders; if the lock is held
  * in shared mode, returns 'true'.
  */
-bool
-LWLockWaitForVar(LWLock *lock, uint64 *valptr, uint64 oldval, uint64 *newval) {
+bool LWLockWaitForVar(LWLock *lock, uint64 *valptr, uint64 oldval, uint64 *newval) {
     PGPROC *proc = MyProc;
     int extraWaits = 0;
     bool result = false;
@@ -1578,8 +1570,7 @@ LWLockWaitForVar(LWLock *lock, uint64 *valptr, uint64 oldval, uint64 *newval) {
  *
  * The caller must be holding the lock in exclusive mode.
  */
-void
-LWLockUpdateVar(LWLock *lock, uint64 *valptr, uint64 val) {
+void LWLockUpdateVar(LWLock *lock, uint64 *valptr, uint64 val) {
     proclist_head wakeup;
     proclist_mutable_iter iter;
 
@@ -1625,71 +1616,66 @@ LWLockUpdateVar(LWLock *lock, uint64 *valptr, uint64 val) {
     }
 }
 
-
-/*
- * LWLockRelease - release a previously acquired lock
- */
-void
-LWLockRelease(LWLock *lock) {
-    LWLockMode mode;
+// LWLockRelease - release a previously acquired lwLock
+void LWLockRelease(LWLock *lwLock) {
+    LWLockMode lockMode;
     uint32 oldstate;
     bool check_waiters;
     int i;
 
     /*
-     * Remove lock from list of locks held.  Usually, but not always, it will
-     * be the latest-acquired lock; so search array backwards.
+     * Remove lwLock from list of locks held.  Usually, but not always, it will
+     * be the latest-acquired lwLock; so search array backwards.
      */
-    for (i = num_held_lwlocks; --i >= 0;)
-        if (lock == held_lwlocks[i].lock)
+    for (i = num_held_lwlocks; --i >= 0;) {
+        if (lwLock == held_lwlocks[i].lock) {
             break;
-
-    if (i < 0)
-        elog(ERROR, "lock %s is not held", T_NAME(lock));
-
-    mode = held_lwlocks[i].mode;
-
-    num_held_lwlocks--;
-    for (; i < num_held_lwlocks; i++)
-        held_lwlocks[i] = held_lwlocks[i + 1];
-
-    PRINT_LWDEBUG("LWLockRelease", lock, mode);
-
-    /*
-     * Release my hold on lock, after that it can immediately be acquired by
-     * others, even if we still have to wakeup other waiters.
-     */
-    if (mode == LW_EXCLUSIVE)
-        oldstate = pg_atomic_sub_fetch_u32(&lock->state, LW_VAL_EXCLUSIVE);
-    else
-        oldstate = pg_atomic_sub_fetch_u32(&lock->state, LW_VAL_SHARED);
-
-    /* nobody else can have that kind of lock */
-    Assert(!(oldstate & LW_VAL_EXCLUSIVE));
-
-
-    /*
-     * We're still waiting for backends to get scheduled, don't wake them up
-     * again.
-     */
-    if ((oldstate & (LW_FLAG_HAS_WAITERS | LW_FLAG_RELEASE_OK)) ==
-        (LW_FLAG_HAS_WAITERS | LW_FLAG_RELEASE_OK) &&
-        (oldstate & LW_LOCK_MASK) == 0)
-        check_waiters = true;
-    else
-        check_waiters = false;
-
-    /*
-     * As waking up waiters requires the spinlock to be acquired, only do so
-     * if necessary.
-     */
-    if (check_waiters) {
-        /* XXX: remove before commit? */
-        LOG_LWDEBUG("LWLockRelease", lock, "releasing waiters");
-        LWLockWakeup(lock);
+        }
+    }
+    if (i < 0) {
+        elog(ERROR, "lwLock %s is not held", T_NAME(lwLock));
     }
 
-    TRACE_POSTGRESQL_LWLOCK_RELEASE(T_NAME(lock));
+    lockMode = held_lwlocks[i].mode;
+
+    num_held_lwlocks--;
+
+    // 自己的位子要空了把后边的向前移动
+    for (; i < num_held_lwlocks; i++) {
+        held_lwlocks[i] = held_lwlocks[i + 1];
+    }
+
+    PRINT_LWDEBUG("LWLockRelease", lwLock, lockMode);
+
+    /*
+     * Release my hold on lwLock, after that it can immediately be acquired by
+     * others, even if we still have to wakeup other waiters.
+     */
+    if (lockMode == LW_EXCLUSIVE) {
+        oldstate = pg_atomic_sub_fetch_u32(&lwLock->state, LW_VAL_EXCLUSIVE);
+    } else {
+        oldstate = pg_atomic_sub_fetch_u32(&lwLock->state, LW_VAL_SHARED);
+    }
+
+    /* nobody else can have that kind of lwLock */
+    Assert(!(oldstate & LW_VAL_EXCLUSIVE));
+
+    // We're still waiting for backends to get scheduled, don't wake them up again.
+    if ((oldstate & (LW_FLAG_HAS_WAITERS | LW_FLAG_RELEASE_OK)) == (LW_FLAG_HAS_WAITERS | LW_FLAG_RELEASE_OK) &&
+        (oldstate & LW_LOCK_MASK) == 0) {
+        check_waiters = true;
+    } else {
+        check_waiters = false;
+    }
+
+    // As waking up waiters requires the spinlock to be acquired, only do so if necessary.
+    if (check_waiters) {
+        /* XXX: remove before commit? */
+        LOG_LWDEBUG("LWLockRelease", lwLock, "releasing waiters");
+        LWLockWakeup(lwLock);
+    }
+
+    TRACE_POSTGRESQL_LWLOCK_RELEASE(T_NAME(lwLock));
 
     /*
      * Now okay to allow cancel/die interrupts.

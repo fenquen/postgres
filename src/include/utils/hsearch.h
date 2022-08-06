@@ -100,10 +100,9 @@ typedef struct HASHCTL
 #define NO_MAX_DSIZE			(-1)
 
 /* hash_search operations */
-typedef enum
-{
+typedef enum {
 	HASH_FIND,
-	HASH_ENTER,
+	HASH_ENTER, // 对应 put
 	HASH_REMOVE,
 	HASH_ENTER_NULL
 } HASHACTION;

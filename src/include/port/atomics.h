@@ -362,15 +362,13 @@ pg_atomic_fetch_and_u32(volatile pg_atomic_uint32 *ptr, uint32 and_)
 }
 
 /*
- * pg_atomic_fetch_or_u32 - atomically bit-or or_ with variable
+ * pg_atomic_fetch_or_u32 - atomically bit-or with variable 原子的进行or运算
  *
  * Returns the value of ptr before the arithmetic operation.
  *
  * Full barrier semantics.
  */
-static inline uint32
-pg_atomic_fetch_or_u32(volatile pg_atomic_uint32 *ptr, uint32 or_)
-{
+static inline uint32 pg_atomic_fetch_or_u32(volatile pg_atomic_uint32 *ptr, uint32 or_) {
 	AssertPointerAlignment(ptr, 4);
 	return pg_atomic_fetch_or_u32_impl(ptr, or_);
 }

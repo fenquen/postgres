@@ -88,8 +88,7 @@
  * Note: if there's any pad bytes in the struct, INIT_BUFFERTAG will have
  * to be fixed to zero them, since this struct is used as a hash key.
  */
-typedef struct buftag
-{
+typedef struct buftag {
 	RelFileNode rnode;			/* physical relation identifier */
 	ForkNumber	forkNum;
 	BlockNumber blockNum;		/* blknum relative to begin of reln */
@@ -127,8 +126,7 @@ typedef struct buftag
 #define BufTableHashPartition(hashcode) \
 	((hashcode) % NUM_BUFFER_PARTITIONS)
 #define BufMappingPartitionLock(hashcode) \
-	(&MainLWLockArray[BUFFER_MAPPING_LWLOCK_OFFSET + \
-		BufTableHashPartition(hashcode)].lock)
+	(&MainLWLockArray[BUFFER_MAPPING_LWLOCK_OFFSET + BufTableHashPartition(hashcode)].lock)
 #define BufMappingPartitionLockByIndex(i) \
 	(&MainLWLockArray[BUFFER_MAPPING_LWLOCK_OFFSET + (i)].lock)
 
@@ -240,7 +238,7 @@ extern PGDLLIMPORT LWLockMinimallyPadded *BufferIOLWLockArray;
  * Functions for acquiring/releasing a shared buffer header's spinlock.  Do
  * not apply these to local buffers!
  */
-extern uint32 LockBufHdr(BufferDesc *desc);
+extern uint32 LockBufHdr(BufferDesc *bufferDesc);
 #define UnlockBufHdr(desc, s)	\
 	do {	\
 		pg_write_barrier(); \
@@ -306,7 +304,7 @@ extern void IssuePendingWritebacks(WritebackContext *context);
 extern void ScheduleBufferTagForWriteback(WritebackContext *context, BufferTag *tag);
 
 /* freelist.c */
-extern BufferDesc *StrategyGetBuffer(BufferAccessStrategy strategy,
+extern BufferDesc *StrategyGetBuffer(BufferAccessStrategy bufferAccessStrategy,
 									 uint32 *buf_state);
 extern void StrategyFreeBuffer(BufferDesc *buf);
 extern bool StrategyRejectBuffer(BufferAccessStrategy strategy,

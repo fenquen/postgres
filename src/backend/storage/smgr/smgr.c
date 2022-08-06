@@ -86,6 +86,8 @@ static const f_smgr smgrsw[] = {
 static const int NSmgr = lengthof(smgrsw);
 
 /*
+ * key是 RelFileNodeBackend
+ *
  * Each backend has a hashtable that stores all extant SMgrRelation objects.
  * In addition, "unowned" SMgrRelation objects are chained together in a list.
  */
@@ -140,54 +142,48 @@ smgrshutdown(int code, Datum arg)
  *
  *		This does not attempt to actually open the underlying file.
  */
-SMgrRelation
-smgropen(RelFileNode rnode, BackendId backend)
-{
-	RelFileNodeBackend brnode;
-	SMgrRelation reln;
+SMgrRelation smgropen(RelFileNode relFileNode, BackendId backendId) {
+	RelFileNodeBackend relFileNodeBackend;
+	SMgrRelation sMgrRelation;
 	bool		found;
 
-	if (SMgrRelationHash == NULL)
-	{
+	if (SMgrRelationHash == NULL) {
 		/* First time through: initialize the hash table */
 		HASHCTL		ctl;
 
 		MemSet(&ctl, 0, sizeof(ctl));
 		ctl.keysize = sizeof(RelFileNodeBackend);
 		ctl.entrysize = sizeof(SMgrRelationData);
-		SMgrRelationHash = hash_create("smgr relation table", 400,
-									   &ctl, HASH_ELEM | HASH_BLOBS);
+		SMgrRelationHash = hash_create("smgr relation table", 400, &ctl, HASH_ELEM | HASH_BLOBS);
 		dlist_init(&unowned_relns);
 	}
 
 	/* Look up or create an entry */
-	brnode.node = rnode;
-	brnode.backend = backend;
-	reln = (SMgrRelation) hash_search(SMgrRelationHash,
-									  (void *) &brnode,
-									  HASH_ENTER, &found);
+	relFileNodeBackend.node = relFileNode;
+    relFileNodeBackend.backend = backendId;
+    sMgrRelation = (SMgrRelation) hash_search(SMgrRelationHash,
+                                              (void *) &relFileNodeBackend,
+                                              HASH_ENTER, &found);
 
 	/* Initialize it if not present before */
-	if (!found)
-	{
-		int			forknum;
-
-		/* hash_search already filled in the lookup key */
-		reln->smgr_owner = NULL;
-		reln->smgr_targblock = InvalidBlockNumber;
-		reln->smgr_fsm_nblocks = InvalidBlockNumber;
-		reln->smgr_vm_nblocks = InvalidBlockNumber;
-		reln->smgr_which = 0;	/* we only have md.c at present */
+	if (!found) {
+		// hash_search already filled in the lookup key
+		sMgrRelation->smgr_owner = NULL;
+        sMgrRelation->smgr_targblock = InvalidBlockNumber;
+        sMgrRelation->smgr_fsm_nblocks = InvalidBlockNumber;
+        sMgrRelation->smgr_vm_nblocks = InvalidBlockNumber;
+        sMgrRelation->smgr_which = 0;	/* we only have md.c at present */
 
 		/* mark it not open */
-		for (forknum = 0; forknum <= MAX_FORKNUM; forknum++)
-			reln->md_num_open_segs[forknum] = 0;
+		for (int forknum = 0; forknum <= MAX_FORKNUM; forknum++) {
+            sMgrRelation->md_num_open_segs[forknum] = 0;
+        }
 
 		/* it has no owner yet */
-		dlist_push_tail(&unowned_relns, &reln->node);
+		dlist_push_tail(&unowned_relns, &sMgrRelation->node);
 	}
 
-	return reln;
+	return sMgrRelation;
 }
 
 /*

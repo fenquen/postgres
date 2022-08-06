@@ -147,6 +147,9 @@ data/postermaster.opts 内容是启动的命令
   Plan* top_plan
   PlannedStmt* result
 
+  ./postgres -D ../data
+  ./psql postgres
+
 共享内存
     sql: select name, setting from pg_settings where name like 'shared_memory_type';
     global变量: int shared_memory_type
@@ -175,3 +178,16 @@ data/postermaster.opts 内容是启动的命令
     #define DSM_IMPL_WINDOWS		3
     #define DSM_IMPL_MMAP			4
 
+
+LWLock(light weight lock)
+
+pg 有多个 semaphore set ,每个集合下有 SEMAS_PER_SET(16) 个信号量 ,PGSemaphoreCreate()
+
+
+
+
+
+
+spin等锁
+    perform_spin_delay()
+    套路还是熟悉的 首先死循环 到了趟数之后sleep 然后再死循环 然后sleep 休眠的时间也会逐步上升 休眠是用select实现

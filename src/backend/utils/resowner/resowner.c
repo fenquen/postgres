@@ -902,21 +902,14 @@ ResourceOwnerEnlargeBuffers(ResourceOwner owner)
  *
  * Caller must have previously done ResourceOwnerEnlargeBuffers()
  */
-void
-ResourceOwnerRememberBuffer(ResourceOwner owner, Buffer buffer)
-{
+void ResourceOwnerRememberBuffer(ResourceOwner owner, Buffer buffer) {
 	ResourceArrayAdd(&(owner->bufferarr), BufferGetDatum(buffer));
 }
 
-/*
- * Forget that a buffer pin is owned by a ResourceOwner
- */
-void
-ResourceOwnerForgetBuffer(ResourceOwner owner, Buffer buffer)
-{
+// Forget that a buffer pin is owned by a ResourceOwner
+void ResourceOwnerForgetBuffer(ResourceOwner owner, Buffer buffer) {
 	if (!ResourceArrayRemove(&(owner->bufferarr), BufferGetDatum(buffer)))
-		elog(ERROR, "buffer %d is not owned by resource owner %s",
-			 buffer, owner->name);
+		elog(ERROR, "buffer %d is not owned by resource owner %s", buffer, owner->name);
 }
 
 /*

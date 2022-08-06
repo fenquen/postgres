@@ -23,11 +23,8 @@
 #define INT_ACCESS_ONCE(var)	((int)(*((volatile int *)&(var))))
 
 
-/*
- * The shared freelist control information.
- */
-typedef struct
-{
+// The shared freelist control information.
+typedef struct {
 	/* Spinlock: protects the values below */
 	slock_t		buffer_strategy_lock;
 
@@ -53,10 +50,7 @@ typedef struct
 	uint32		completePasses; /* Complete cycles of the clock sweep */
 	pg_atomic_uint32 numBufferAllocs;	/* Buffers allocated since last reset */
 
-	/*
-	 * Bgworker process to be notified upon activity or -1 if none. See
-	 * StrategyNotifyBgWriter.
-	 */
+	// Bgworker process to be notified upon activity or -1 if none. See StrategyNotifyBgWriter.
 	int			bgwprocno;
 } BufferStrategyControl;
 
@@ -192,35 +186,33 @@ have_free_buffer()
  *	BufferAlloc(). The only hard requirement BufferAlloc() has is that
  *	the selected buffer must not currently be pinned by anyone.
  *
- *	strategy is a BufferAccessStrategy object, or NULL for default strategy.
+ *	bufferAccessStrategy is a BufferAccessStrategy object, or NULL for default bufferAccessStrategy.
  *
  *	To ensure that no one else can pin the buffer before we do, we must
  *	return the buffer with the buffer header spinlock still held.
  */
-BufferDesc *
-StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state)
-{
-	BufferDesc *buf;
-	int			bgwprocno;
-	int			trycounter;
-	uint32		local_buf_state;	/* to avoid repeated (de-)referencing */
+BufferDesc *StrategyGetBuffer(BufferAccessStrategy bufferAccessStrategy, uint32 *buf_state) {
+	BufferDesc *bufferDesc;
+	int			bgProcNo;
+	int			tryCount;
+	uint32		localBufState;	/* to avoid repeated (de-)referencing */
 
 	/*
-	 * If given a strategy object, see whether it can select a buffer. We
-	 * assume strategy objects don't need buffer_strategy_lock.
+	 * If given a bufferAccessStrategy object, see whether it can select a buffer. We
+	 * assume bufferAccessStrategy objects don't need buffer_strategy_lock.
 	 */
-	if (strategy != NULL)
-	{
-		buf = GetBufferFromRing(strategy, buf_state);
-		if (buf != NULL)
-			return buf;
+	if (bufferAccessStrategy != NULL) {
+        bufferDesc = GetBufferFromRing(bufferAccessStrategy, buf_state);
+		if (bufferDesc != NULL) {
+			return bufferDesc;
+        }
 	}
 
 	/*
 	 * If asked, we need to waken the bgwriter. Since we don't want to rely on
 	 * a spinlock for this we force a read from shared memory once, and then
 	 * set the latch based on that value. We need to go through that length
-	 * because otherwise bgwprocno might be reset while/after we check because
+	 * because otherwise bgProcNo might be reset while/after we check because
 	 * the compiler might just reread from memory.
 	 *
 	 * This can possibly set the latch of the wrong process if the bgwriter
@@ -228,10 +220,9 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state)
 	 * deallocated the worst consequence of that is that we set the latch of
 	 * some arbitrary process.
 	 */
-	bgwprocno = INT_ACCESS_ONCE(StrategyControl->bgwprocno);
-	if (bgwprocno != -1)
-	{
-		/* reset bgwprocno first, before setting the latch */
+	bgProcNo = INT_ACCESS_ONCE(StrategyControl->bgwprocno);
+	if (bgProcNo != -1) {
+		/* reset bgProcNo first, before setting the latch */
 		StrategyControl->bgwprocno = -1;
 
 		/*
@@ -239,13 +230,13 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state)
 		 * actually fine because procLatch isn't ever freed, so we just can
 		 * potentially set the wrong process' (or no process') latch.
 		 */
-		SetLatch(&ProcGlobal->allProcs[bgwprocno].procLatch);
+		SetLatch(&ProcGlobal->allProcs[bgProcNo].procLatch);
 	}
 
 	/*
 	 * We count buffer allocation requests so that the bgwriter can estimate
 	 * the rate of buffer consumption.  Note that buffers recycled by a
-	 * strategy object are intentionally not counted here.
+	 * bufferAccessStrategy object are intentionally not counted here.
 	 */
 	pg_atomic_fetch_add_u32(&StrategyControl->numBufferAllocs, 1);
 
@@ -265,25 +256,22 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state)
 	 * buffer_strategy_lock not the individual buffer spinlocks, so it's OK to
 	 * manipulate them without holding the spinlock.
 	 */
-	if (StrategyControl->firstFreeBuffer >= 0)
-	{
-		while (true)
-		{
+	if (StrategyControl->firstFreeBuffer >= 0) {
+		while (true) {
 			/* Acquire the spinlock to remove element from the freelist */
 			SpinLockAcquire(&StrategyControl->buffer_strategy_lock);
 
-			if (StrategyControl->firstFreeBuffer < 0)
-			{
+			if (StrategyControl->firstFreeBuffer < 0) {
 				SpinLockRelease(&StrategyControl->buffer_strategy_lock);
 				break;
 			}
 
-			buf = GetBufferDescriptor(StrategyControl->firstFreeBuffer);
-			Assert(buf->freeNext != FREENEXT_NOT_IN_LIST);
+            bufferDesc = GetBufferDescriptor(StrategyControl->firstFreeBuffer);
+			Assert(bufferDesc->freeNext != FREENEXT_NOT_IN_LIST);
 
 			/* Unconditionally remove buffer from freelist */
-			StrategyControl->firstFreeBuffer = buf->freeNext;
-			buf->freeNext = FREENEXT_NOT_IN_LIST;
+			StrategyControl->firstFreeBuffer = bufferDesc->freeNext;
+            bufferDesc->freeNext = FREENEXT_NOT_IN_LIST;
 
 			/*
 			 * Release the lock so someone else can access the freelist while
@@ -298,71 +286,64 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state)
 			 * it before we got to it.  It's probably impossible altogether as
 			 * of 8.3, but we'd better check anyway.)
 			 */
-			local_buf_state = LockBufHdr(buf);
-			if (BUF_STATE_GET_REFCOUNT(local_buf_state) == 0
-				&& BUF_STATE_GET_USAGECOUNT(local_buf_state) == 0)
-			{
-				if (strategy != NULL)
-					AddBufferToRing(strategy, buf);
-				*buf_state = local_buf_state;
-				return buf;
+			localBufState = LockBufHdr(bufferDesc);
+
+			if (BUF_STATE_GET_REFCOUNT(localBufState) == 0 &&
+                BUF_STATE_GET_USAGECOUNT(localBufState) == 0) {
+				if (bufferAccessStrategy != NULL)
+					AddBufferToRing(bufferAccessStrategy, bufferDesc);
+				*buf_state = localBufState;
+				return bufferDesc;
 			}
-			UnlockBufHdr(buf, local_buf_state);
+
+			UnlockBufHdr(bufferDesc, localBufState);
 
 		}
 	}
 
 	/* Nothing on the freelist, so run the "clock sweep" algorithm */
-	trycounter = NBuffers;
-	for (;;)
-	{
-		buf = GetBufferDescriptor(ClockSweepTick());
+	tryCount = NBuffers;
+	for (;;) {
+        bufferDesc = GetBufferDescriptor(ClockSweepTick());
 
-		/*
-		 * If the buffer is pinned or has a nonzero usage_count, we cannot use
-		 * it; decrement the usage_count (unless pinned) and keep scanning.
-		 */
-		local_buf_state = LockBufHdr(buf);
+        /*
+         * If the buffer is pinned or has a nonzero usage_count, we cannot use
+         * it; decrement the usage_count (unless pinned) and keep scanning.
+         */
+        localBufState = LockBufHdr(bufferDesc);
 
-		if (BUF_STATE_GET_REFCOUNT(local_buf_state) == 0)
-		{
-			if (BUF_STATE_GET_USAGECOUNT(local_buf_state) != 0)
-			{
-				local_buf_state -= BUF_USAGECOUNT_ONE;
+        if (BUF_STATE_GET_REFCOUNT(localBufState) == 0) {
+            if (BUF_STATE_GET_USAGECOUNT(localBufState) != 0) {
+                localBufState -= BUF_USAGECOUNT_ONE;
 
-				trycounter = NBuffers;
-			}
-			else
-			{
-				/* Found a usable buffer */
-				if (strategy != NULL)
-					AddBufferToRing(strategy, buf);
-				*buf_state = local_buf_state;
-				return buf;
-			}
-		}
-		else if (--trycounter == 0)
-		{
-			/*
-			 * We've scanned all the buffers without making any state changes,
-			 * so all the buffers are pinned (or were when we looked at them).
-			 * We could hope that someone will free one eventually, but it's
-			 * probably better to fail than to risk getting stuck in an
-			 * infinite loop.
-			 */
-			UnlockBufHdr(buf, local_buf_state);
-			elog(ERROR, "no unpinned buffers available");
-		}
-		UnlockBufHdr(buf, local_buf_state);
+                tryCount = NBuffers;
+            } else { /* Found a usable buffer */
+                if (bufferAccessStrategy != NULL) {
+                    AddBufferToRing(bufferAccessStrategy, bufferDesc);
+                }
+
+                *buf_state = localBufState;
+
+                return bufferDesc;
+            }
+        } else if (--tryCount == 0) {
+            /*
+             * We've scanned all the buffers without making any state changes,
+             * so all the buffers are pinned (or were when we looked at them).
+             * We could hope that someone will free one eventually, but it's
+             * probably better to fail than to risk getting stuck in an
+             * infinite loop.
+             */
+            UnlockBufHdr(bufferDesc, localBufState);
+            elog(ERROR, "no unpinned buffers available");
+        }
+
+		UnlockBufHdr(bufferDesc, localBufState);
 	}
 }
 
-/*
- * StrategyFreeBuffer: put a buffer on the freelist
- */
-void
-StrategyFreeBuffer(BufferDesc *buf)
-{
+// StrategyFreeBuffer: put a buffer on the freelist
+void StrategyFreeBuffer(BufferDesc *buf) {
 	SpinLockAcquire(&StrategyControl->buffer_strategy_lock);
 
 	/*

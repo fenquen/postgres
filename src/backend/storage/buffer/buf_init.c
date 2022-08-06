@@ -74,13 +74,10 @@ InitBufferPool(void)
 
 	/* Align descriptors to a cacheline boundary. */
 	BufferDescriptors = (BufferDescPadded *)
-		ShmemInitStruct("Buffer Descriptors",
-						NBuffers * sizeof(BufferDescPadded),
-						&foundDescs);
+		ShmemInitStruct("Buffer Descriptors", NBuffers * sizeof(BufferDescPadded), &foundDescs);
 
 	BufferBlocks = (char *)
-		ShmemInitStruct("Buffer Blocks",
-						NBuffers * (Size) BLCKSZ, &foundBufs);
+		ShmemInitStruct("Buffer Blocks", NBuffers * (Size) BLCKSZ, &foundBufs);
 
 	/* Align lwlocks to cacheline boundary */
 	BufferIOLWLockArray = (LWLockMinimallyPadded *)
@@ -117,25 +114,25 @@ InitBufferPool(void)
 		 */
 		for (i = 0; i < NBuffers; i++)
 		{
-			BufferDesc *buf = GetBufferDescriptor(i);
+			BufferDesc *bufferDesc = GetBufferDescriptor(i);
 
-			CLEAR_BUFFERTAG(buf->tag);
+			CLEAR_BUFFERTAG(bufferDesc->tag);
 
-			pg_atomic_init_u32(&buf->state, 0);
-			buf->wait_backend_pid = 0;
+			pg_atomic_init_u32(&bufferDesc->state, 0);
+            bufferDesc->wait_backend_pid = 0;
 
-			buf->buf_id = i;
+            bufferDesc->buf_id = i;
 
 			/*
 			 * Initially link all the buffers together as unused. Subsequent
 			 * management of this list is done by freelist.c.
 			 */
-			buf->freeNext = i + 1;
+			bufferDesc->freeNext = i + 1;
 
-			LWLockInitialize(BufferDescriptorGetContentLock(buf),
+			LWLockInitialize(BufferDescriptorGetContentLock(bufferDesc),
 							 LWTRANCHE_BUFFER_CONTENT);
 
-			LWLockInitialize(BufferDescriptorGetIOLock(buf),
+			LWLockInitialize(BufferDescriptorGetIOLock(bufferDesc),
 							 LWTRANCHE_BUFFER_IO_IN_PROGRESS);
 		}
 
