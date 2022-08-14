@@ -19,7 +19,7 @@
 #include "storage/lockdefs.h"
 
 
-extern Relation relation_open(Oid relationId, LOCKMODE lockmode);
+extern Relation relation_open(Oid relationOid, LOCKMODE lockmode);
 extern Relation try_relation_open(Oid relationId, LOCKMODE lockmode);
 extern Relation relation_openrv(const RangeVar *relation, LOCKMODE lockmode);
 extern Relation relation_openrv_extended(const RangeVar *relation,

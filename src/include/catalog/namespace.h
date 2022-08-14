@@ -134,7 +134,7 @@ extern void DeconstructQualifiedName(List *names,
 									 char **objname_p);
 extern Oid	LookupNamespaceNoError(const char *nspname);
 extern Oid	LookupExplicitNamespace(const char *nspname, bool missing_ok);
-extern Oid	get_namespace_oid(const char *nspname, bool missing_ok);
+extern Oid	get_namespace_oid(const char *schemaName, bool missing_ok);
 
 extern Oid	LookupCreationNamespace(const char *nspname);
 extern void CheckSetNamespace(Oid oldNspOid, Oid nspOid);

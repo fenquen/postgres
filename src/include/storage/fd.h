@@ -42,7 +42,7 @@
 #include <dirent.h>
 
 
-typedef int File;
+typedef int File; // 本质是VfdCache数组位置
 
 
 /* GUC parameter */

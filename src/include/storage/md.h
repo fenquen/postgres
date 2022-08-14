@@ -25,14 +25,14 @@ extern void mdclose(SMgrRelation reln, ForkNumber forknum);
 extern void mdcreate(SMgrRelation reln, ForkNumber forknum, bool isRedo);
 extern bool mdexists(SMgrRelation reln, ForkNumber forknum);
 extern void mdunlink(RelFileNodeBackend rnode, ForkNumber forknum, bool isRedo);
-extern void mdextend(SMgrRelation reln, ForkNumber forknum,
-					 BlockNumber blocknum, char *buffer, bool skipFsync);
+extern void mdextend(SMgrRelation sMgrRelation, ForkNumber forkNumber,
+                     BlockNumber blockNumber, char *buffer, bool skipFsync);
 extern void mdprefetch(SMgrRelation reln, ForkNumber forknum,
 					   BlockNumber blocknum);
-extern void mdread(SMgrRelation reln, ForkNumber forknum, BlockNumber blocknum,
-				   char *buffer);
-extern void mdwrite(SMgrRelation reln, ForkNumber forknum,
-					BlockNumber blocknum, char *buffer, bool skipFsync);
+extern void mdread(SMgrRelation sMgrRelation, ForkNumber forkNumber, BlockNumber blockNumber,
+                   char *buffer);
+extern void mdwrite(SMgrRelation sMgrRelation, ForkNumber forknum,
+                    BlockNumber blocknum, char *buffer, bool skipFsync);
 extern void mdwriteback(SMgrRelation reln, ForkNumber forknum,
 						BlockNumber blocknum, BlockNumber nblocks);
 extern BlockNumber mdnblocks(SMgrRelation reln, ForkNumber forknum);

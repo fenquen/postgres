@@ -3032,17 +3032,12 @@ QualifiedNameGetCreationNamespace(List *names, char **objname_p)
  * If missing_ok is false, throw an error if namespace name not found.  If
  * true, just return InvalidOid.
  */
-Oid
-get_namespace_oid(const char *nspname, bool missing_ok)
-{
-	Oid			oid;
-
-	oid = GetSysCacheOid1(NAMESPACENAME, Anum_pg_namespace_oid,
-						  CStringGetDatum(nspname));
-	if (!OidIsValid(oid) && !missing_ok)
+Oid get_namespace_oid(const char *schemaName, bool missing_ok) {
+	Oid	oid= GetSysCacheOid1(NAMESPACENAME, Anum_pg_namespace_oid, CStringGetDatum(schemaName));
+	if (!OidIsValid(oid) && !missing_ok) {
 		ereport(ERROR,
-				(errcode(ERRCODE_UNDEFINED_SCHEMA),
-				 errmsg("schema \"%s\" does not exist", nspname)));
+				(errcode(ERRCODE_UNDEFINED_SCHEMA), errmsg("schema \"%s\" does not exist", schemaName)));
+    }
 
 	return oid;
 }

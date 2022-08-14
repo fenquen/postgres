@@ -404,8 +404,7 @@ extern ProcessingMode Mode;
  * The MyAuxProcType global is defined and set in bootstrap.c.
  */
 
-typedef enum
-{
+typedef enum {
 	NotAnAuxProcess = -1,
 	CheckerProcess = 0,
 	BootstrapProcess, /* 对应调用initdb时候 */

@@ -44,22 +44,19 @@
  *		expected to check whether the relkind is something it can handle.
  * ----------------
  */
-Relation
-relation_open(Oid relationId, LOCKMODE lockmode)
-{
-	Relation	r;
-
-	Assert(lockmode >= NoLock && lockmode < MAX_LOCKMODES);
+Relation relation_open(Oid relationOid, LOCKMODE lockmode) {
+    Assert(lockmode >= NoLock && lockmode < MAX_LOCKMODES);
 
 	/* Get the lock before trying to open the relcache entry */
-	if (lockmode != NoLock)
-		LockRelationOid(relationId, lockmode);
+	if (lockmode != NoLock) {
+		LockRelationOid(relationOid, lockmode);
+    }
 
 	/* The relcache does all the real work... */
-	r = RelationIdGetRelation(relationId);
-
-	if (!RelationIsValid(r))
-		elog(ERROR, "could not open relation with OID %u", relationId);
+    Relation relation = RelationIdGetRelation(relationOid);
+	if (!RelationIsValid(relation)) {
+		elog(ERROR, "could not open relation with OID %u", relationOid);
+    }
 
 	/*
 	 * If we didn't get the lock ourselves, assert that caller holds one,
@@ -67,15 +64,15 @@ relation_open(Oid relationId, LOCKMODE lockmode)
 	 */
 	Assert(lockmode != NoLock ||
 		   IsBootstrapProcessingMode() ||
-		   CheckRelationLockedByMe(r, AccessShareLock, true));
+		   CheckRelationLockedByMe(relation, AccessShareLock, true));
 
 	/* Make note that we've accessed a temporary relation */
-	if (RelationUsesLocalBuffers(r))
+	if (RelationUsesLocalBuffers(relation)) {
 		MyXactFlags |= XACT_FLAGS_ACCESSEDTEMPNAMESPACE;
+    }
 
-	pgstat_initstats(r);
-
-	return r;
+	pgstat_initstats(relation);
+	return relation;
 }
 
 /* ----------------

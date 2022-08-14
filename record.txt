@@ -138,7 +138,7 @@ data/postermaster.opts 内容是启动的命令
     }
 
 编译
-    ./configure --enable-debug --enable-cassert --enable-thread-safety --prefix=/Users/a/program/pg12 CFLAGS="-g -O0"
+    ./configure --enable-debug --enable-cassert --enable-thread-safety --prefix=/Users/a/program/pg12 CFLAGS="-g -O0 -std=c99 -Wno-declaration-after-statement"
 
     make -sj
 其他
@@ -191,3 +191,15 @@ pg 有多个 semaphore set ,每个集合下有 SEMAS_PER_SET(16) 个信号量 ,P
 spin等锁
     perform_spin_delay()
     套路还是熟悉的 首先死循环 到了趟数之后sleep 然后再死循环 然后sleep 休眠的时间也会逐步上升 休眠是用select实现
+
+
+表对应的数据文件
+    之前知道已知道pg中最小的粒度单元是 block 大小是 BLCKSZ
+    某个的表对应的数据文件的单个的大小也是有限制的 最大可以容纳 RELSEG_SIZE 个block
+    这样的1个单元称为segment
+    要是了某个表的数据很大 单个的segment 已经容纳不下了 那么对应多个segment文件
+    第1的个segment名字是"表的oid" 第2的个segment名字是"表的oid.1" 对应_mdfd_segpath()函数
+
+
+
+    要是要找的数据在很后边的话要越过多个segment貌似不能直接定位到那个部分 还是要顺序的

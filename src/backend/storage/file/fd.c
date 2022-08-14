@@ -174,9 +174,8 @@ bool		data_sync_retry = false;
 #define FD_CLOSE_AT_EOXACT	(1 << 1)	/* T = close at eoXact */
 #define FD_TEMP_FILE_LIMIT	(1 << 2)	/* T = respect temp_file_limit */
 
-typedef struct vfd
-{
-	int			fd;				/* current FD, or VFD_CLOSED if none */
+typedef struct vfd {
+	int			fd;				/* current FD or VFD_CLOSED if none */
 	unsigned short fdstate;		/* bitflags for VFD's state */
 	ResourceOwner resowner;		/* owner, for automatic cleanup */
 	File		nextFree;		/* link to next free VFD, if in freelist */
@@ -924,13 +923,8 @@ void set_max_safe_fds(void) {
          max_safe_fds, usable_fds, already_open);
 }
 
-/*
- * Open a file with BasicOpenFilePerm() and pass default file mode for the
- * fileMode parameter.
- */
-int
-BasicOpenFile(const char *fileName, int fileFlags)
-{
+// Open a file with BasicOpenFilePerm() and pass default file mode for the fileMode parameter.
+int BasicOpenFile(const char *fileName, int fileFlags) {
 	return BasicOpenFilePerm(fileName, fileFlags, pg_file_create_mode);
 }
 
@@ -950,31 +944,29 @@ BasicOpenFile(const char *fileName, int fileFlags)
  * direct open() calls done early in backend startup.  Those are OK since
  * this module wouldn't have any open files to close at that point anyway.
  */
-int
-BasicOpenFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
-{
-	int			fd;
+int BasicOpenFilePerm(const char *fileName,
+                      int fileFlags,
+                      mode_t fileMode) {
+    int fd;
 
-tryAgain:
-	fd = open(fileName, fileFlags, fileMode);
+    tryAgain:
+    fd = open(fileName, fileFlags, fileMode);
 
-	if (fd >= 0)
-		return fd;				/* success! */
+    if (fd >= 0)
+        return fd;
 
-	if (errno == EMFILE || errno == ENFILE)
-	{
-		int			save_errno = errno;
+    if (errno == EMFILE || errno == ENFILE) {
+        int save_errno = errno;
 
-		ereport(LOG,
-				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
-				 errmsg("out of file descriptors: %m; release and retry")));
-		errno = 0;
-		if (ReleaseLruFile())
-			goto tryAgain;
-		errno = save_errno;
-	}
+        ereport(LOG, (errcode(ERRCODE_INSUFFICIENT_RESOURCES), errmsg("out of file descriptors: %m; release and retry")));
+        errno = 0;
+        if (ReleaseLruFile()) {
+            goto tryAgain;
+        }
+        errno = save_errno;
+    }
 
-	return -1;					/* failure */
+    return -1;                    /* failure */
 }
 
 #if defined(FDDEBUG)
@@ -1043,23 +1035,20 @@ LruDelete(File file)
 	Delete(file);
 }
 
-static void
-Insert(File file)
-{
-	Vfd		   *vfdP;
+static void Insert(File file) {
+    Vfd *vfd;
 
 	Assert(file != 0);
 
-	DO_DB(elog(LOG, "Insert %d (%s)",
-			   file, VfdCache[file].fileName));
+	DO_DB(elog(LOG, "Insert %d (%s)", file, VfdCache[file].fileName));
 	DO_DB(_dump_lru());
 
-	vfdP = &VfdCache[file];
+	vfd = &VfdCache[file];
 
-	vfdP->lruMoreRecently = 0;
-	vfdP->lruLessRecently = VfdCache[0].lruLessRecently;
+    vfd->lruMoreRecently = 0;
+    vfd->lruLessRecently = VfdCache[0].lruLessRecently;
 	VfdCache[0].lruLessRecently = file;
-	VfdCache[vfdP->lruLessRecently].lruMoreRecently = file;
+	VfdCache[vfd->lruLessRecently].lruMoreRecently = file;
 
 	DO_DB(_dump_lru());
 }
@@ -1141,59 +1130,57 @@ static void ReleaseLruFiles(void) {
 }
 
 static File AllocateVfd(void) {
-	Index		i;
-	File		file;
+    Index i;
+    File file;
 
-	DO_DB(elog(LOG, "AllocateVfd. Size %zu", SizeVfdCache));
+    DO_DB(elog(LOG, "allocateVfd. size %zu", SizeVfdCache));
 
-	Assert(SizeVfdCache > 0);	/* InitFileAccess not called? */
+    Assert(SizeVfdCache > 0);    /* InitFileAccess not called? */
 
-	if (VfdCache[0].nextFree == 0)
-	{
-		/*
-		 * The free list is empty so it is time to increase the size of the
-		 * array.  We choose to double it each time this happens. However,
-		 * there's not much point in starting *real* small.
-		 */
-		Size		newCacheSize = SizeVfdCache * 2;
-		Vfd		   *newVfdCache;
+    if (VfdCache[0].nextFree == 0) {
+        /*
+         * The free list is empty so it is time to increase the size of the
+         * array.  We choose to double it each time this happens. However,
+         * there's not much point in starting *real* small.
+         */
+        Size newCacheSize = SizeVfdCache * 2;
+        Vfd *newVfdCache;
 
-		if (newCacheSize < 32)
-			newCacheSize = 32;
+        if (newCacheSize < 32)
+            newCacheSize = 32;
 
-		/*
-		 * Be careful not to clobber VfdCache ptr if realloc fails.
-		 */
-		newVfdCache = (Vfd *) realloc(VfdCache, sizeof(Vfd) * newCacheSize);
-		if (newVfdCache == NULL)
-			ereport(ERROR,
-					(errcode(ERRCODE_OUT_OF_MEMORY),
-					 errmsg("out of memory")));
-		VfdCache = newVfdCache;
+        /*
+         * Be careful not to clobber VfdCache ptr if realloc fails.
+         */
+        newVfdCache = (Vfd *) realloc(VfdCache, sizeof(Vfd) * newCacheSize);
+        if (newVfdCache == NULL)
+            ereport(ERROR,
+                    (errcode(ERRCODE_OUT_OF_MEMORY),
+                            errmsg("out of memory")));
+        VfdCache = newVfdCache;
 
-		/*
-		 * Initialize the new entries and link them into the free list.
-		 */
-		for (i = SizeVfdCache; i < newCacheSize; i++)
-		{
-			MemSet((char *) &(VfdCache[i]), 0, sizeof(Vfd));
-			VfdCache[i].nextFree = i + 1;
-			VfdCache[i].fd = VFD_CLOSED;
-		}
-		VfdCache[newCacheSize - 1].nextFree = 0;
-		VfdCache[0].nextFree = SizeVfdCache;
+        /*
+         * Initialize the new entries and link them into the free list.
+         */
+        for (i = SizeVfdCache; i < newCacheSize; i++) {
+            MemSet((char *) &(VfdCache[i]), 0, sizeof(Vfd));
+            VfdCache[i].nextFree = i + 1;
+            VfdCache[i].fd = VFD_CLOSED;
+        }
+        VfdCache[newCacheSize - 1].nextFree = 0;
+        VfdCache[0].nextFree = SizeVfdCache;
 
-		/*
-		 * Record the new size
-		 */
-		SizeVfdCache = newCacheSize;
-	}
+        /*
+         * Record the new size
+         */
+        SizeVfdCache = newCacheSize;
+    }
 
-	file = VfdCache[0].nextFree;
+    file = VfdCache[0].nextFree;
 
-	VfdCache[0].nextFree = VfdCache[file].nextFree;
+    VfdCache[0].nextFree = VfdCache[file].nextFree;
 
-	return file;
+    return file;
 }
 
 static void
@@ -1216,32 +1203,23 @@ FreeVfd(File file)
 }
 
 /* returns 0 on success, -1 on re-open failure (with errno set) */
-static int
-FileAccess(File file)
-{
+static int FileAccess(File file) {
 	int			returnValue;
 
-	DO_DB(elog(LOG, "FileAccess %d (%s)",
-			   file, VfdCache[file].fileName));
+	DO_DB(elog(LOG, "FileAccess %d (%s)", file, VfdCache[file].fileName));
 
 	/*
 	 * Is the file open?  If not, open it and put it at the head of the LRU
 	 * ring (possibly closing the least recently used file to get an FD).
 	 */
-
-	if (FileIsNotOpen(file))
-	{
+	if (FileIsNotOpen(file)) {
 		returnValue = LruInsert(file);
-		if (returnValue != 0)
+		if (returnValue != 0) {
 			return returnValue;
-	}
-	else if (VfdCache[0].lruLessRecently != file)
-	{
-		/*
-		 * We now know that the file is open and that it is not the last one
-		 * accessed, so we need to move it to the head of the Lru ring.
-		 */
-
+        }
+	} else if (VfdCache[0].lruLessRecently != file) {
+		// We now know that the file is open and that it is not the last one
+        // accessed, so we need to move it to the head of the Lru ring
 		Delete(file);
 		Insert(file);
 	}
@@ -1299,9 +1277,7 @@ FileInvalidate(File file)
  * Open a file with PathNameOpenFilePerm() and pass default file mode for the
  * fileMode parameter.
  */
-File
-PathNameOpenFile(const char *fileName, int fileFlags)
-{
+File PathNameOpenFile(const char *fileName, int fileFlags) {
 	return PathNameOpenFilePerm(fileName, fileFlags, pg_file_create_mode);
 }
 
@@ -1312,53 +1288,46 @@ PathNameOpenFile(const char *fileName, int fileFlags)
  * it will be interpreted relative to the process' working directory
  * (which should always be $PGDATA when this code is running).
  */
-File
-PathNameOpenFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
-{
+File PathNameOpenFilePerm(const char *fileName, int fileFlags, mode_t fileMode) {
 	char	   *fnamecopy;
 	File		file;
-	Vfd		   *vfdP;
+	Vfd		   *vfd;
 
-	DO_DB(elog(LOG, "PathNameOpenFilePerm: %s %x %o",
-			   fileName, fileFlags, fileMode));
+	DO_DB(elog(LOG, "PathNameOpenFilePerm: %s %x %o", fileName, fileFlags, fileMode));
 
-	/*
-	 * We need a malloc'd copy of the file name; fail cleanly if no room.
-	 */
+	// We need a malloc'd copy of the file name; fail cleanly if no room.
 	fnamecopy = strdup(fileName);
-	if (fnamecopy == NULL)
-		ereport(ERROR,
-				(errcode(ERRCODE_OUT_OF_MEMORY),
-				 errmsg("out of memory")));
+	if (fnamecopy == NULL) {
+		ereport(ERROR, (errcode(ERRCODE_OUT_OF_MEMORY), errmsg("out of memory")));
+    }
 
 	file = AllocateVfd();
-	vfdP = &VfdCache[file];
+    vfd = &VfdCache[file];
 
 	/* Close excess kernel FDs. */
 	ReleaseLruFiles();
 
-	vfdP->fd = BasicOpenFilePerm(fileName, fileFlags, fileMode);
-
-	if (vfdP->fd < 0)
-	{
-		int			save_errno = errno;
+    vfd->fd = BasicOpenFilePerm(fileName, fileFlags, fileMode);
+	if (vfd->fd < 0) {
+		int	save_errno = errno;
 
 		FreeVfd(file);
 		free(fnamecopy);
 		errno = save_errno;
 		return -1;
 	}
-	++nfile;
-	DO_DB(elog(LOG, "PathNameOpenFile: success %d",
-			   vfdP->fd));
 
-	vfdP->fileName = fnamecopy;
+	++nfile;
+
+	DO_DB(elog(LOG, "PathNameOpenFile: success %d", vfd->fd));
+
+    vfd->fileName = fnamecopy;
 	/* Saved flags are adjusted to be OK for re-opening file */
-	vfdP->fileFlags = fileFlags & ~(O_CREAT | O_TRUNC | O_EXCL);
-	vfdP->fileMode = fileMode;
-	vfdP->fileSize = 0;
-	vfdP->fdstate = 0x0;
-	vfdP->resowner = NULL;
+	vfd->fileFlags = fileFlags & ~(O_CREAT | O_TRUNC | O_EXCL);
+    vfd->fileMode = fileMode;
+    vfd->fileSize = 0;
+    vfd->fdstate = 0x0;
+    vfd->resowner = NULL;
 
 	Insert(file);
 
@@ -1836,162 +1805,161 @@ FileWriteback(File file, off_t offset, off_t nbytes, uint32 wait_event_info)
 	pgstat_report_wait_end();
 }
 
-int
-FileRead(File file, char *buffer, int amount, off_t offset,
-		 uint32 wait_event_info)
-{
-	int			returnCode;
-	Vfd		   *vfdP;
+int FileRead(File file,
+             char *buffer,
+             int amount,
+             off_t offset,
+             uint32 wait_event_info) {
+    int returnCode;
+    Vfd *vfd;
 
-	Assert(FileIsValid(file));
+    Assert(FileIsValid(file));
 
-	DO_DB(elog(LOG, "FileRead: %d (%s) " INT64_FORMAT " %d %p",
-			   file, VfdCache[file].fileName,
-			   (int64) offset,
-			   amount, buffer));
+    DO_DB(elog(LOG, "FileRead: %d (%s) " INT64_FORMAT " %d %p",
+            file, VfdCache[file].fileName,
+            (int64) offset,
+            amount, buffer));
 
-	returnCode = FileAccess(file);
-	if (returnCode < 0)
-		return returnCode;
+    returnCode = FileAccess(file);
+    if (returnCode < 0) {
+        return returnCode;
+    }
 
-	vfdP = &VfdCache[file];
+    vfd = &VfdCache[file];
 
-retry:
-	pgstat_report_wait_start(wait_event_info);
-	returnCode = pg_pread(vfdP->fd, buffer, amount, offset);
-	pgstat_report_wait_end();
+    retry:
+    pgstat_report_wait_start(wait_event_info);
 
-	if (returnCode < 0)
-	{
-		/*
-		 * Windows may run out of kernel buffers and return "Insufficient
-		 * system resources" error.  Wait a bit and retry to solve it.
-		 *
-		 * It is rumored that EINTR is also possible on some Unix filesystems,
-		 * in which case immediate retry is indicated.
-		 */
+    returnCode = pg_pread(vfd->fd, buffer, amount, offset);
+
+    pgstat_report_wait_end();
+
+    if (returnCode < 0) {
+        /*
+         * Windows may run out of kernel buffers and return "Insufficient
+         * system resources" error.  Wait a bit and retry to solve it.
+         *
+         * It is rumored that EINTR is also possible on some Unix filesystems,
+         * in which case immediate retry is indicated.
+         */
 #ifdef WIN32
-		DWORD		error = GetLastError();
+        DWORD		error = GetLastError();
 
-		switch (error)
-		{
-			case ERROR_NO_SYSTEM_RESOURCES:
-				pg_usleep(1000L);
-				errno = EINTR;
-				break;
-			default:
-				_dosmaperr(error);
-				break;
-		}
+        switch (error)
+        {
+            case ERROR_NO_SYSTEM_RESOURCES:
+                pg_usleep(1000L);
+                errno = EINTR;
+                break;
+            default:
+                _dosmaperr(error);
+                break;
+        }
 #endif
-		/* OK to retry if interrupted */
-		if (errno == EINTR)
-			goto retry;
-	}
+        /* OK to retry if interrupted */
+        if (errno == EINTR) {
+            goto retry;
+        }
+    }
 
-	return returnCode;
+    return returnCode;
 }
 
-int
-FileWrite(File file, char *buffer, int amount, off_t offset,
-		  uint32 wait_event_info)
-{
-	int			returnCode;
-	Vfd		   *vfdP;
+int FileWrite(File file,
+              char *buffer,
+              int amount,
+              off_t offset,
+              uint32 wait_event_info) {
+    int returnCode;
+    Vfd *vfd;
 
-	Assert(FileIsValid(file));
+    Assert(FileIsValid(file));
 
-	DO_DB(elog(LOG, "FileWrite: %d (%s) " INT64_FORMAT " %d %p",
-			   file, VfdCache[file].fileName,
-			   (int64) offset,
-			   amount, buffer));
+    DO_DB(elog(LOG, "FileWrite: %d (%s) " INT64_FORMAT " %d %p",
+            file, VfdCache[file].fileName,
+            (int64) offset,
+            amount, buffer));
 
-	returnCode = FileAccess(file);
-	if (returnCode < 0)
-		return returnCode;
+    returnCode = FileAccess(file);
+    if (returnCode < 0)
+        return returnCode;
 
-	vfdP = &VfdCache[file];
+    vfd = &VfdCache[file];
 
-	/*
-	 * If enforcing temp_file_limit and it's a temp file, check to see if the
-	 * write would overrun temp_file_limit, and throw error if so.  Note: it's
-	 * really a modularity violation to throw error here; we should set errno
-	 * and return -1.  However, there's no way to report a suitable error
-	 * message if we do that.  All current callers would just throw error
-	 * immediately anyway, so this is safe at present.
-	 */
-	if (temp_file_limit >= 0 && (vfdP->fdstate & FD_TEMP_FILE_LIMIT))
-	{
-		off_t		past_write = offset + amount;
+    /*
+     * If enforcing temp_file_limit and it's a temp file, check to see if the
+     * write would overrun temp_file_limit, and throw error if so.  Note: it's
+     * really a modularity violation to throw error here; we should set errno
+     * and return -1.  However, there's no way to report a suitable error
+     * message if we do that.  All current callers would just throw error
+     * immediately anyway, so this is safe at present.
+     */
+    if (temp_file_limit >= 0 && (vfd->fdstate & FD_TEMP_FILE_LIMIT)) {
+        off_t past_write = offset + amount;
 
-		if (past_write > vfdP->fileSize)
-		{
-			uint64		newTotal = temporary_files_size;
+        if (past_write > vfd->fileSize) {
+            uint64 newTotal = temporary_files_size;
 
-			newTotal += past_write - vfdP->fileSize;
-			if (newTotal > (uint64) temp_file_limit * (uint64) 1024)
-				ereport(ERROR,
-						(errcode(ERRCODE_CONFIGURATION_LIMIT_EXCEEDED),
-						 errmsg("temporary file size exceeds temp_file_limit (%dkB)",
-								temp_file_limit)));
-		}
-	}
+            newTotal += past_write - vfd->fileSize;
+            if (newTotal > (uint64) temp_file_limit * (uint64) 1024)
+                ereport(ERROR,
+                        (errcode(ERRCODE_CONFIGURATION_LIMIT_EXCEEDED),
+                                errmsg("temporary file size exceeds temp_file_limit (%dkB)", temp_file_limit)));
+        }
+    }
 
-retry:
-	errno = 0;
-	pgstat_report_wait_start(wait_event_info);
-	returnCode = pg_pwrite(VfdCache[file].fd, buffer, amount, offset);
-	pgstat_report_wait_end();
+    retry:
+    errno = 0;
 
-	/* if write didn't set errno, assume problem is no disk space */
-	if (returnCode != amount && errno == 0)
-		errno = ENOSPC;
+    pgstat_report_wait_start(wait_event_info);
+    returnCode = pg_pwrite(VfdCache[file].fd, buffer, amount, offset);
+    pgstat_report_wait_end();
 
-	if (returnCode >= 0)
-	{
-		/*
-		 * Maintain fileSize and temporary_files_size if it's a temp file.
-		 *
-		 * If seekPos is -1 (unknown), this will do nothing; but we could only
-		 * get here in that state if we're not enforcing temporary_files_size,
-		 * so we don't care.
-		 */
-		if (vfdP->fdstate & FD_TEMP_FILE_LIMIT)
-		{
-			off_t		past_write = offset + amount;
+    /* if write didn't set errno, assume problem is no disk space */
+    if (returnCode != amount && errno == 0) {
+        errno = ENOSPC;
+    }
 
-			if (past_write > vfdP->fileSize)
-			{
-				temporary_files_size += past_write - vfdP->fileSize;
-				vfdP->fileSize = past_write;
-			}
-		}
-	}
-	else
-	{
-		/*
-		 * See comments in FileRead()
-		 */
+    if (returnCode >= 0) {
+        /*
+         * Maintain fileSize and temporary_files_size if it's a temp file.
+         *
+         * If seekPos is -1 (unknown), this will do nothing; but we could only
+         * get here in that state if we're not enforcing temporary_files_size,
+         * so we don't care.
+         */
+        if (vfd->fdstate & FD_TEMP_FILE_LIMIT) {
+            off_t past_write = offset + amount;
+
+            if (past_write > vfd->fileSize) {
+                temporary_files_size += past_write - vfd->fileSize;
+                vfd->fileSize = past_write;
+            }
+        }
+    } else {
+        /*
+         * See comments in FileRead()
+         */
 #ifdef WIN32
-		DWORD		error = GetLastError();
+        DWORD		error = GetLastError();
 
-		switch (error)
-		{
-			case ERROR_NO_SYSTEM_RESOURCES:
-				pg_usleep(1000L);
-				errno = EINTR;
-				break;
-			default:
-				_dosmaperr(error);
-				break;
-		}
+        switch (error)
+        {
+            case ERROR_NO_SYSTEM_RESOURCES:
+                pg_usleep(1000L);
+                errno = EINTR;
+                break;
+            default:
+                _dosmaperr(error);
+                break;
+        }
 #endif
-		/* OK to retry if interrupted */
-		if (errno == EINTR)
-			goto retry;
-	}
+        /* OK to retry if interrupted */
+        if (errno == EINTR)
+            goto retry;
+    }
 
-	return returnCode;
+    return returnCode;
 }
 
 int
@@ -2015,21 +1983,19 @@ FileSync(File file, uint32 wait_event_info)
 	return returnCode;
 }
 
-off_t
-FileSize(File file)
-{
-	Assert(FileIsValid(file));
+off_t FileSize(File file) {
+    Assert(FileIsValid(file));
 
-	DO_DB(elog(LOG, "FileSize %d (%s)",
-			   file, VfdCache[file].fileName));
+    DO_DB(elog(LOG, "FileSize %d (%s)",
+               file, VfdCache[file].fileName));
 
-	if (FileIsNotOpen(file))
-	{
-		if (FileAccess(file) < 0)
-			return (off_t) -1;
-	}
+    if (FileIsNotOpen(file)) {
+        if (FileAccess(file) < 0) {
+            return (off_t) -1;
+        }
+    }
 
-	return lseek(VfdCache[file].fd, 0, SEEK_END);
+    return lseek(VfdCache[file].fd, 0, SEEK_END);
 }
 
 int

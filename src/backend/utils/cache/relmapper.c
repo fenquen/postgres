@@ -144,7 +144,7 @@ static void perform_relmap_update(bool shared, const RelMapFile *updates);
 
 
 /*
- * RelationMapOidToFilenode
+ * relation的oid -> RelFileNode的relnode
  *
  * The raison d' etre ... given a relation OID, look up its filenode.
  *

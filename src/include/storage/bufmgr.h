@@ -34,16 +34,12 @@ typedef enum BufferAccessStrategyType
 } BufferAccessStrategyType;
 
 /* Possible modes for ReadBufferExtended() */
-typedef enum
-{
+typedef enum {
 	RBM_NORMAL,					/* Normal read */
-	RBM_ZERO_AND_LOCK,			/* Don't read from disk, caller will
-								 * initialize. Also locks the page. */
-	RBM_ZERO_AND_CLEANUP_LOCK,	/* Like RBM_ZERO_AND_LOCK, but locks the page
-								 * in "cleanup" mode */
+	RBM_ZERO_AND_LOCK,			/* Don't read from disk, caller will initialize. Also locks the page. */
+	RBM_ZERO_AND_CLEANUP_LOCK,	/* Like RBM_ZERO_AND_LOCK, but locks the page in "cleanup" mode */
 	RBM_ZERO_ON_ERROR,			/* Read, but return an all-zeros page on error */
-	RBM_NORMAL_NO_LOG			/* Don't log page as invalid during WAL
-								 * replay; otherwise same as RBM_NORMAL */
+	RBM_NORMAL_NO_LOG			/* Don't log page as invalid during WAL replay; otherwise same as RBM_NORMAL */
 } ReadBufferMode;
 
 /* forward declared, to avoid having to expose buf_internals.h here */
@@ -221,7 +217,7 @@ extern bool HoldingBufferPinThatDelaysRecovery(void);
 extern void AbortBufferIO(void);
 
 extern void BufmgrCommit(void);
-extern bool BgBufferSync(struct WritebackContext *wb_context);
+extern bool BgBufferSync(struct WritebackContext *writebackContext);
 
 extern void AtProcExit_LocalBuffers(void);
 

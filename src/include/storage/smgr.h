@@ -67,7 +67,7 @@ typedef struct SMgrRelationData
 	 * for md.c; per-fork arrays of the number of open segments
 	 * (md_num_open_segs) and the segments themselves (md_seg_fds).
 	 */
-	int			md_num_open_segs[MAX_FORKNUM + 1];
+	int	md_num_open_segs[MAX_FORKNUM + 1]; // 记录了各个的fork当前open的segment数量
 	struct _MdfdVec *md_seg_fds[MAX_FORKNUM + 1];
 
 	/* if unowned, list link in list of all unowned SMgrRelations */
@@ -91,12 +91,12 @@ extern void smgrcreate(SMgrRelation reln, ForkNumber forknum, bool isRedo);
 extern void smgrdounlink(SMgrRelation reln, bool isRedo);
 extern void smgrdounlinkall(SMgrRelation *rels, int nrels, bool isRedo);
 extern void smgrdounlinkfork(SMgrRelation reln, ForkNumber forknum, bool isRedo);
-extern void smgrextend(SMgrRelation reln, ForkNumber forknum,
-					   BlockNumber blocknum, char *buffer, bool skipFsync);
+extern void smgrextend(SMgrRelation sMgrRelation, ForkNumber forkNumber,
+                       BlockNumber blockNumber, char *buffer, bool skipFsync);
 extern void smgrprefetch(SMgrRelation reln, ForkNumber forknum,
 						 BlockNumber blocknum);
-extern void smgrread(SMgrRelation reln, ForkNumber forknum,
-					 BlockNumber blocknum, char *buffer);
+extern void smgrread(SMgrRelation sMgrRelation, ForkNumber forkNumber,
+                     BlockNumber blockNumber, char *buffer);
 extern void smgrwrite(SMgrRelation reln, ForkNumber forknum,
 					  BlockNumber blocknum, char *buffer, bool skipFsync);
 extern void smgrwriteback(SMgrRelation reln, ForkNumber forknum,

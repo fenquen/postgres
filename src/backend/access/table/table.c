@@ -25,7 +25,6 @@
 #include "access/table.h"
 #include "storage/lmgr.h"
 
-
 /* ----------------
  *		table_open - open a table relation by relation OID
  *
@@ -35,26 +34,20 @@
  *		storage.)
  * ----------------
  */
-Relation
-table_open(Oid relationId, LOCKMODE lockmode)
-{
-	Relation	r;
+Relation table_open(Oid relationId, LOCKMODE lockmode) {
+    Relation relation = relation_open(relationId, lockmode);
 
-	r = relation_open(relationId, lockmode);
+    if (relation->rd_rel->relkind == RELKIND_INDEX ||
+        relation->rd_rel->relkind == RELKIND_PARTITIONED_INDEX) {
+        ereport(ERROR,
+                (errcode(ERRCODE_WRONG_OBJECT_TYPE), errmsg("\"%s\" is an index", RelationGetRelationName(relation))));
+    } else if (relation->rd_rel->relkind == RELKIND_COMPOSITE_TYPE) {
+        ereport(ERROR,
+                (errcode(ERRCODE_WRONG_OBJECT_TYPE),
+                        errmsg("\"%s\" is a composite type", RelationGetRelationName(relation))));
+    }
 
-	if (r->rd_rel->relkind == RELKIND_INDEX ||
-		r->rd_rel->relkind == RELKIND_PARTITIONED_INDEX)
-		ereport(ERROR,
-				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-				 errmsg("\"%s\" is an index",
-						RelationGetRelationName(r))));
-	else if (r->rd_rel->relkind == RELKIND_COMPOSITE_TYPE)
-		ereport(ERROR,
-				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-				 errmsg("\"%s\" is a composite type",
-						RelationGetRelationName(r))));
-
-	return r;
+    return relation;
 }
 
 /* ----------------

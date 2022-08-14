@@ -57,16 +57,14 @@ CkptSortItem *CkptBufferIds;
  *		multiple times. Check the PrivateRefCount infrastructure in bufmgr.c.
  */
 
-
 /*
  * Initialize shared buffer pool
  *
  * This is called once during shared-memory initialization (either in the
  * postmaster, or in a standalone backend).
  */
-void
-InitBufferPool(void)
-{
+void InitBufferPool(void) {
+
 	bool		foundBufs,
 				foundDescs,
 				foundIOLocks,
@@ -99,21 +97,15 @@ InitBufferPool(void)
 		ShmemInitStruct("Checkpoint BufferIds",
 						NBuffers * sizeof(CkptSortItem), &foundBufCkpt);
 
-	if (foundDescs || foundBufs || foundIOLocks || foundBufCkpt)
-	{
+	if (foundDescs || foundBufs || foundIOLocks || foundBufCkpt) {
 		/* should find all of these, or none of them */
 		Assert(foundDescs && foundBufs && foundIOLocks && foundBufCkpt);
 		/* note: this path is only taken in EXEC_BACKEND case */
-	}
-	else
-	{
-		int			i;
+	} else {
+		int	i;
 
-		/*
-		 * Initialize all the buffer headers.
-		 */
-		for (i = 0; i < NBuffers; i++)
-		{
+		// Initialize all the buffer headers.
+		for (i = 0; i < NBuffers; i++) {
 			BufferDesc *bufferDesc = GetBufferDescriptor(i);
 
 			CLEAR_BUFFERTAG(bufferDesc->tag);
@@ -129,11 +121,9 @@ InitBufferPool(void)
 			 */
 			bufferDesc->freeNext = i + 1;
 
-			LWLockInitialize(BufferDescriptorGetContentLock(bufferDesc),
-							 LWTRANCHE_BUFFER_CONTENT);
+			LWLockInitialize(BufferDescriptorGetContentLock(bufferDesc), LWTRANCHE_BUFFER_CONTENT);
 
-			LWLockInitialize(BufferDescriptorGetIOLock(bufferDesc),
-							 LWTRANCHE_BUFFER_IO_IN_PROGRESS);
+			LWLockInitialize(BufferDescriptorGetIOLock(bufferDesc), LWTRANCHE_BUFFER_IO_IN_PROGRESS);
 		}
 
 		/* Correct last entry of linked list */
@@ -144,8 +134,7 @@ InitBufferPool(void)
 	StrategyInitialize(!foundDescs);
 
 	/* Initialize per-backend file flush context */
-	WritebackContextInit(&BackendWritebackContext,
-						 &backend_flush_after);
+	WritebackContextInit(&BackendWritebackContext, &backend_flush_after);
 }
 
 /*

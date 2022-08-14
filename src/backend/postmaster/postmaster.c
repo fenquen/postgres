@@ -1693,10 +1693,13 @@ static int ServerLoop(void) {
         if (pmState == PM_RUN ||
             pmState == PM_RECOVERY ||
             pmState == PM_HOT_STANDBY) {
-            if (CheckpointerPID == 0)
+            if (CheckpointerPID == 0) {
                 CheckpointerPID = StartCheckpointer();
-            if (BgWriterPID == 0)
+            }
+
+            if (BgWriterPID == 0) {
                 BgWriterPID = StartBackgroundWriter();
+            }
         }
 
         /*

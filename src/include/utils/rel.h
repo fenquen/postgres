@@ -49,12 +49,10 @@ typedef LockInfoData *LockInfo;
 /*
  * Here are the contents of a relation cache entry.
  */
-
-typedef struct RelationData
-{
+typedef struct RelationData {
 	RelFileNode rd_node;		/* relation physical identifier */
 	/* use "struct" here to avoid needing to include smgr.h: */
-	struct SMgrRelationData *rd_smgr;	/* cached file handle, or NULL */
+	struct SMgrRelationData *rd_smgr;	/* RelationOpenSmgr()注入,cached file handle, or NULL */
 	int			rd_refcnt;		/* reference count */
 	BackendId	rd_backend;		/* owning backend id, if temporary relation */
 	bool		rd_islocaltemp; /* rel is a temp rel of this session */
@@ -86,9 +84,9 @@ typedef struct RelationData
 	SubTransactionId rd_newRelfilenodeSubid;	/* new relfilenode assigned in
 												 * current xact */
 
-	Form_pg_class rd_rel;		/* RELATION tuple */
+	Form_pg_class rd_rel;		/* 该relation 在 pg_class对应的记录*/
 	TupleDesc	rd_att;			/* tuple descriptor */
-	Oid			rd_id;			/* relation's object id */
+	Oid			rd_id;			/* 对应的oid */
 	LockInfoData rd_lockInfo;	/* lock mgr's info for locking relation */
 	RuleLock   *rd_rules;		/* rewrite rules */
 	MemoryContext rd_rulescxt;	/* private memory cxt for rd_rules, if any */

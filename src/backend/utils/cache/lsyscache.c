@@ -1710,9 +1710,7 @@ get_func_support(Oid funcid)
  *
  * Returns InvalidOid if there is no such relation.
  */
-Oid
-get_relname_relid(const char *relname, Oid relnamespace)
-{
+Oid get_relname_relid(const char *relname, Oid relnamespace) {
 	return GetSysCacheOid2(RELNAMENSP, Anum_pg_class_oid,
 						   PointerGetDatum(relname),
 						   ObjectIdGetDatum(relnamespace));

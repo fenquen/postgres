@@ -40,10 +40,24 @@
 typedef struct Tuplestorestate Tuplestorestate;
 
 /*
- * Currently we only need to store MinimalTuples, but it would be easy
- * to support the same behavior for IndexTuples and/or bare Datums.
+ * tuplestore_begin_heap
+ *
+ * Create a new tuplestore; other types of tuple stores (other than
+ * "heap" tuple stores, for heap tuples) are possible, but not presently
+ * implemented.
+ *
+ * randomAccess: if true, both forward and backward accesses to the
+ * tuple store are allowed.
+ *
+ * interXact: if true, the files used for on-disk storage persist beyond the
+ * end of the current transaction.  NOTE: It's the caller's responsibility to
+ * create such a tuplestore in a memory context and resource owner that will
+ * also survive transaction boundaries, and to ensure the tuplestore is closed
+ * when it's no longer wanted.
+ *
+ * maxKBytes: how much data to store in memory (any data beyond this
+ * amount is paged to disk).  When in doubt, use work_mem.
  */
-
 extern Tuplestorestate *tuplestore_begin_heap(bool randomAccess,
 											  bool interXact,
 											  int maxKBytes);

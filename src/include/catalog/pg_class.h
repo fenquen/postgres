@@ -49,7 +49,7 @@ CATALOG(pg_class,1259,RelationRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(83,Relat
 	/* access method; 0 if not a table / index */
 	Oid			relam BKI_LOOKUP(pg_am);
 
-	/* identifier of physical storage file */
+	/* identifier of physical storage file,通常和表的oid是相同的 */
 	/* relfilenode == 0 means it is a "mapped" relation, see relmapper.c */
 	Oid			relfilenode;
 

@@ -164,14 +164,13 @@ extern const char *const LockTagTypeNames[];
  * We include lockmethodid in the locktag so that a single hash table in
  * shared memory can store locks of different lockmethods.
  */
-typedef struct LOCKTAG
-{
-	uint32		locktag_field1; /* a 32-bit ID field */
-	uint32		locktag_field2; /* a 32-bit ID field */
-	uint32		locktag_field3; /* a 32-bit ID field */
-	uint16		locktag_field4; /* a 16-bit ID field */
-	uint8		locktag_type;	/* see enum LockTagType */
-	uint8		locktag_lockmethodid;	/* lockmethod indicator */
+typedef struct LOCKTAG {
+    uint32 locktag_field1; /* 对应databaseOid,a 32-bit ID field */
+    uint32 locktag_field2; /* 对应relationOid,a 32-bit ID field */
+    uint32 locktag_field3; /* a 32-bit ID field */
+    uint16 locktag_field4; /* a 16-bit ID field */
+    uint8 locktag_type;    /* see enum LockTagType */
+    uint8 locktag_lockmethodid;    /* 是LockMethods数组索引,lockmethod indicator */
 } LOCKTAG;
 
 /*
@@ -542,7 +541,7 @@ extern LockAcquireResult LockAcquire(const LOCKTAG *locktag,
 									 LOCKMODE lockmode,
 									 bool sessionLock,
 									 bool dontWait);
-extern LockAcquireResult LockAcquireExtended(const LOCKTAG *locktag,
+extern LockAcquireResult LockAcquireExtended(const LOCKTAG *lockTag,
 											 LOCKMODE lockmode,
 											 bool sessionLock,
 											 bool dontWait,
