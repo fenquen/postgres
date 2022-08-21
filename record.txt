@@ -203,3 +203,15 @@ spin等锁
 
 
     要是要找的数据在很后边的话要越过多个segment貌似不能直接定位到那个部分 还是要顺序的
+
+临时目录和文件的path规则
+    OpenTempFileInTablespace()函数用到了以下的2个
+     // 得到指明的表空间下的临时目录的path
+     TempTablespacePath(tempDirPath, tblspcOid);
+
+     // Generate a tempfile name that should be unique within the current database instance.
+     snprintf(tempFilePath, sizeof(tempFilePath), "%s/%s%d.%ld",
+              tempDirPath, PG_TEMP_FILE_PREFIX, MyProcPid, tempFileCounter++);
+
+
+单个的临时文件的大小上限是 MAX_PHYSICAL_FILESIZE

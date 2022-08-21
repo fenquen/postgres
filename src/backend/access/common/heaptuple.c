@@ -1342,8 +1342,7 @@ heap_copy_minimal_tuple(MinimalTuple mtup) {
  * The HeapTuple struct, tuple header, and tuple data are all allocated
  * as a single palloc() block.
  */
-HeapTuple
-heap_tuple_from_minimal_tuple(MinimalTuple mtup) {
+HeapTuple heap_tuple_from_minimal_tuple(MinimalTuple mtup) {
     HeapTuple result;
     uint32 len = mtup->t_len + MINIMAL_TUPLE_OFFSET;
 
@@ -1363,17 +1362,14 @@ heap_tuple_from_minimal_tuple(MinimalTuple mtup) {
  *
  * The result is allocated in the current memory context.
  */
-MinimalTuple
-minimal_tuple_from_heap_tuple(HeapTuple htup) {
-    MinimalTuple result;
-    uint32 len;
+MinimalTuple minimal_tuple_from_heap_tuple(HeapTuple heapTuple) {
+    Assert(heapTuple->t_len > MINIMAL_TUPLE_OFFSET);
 
-    Assert(htup->t_len > MINIMAL_TUPLE_OFFSET);
-    len = htup->t_len - MINIMAL_TUPLE_OFFSET;
-    result = (MinimalTuple) palloc(len);
-    memcpy(result, (char *) htup->t_data + MINIMAL_TUPLE_OFFSET, len);
-    result->t_len = len;
-    return result;
+    uint32 len = heapTuple->t_len - MINIMAL_TUPLE_OFFSET;
+    MinimalTuple minimalTuple = (MinimalTuple) palloc(len);
+    memcpy(minimalTuple, (char *) heapTuple->t_data + MINIMAL_TUPLE_OFFSET, len);
+    minimalTuple->t_len = len;
+    return minimalTuple;
 }
 
 /*

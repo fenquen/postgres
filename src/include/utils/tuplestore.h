@@ -59,38 +59,42 @@ typedef struct Tuplestorestate Tuplestorestate;
  * amount is paged to disk).  When in doubt, use work_mem.
  */
 extern Tuplestorestate *tuplestore_begin_heap(bool randomAccess,
-											  bool interXact,
-											  int maxKBytes);
+                                              bool interXact,
+                                              int maxKBytes);
 
 extern void tuplestore_set_eflags(Tuplestorestate *state, int eflags);
 
 extern void tuplestore_puttupleslot(Tuplestorestate *state,
-									TupleTableSlot *slot);
-extern void tuplestore_puttuple(Tuplestorestate *state, HeapTuple tuple);
+                                    TupleTableSlot *slot);
+
+extern void tuplestore_puttuple(Tuplestorestate *tuplestorestate, HeapTuple heapTuple);
+
 extern void tuplestore_putvalues(Tuplestorestate *tuplestorestate, TupleDesc tupleDesc,
                                  Datum *values, bool *isnull);
 
 /* tuplestore_donestoring() used to be required, but is no longer used */
-#define tuplestore_donestoring(state)	((void) 0)
+#define tuplestore_donestoring(state)    ((void) 0)
 
-extern int	tuplestore_alloc_read_pointer(Tuplestorestate *state, int eflags);
+extern int tuplestore_alloc_read_pointer(Tuplestorestate *state, int eflags);
 
 extern void tuplestore_select_read_pointer(Tuplestorestate *state, int ptr);
 
 extern void tuplestore_copy_read_pointer(Tuplestorestate *state,
-										 int srcptr, int destptr);
+                                         int srcptr, int destptr);
 
 extern void tuplestore_trim(Tuplestorestate *state);
 
 extern bool tuplestore_in_memory(Tuplestorestate *state);
 
-extern bool tuplestore_gettupleslot(Tuplestorestate *state, bool forward,
-									bool copy, TupleTableSlot *slot);
+extern bool tuplestore_gettupleslot(Tuplestorestate *tuplestorestate,
+                                    bool forward,
+                                    bool copy,
+                                    TupleTableSlot *tupleTableSlot);
 
 extern bool tuplestore_advance(Tuplestorestate *state, bool forward);
 
 extern bool tuplestore_skiptuples(Tuplestorestate *state,
-								  int64 ntuples, bool forward);
+                                  int64 ntuples, bool forward);
 
 extern int64 tuplestore_tuple_count(Tuplestorestate *state);
 
@@ -102,4 +106,4 @@ extern void tuplestore_clear(Tuplestorestate *state);
 
 extern void tuplestore_end(Tuplestorestate *state);
 
-#endif							/* TUPLESTORE_H */
+#endif                            /* TUPLESTORE_H */

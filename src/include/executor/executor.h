@@ -457,7 +457,7 @@ extern Tuplestorestate *ExecMakeTableFunctionResult(SetExprState *setexpr,
 													bool randomAccess);
 extern SetExprState *ExecInitFunctionResultSet(Expr *expr,
 											   ExprContext *econtext, PlanState *parent);
-extern Datum ExecMakeFunctionResultSet(SetExprState *fcache,
+extern Datum ExecMakeFunctionResultSet(SetExprState *setExprState,
 									   ExprContext *econtext,
 									   MemoryContext argContext,
 									   bool *isNull,

@@ -1073,7 +1073,7 @@ static MdfdVec *_mdfd_getseg(SMgrRelation sMgrRelation,
     }
 
     /*
-     * The target segment is not yet open.
+     * The target segment is not yet open. 得到最近的已经open的segment
      * 很是重要 Iterate over all the segments between the last opened and the target segment.
      * This way missing segments either raise an error, or get created (according to
      * 'behavior'). Start with either the last opened, or the first segment if

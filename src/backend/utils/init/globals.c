@@ -37,12 +37,12 @@ volatile uint32 InterruptHoldoffCount = 0;
 volatile uint32 QueryCancelHoldoffCount = 0;
 volatile uint32 CritSectionCount = 0;
 
-int			MyProcPid;
-pg_time_t	MyStartTime;
+int MyProcPid;
+pg_time_t MyStartTime;
 TimestampTz MyStartTimestamp;
 struct Port *MyProcPort;
-int32		MyCancelKey;
-int			MyPMChildSlot;
+int32 MyCancelKey;
+int MyPMChildSlot;
 
 /*
  * MyLatch points to the latch that should be used for signal handling by the
@@ -59,18 +59,18 @@ struct Latch *MyLatch;
  * most code therefore can simply use relative paths and not reference DataDir
  * explicitly.
  */
-char	   *DataDir = NULL;
+char *DataDir = NULL;
 
 /*
  * Mode of the data directory.  The default is 0700 but it may be changed in
  * checkDataDir() to 0750 if the data directory actually has that mode.
  */
-int			data_directory_mode = PG_DIR_MODE_OWNER;
+int data_directory_mode = PG_DIR_MODE_OWNER;
 
-char		OutputFileName[MAXPGPATH];	/* debugging output file */
+char OutputFileName[MAXPGPATH];    /* debugging output file */
 
-char		my_exec_path[MAXPGPATH];	/* full path to my executable */
-char		pkglib_path[MAXPGPATH]; /* full path to lib directory */
+char my_exec_path[MAXPGPATH];    /* full path to my executable */
+char pkglib_path[MAXPGPATH]; /* full path to lib directory */
 
 #ifdef EXEC_BACKEND
 char		postgres_exec_path[MAXPGPATH];	/* full path to backend */
@@ -78,21 +78,21 @@ char		postgres_exec_path[MAXPGPATH];	/* full path to backend */
 /* note: currently this is not valid in backend processes */
 #endif
 
-BackendId	MyBackendId = InvalidBackendId;
+BackendId MyBackendId = InvalidBackendId;
 
-BackendId	ParallelMasterBackendId = InvalidBackendId;
+BackendId ParallelMasterBackendId = InvalidBackendId;
 
-Oid			MyDatabaseId = InvalidOid;
+Oid MyDatabaseId = InvalidOid;
 
-Oid			MyDatabaseTableSpace = InvalidOid;
+Oid MyDatabaseTableSpace = InvalidOid;
 
 /*
  * DatabasePath is the path (relative to DataDir) of my database's
  * primary directory, ie, its directory in the default tablespace.
  */
-char	   *DatabasePath = NULL;
+char *DatabasePath = NULL;
 
-pid_t		PostmasterPid = 0;
+pid_t PostmasterPid = 0;
 
 /*
  * IsPostmasterEnvironment is true in a postmaster process and any postmaster
@@ -105,22 +105,22 @@ pid_t		PostmasterPid = 0;
  *
  * These are initialized for the bootstrap/standalone case.
  */
-bool		IsPostmasterEnvironment = false;
-bool		IsUnderPostmaster = false;
-bool		IsBinaryUpgrade = false;
-bool		IsBackgroundWorker = false;
+bool IsPostmasterEnvironment = false;
+bool IsUnderPostmaster = false;
+bool IsBinaryUpgrade = false;
+bool IsBackgroundWorker = false;
 
-bool		ExitOnAnyError = false;
+bool ExitOnAnyError = false;
 
-int			DateStyle = USE_ISO_DATES;
-int			DateOrder = DATEORDER_MDY;
-int			IntervalStyle = INTSTYLE_POSTGRES;
+int DateStyle = USE_ISO_DATES;
+int DateOrder = DATEORDER_MDY;
+int IntervalStyle = INTSTYLE_POSTGRES;
 
-bool		enableFsync = true;
-bool		allowSystemTableMods = false;
-int			work_mem = 1024;
-int			maintenance_work_mem = 16384;
-int			max_parallel_maintenance_workers = 2;
+bool enableFsync = true;
+bool allowSystemTableMods = false;
+int work_mem = 1024;// kb
+int maintenance_work_mem = 16384;
+int max_parallel_maintenance_workers = 2;
 
 /*
  * Primary determinants of sizes of shared-memory structures.
@@ -128,23 +128,23 @@ int			max_parallel_maintenance_workers = 2;
  * MaxBackends is computed by PostmasterMain after modules have had a chance to
  * register background workers.
  */
-int			NBuffers = 1000;
-int			MaxConnections = 90;
-int			max_worker_processes = 8;
-int			max_parallel_workers = 8;
-int			MaxBackends = 0;
+int NBuffers = 1000;
+int MaxConnections = 90;
+int max_worker_processes = 8;
+int max_parallel_workers = 8;
+int MaxBackends = 0;
 
-int			VacuumCostPageHit = 1;	/* GUC parameters for vacuum */
-int			VacuumCostPageMiss = 10;
-int			VacuumCostPageDirty = 20;
-int			VacuumCostLimit = 200;
-double		VacuumCostDelay = 0;
+int VacuumCostPageHit = 1;    /* GUC parameters for vacuum */
+int VacuumCostPageMiss = 10;
+int VacuumCostPageDirty = 20;
+int VacuumCostLimit = 200;
+double VacuumCostDelay = 0;
 
-int			VacuumPageHit = 0;
-int			VacuumPageMiss = 0;
-int			VacuumPageDirty = 0;
+int VacuumPageHit = 0;
+int VacuumPageMiss = 0;
+int VacuumPageDirty = 0;
 
-int			VacuumCostBalance = 0;	/* working state for vacuum */
-bool		VacuumCostActive = false;
+int VacuumCostBalance = 0;    /* working state for vacuum */
+bool VacuumCostActive = false;
 
-double		vacuum_cleanup_index_scale_factor;
+double vacuum_cleanup_index_scale_factor;

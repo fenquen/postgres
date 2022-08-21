@@ -73,8 +73,9 @@ extern PGDLLIMPORT int32 *LocalRefCount;
 /* upper limit for effective_io_concurrency */
 #define MAX_IO_CONCURRENCY 1000
 
-/* special block number for ReadBuffer() */
-#define P_NEW	InvalidBlockNumber	/* grow the file to get a new page */
+// grow the file to get a new page
+// citus 的 ColumnarStorageReserveData() 用到
+#define P_NEW	InvalidBlockNumber
 
 /*
  * Buffer content lock modes (mode argument for LockBuffer())
