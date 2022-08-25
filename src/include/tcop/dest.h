@@ -109,7 +109,7 @@ typedef enum {
  * "stop early, just as if we'd reached the end of the scan".
  * ----------------
  */
-typedef struct _DestReceiver DestReceiver;
+typedef struct _DestReceiver DestReceiver; // 只是1个base类
 
 struct _DestReceiver {
     /* Called for each tuple to be output: */

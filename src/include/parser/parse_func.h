@@ -31,9 +31,9 @@ typedef enum
 } FuncDetailCode;
 
 
-extern Node *ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
-							   Node *last_srf, FuncCall *fn, bool proc_call,
-							   int location);
+extern Node *ParseFuncOrColumn(ParseState *pstate, List *funcNameList, List *funcArgList,
+                               Node *last_srf, FuncCall *fn, bool proc_call,
+                               int location);
 
 extern FuncDetailCode func_get_detail(List *funcname,
 									  List *fargs, List *fargnames,

@@ -25,8 +25,8 @@ extern int	compare_path_costs(Path *path1, Path *path2,
 							   CostSelector criterion);
 extern int	compare_fractional_path_costs(Path *path1, Path *path2,
 										  double fraction);
-extern void set_cheapest(RelOptInfo *parent_rel);
-extern void add_path(RelOptInfo *parent_rel, Path *new_path);
+extern void set_cheapest(RelOptInfo *parentRelOptInfo);
+extern void add_path(RelOptInfo *parentRelOptInfo, Path *new_path);
 extern bool add_path_precheck(RelOptInfo *parent_rel,
 							  Cost startup_cost, Cost total_cost,
 							  List *pathkeys, Relids required_outer);
@@ -94,7 +94,7 @@ extern GatherMergePath *create_gather_merge_path(PlannerInfo *root,
 extern SubqueryScanPath *create_subqueryscan_path(PlannerInfo *root,
 												  RelOptInfo *rel, Path *subpath,
 												  List *pathkeys, Relids required_outer);
-extern Path *create_functionscan_path(PlannerInfo *root, RelOptInfo *rel,
+extern Path *create_functionscan_path(PlannerInfo *root, RelOptInfo *relOptInfo,
 									  List *pathkeys, Relids required_outer);
 extern Path *create_valuesscan_path(PlannerInfo *root, RelOptInfo *rel,
 									Relids required_outer);
@@ -280,7 +280,7 @@ extern void setup_simple_rel_arrays(PlannerInfo *root);
 extern void setup_append_rel_array(PlannerInfo *root);
 extern void expand_planner_arrays(PlannerInfo *root, int add_size);
 extern RelOptInfo *build_simple_rel(PlannerInfo *root, int relid,
-									RelOptInfo *parent);
+									RelOptInfo *parentRelOptInfo);
 extern RelOptInfo *find_base_rel(PlannerInfo *root, int relid);
 extern RelOptInfo *find_join_rel(PlannerInfo *root, Relids relids);
 extern RelOptInfo *build_join_rel(PlannerInfo *root,
@@ -293,7 +293,7 @@ extern Relids min_join_parameterization(PlannerInfo *root,
 										Relids joinrelids,
 										RelOptInfo *outer_rel,
 										RelOptInfo *inner_rel);
-extern RelOptInfo *fetch_upper_rel(PlannerInfo *root, UpperRelationKind kind,
+extern RelOptInfo *fetch_upper_rel(PlannerInfo *root, UpperRelationKind upperRelationKind,
 								   Relids relids);
 extern Relids find_childrel_parents(PlannerInfo *root, RelOptInfo *rel);
 extern ParamPathInfo *get_baserel_parampathinfo(PlannerInfo *root,

@@ -47,20 +47,17 @@
  * ----------------
  */
 static bool
-donothingReceive(TupleTableSlot *slot, DestReceiver *self)
-{
-	return true;
+donothingReceive(TupleTableSlot *slot, DestReceiver *self) {
+    return true;
 }
 
 static void
-donothingStartup(DestReceiver *self, int operation, TupleDesc typeinfo)
-{
+donothingStartup(DestReceiver *self, int operation, TupleDesc typeinfo) {
 }
 
 static void
-donothingCleanup(DestReceiver *self)
-{
-	/* this is used for both shutdown and destroy methods */
+donothingCleanup(DestReceiver *self) {
+    /* this is used for both shutdown and destroy methods */
 }
 
 /* ----------------
@@ -68,23 +65,23 @@ donothingCleanup(DestReceiver *self)
  * ----------------
  */
 static const DestReceiver donothingDR = {
-	donothingReceive, donothingStartup, donothingCleanup, donothingCleanup,
-	DestNone
+        donothingReceive, donothingStartup, donothingCleanup, donothingCleanup,
+        DestNone
 };
 
 static const DestReceiver debugtupDR = {
-	debugtup, debugStartup, donothingCleanup, donothingCleanup,
-	DestDebug
+        debugtup, debugStartup, donothingCleanup, donothingCleanup,
+        DestDebug
 };
 
 static const DestReceiver printsimpleDR = {
-	printsimple, printsimple_startup, donothingCleanup, donothingCleanup,
-	DestRemoteSimple
+        printsimple, printsimple_startup, donothingCleanup, donothingCleanup,
+        DestRemoteSimple
 };
 
 static const DestReceiver spi_printtupDR = {
-	spi_printtup, spi_dest_startup, donothingCleanup, donothingCleanup,
-	DestSPI
+        spi_printtup, spi_dest_startup, donothingCleanup, donothingCleanup,
+        DestSPI
 };
 
 /*
@@ -99,10 +96,8 @@ DestReceiver *None_Receiver = (DestReceiver *) &donothingDR;
  *		BeginCommand - initialize the destination at start of command
  * ----------------
  */
-void
-BeginCommand(const char *commandTag, CommandDest dest)
-{
-	/* Nothing to do at present */
+void BeginCommand(const char *commandTag, CommandDest dest) {
+    /* Nothing to do at present */
 }
 
 /* ----------------
@@ -110,52 +105,50 @@ BeginCommand(const char *commandTag, CommandDest dest)
  * ----------------
  */
 DestReceiver *
-CreateDestReceiver(CommandDest dest)
-{
-	/*
-	 * It's ok to cast the constness away as any modification of the none
-	 * receiver would be a bug (which gets easier to catch this way).
-	 */
+CreateDestReceiver(CommandDest dest) {
+    /*
+     * It's ok to cast the constness away as any modification of the none
+     * receiver would be a bug (which gets easier to catch this way).
+     */
 
-	switch (dest)
-	{
-		case DestRemote:
-		case DestRemoteExecute:
-			return printtup_create_DR(dest);
+    switch (dest) {
+        case DestRemote:
+        case DestRemoteExecute:
+            return printtup_create_DR(dest);
 
-		case DestRemoteSimple:
-			return unconstify(DestReceiver *, &printsimpleDR);
+        case DestRemoteSimple:
+            return unconstify(DestReceiver *, &printsimpleDR);
 
-		case DestNone:
-			return unconstify(DestReceiver *, &donothingDR);
+        case DestNone:
+            return unconstify(DestReceiver *, &donothingDR);
 
-		case DestDebug:
-			return unconstify(DestReceiver *, &debugtupDR);
+        case DestDebug:
+            return unconstify(DestReceiver *, &debugtupDR);
 
-		case DestSPI:
-			return unconstify(DestReceiver *, &spi_printtupDR);
+        case DestSPI:
+            return unconstify(DestReceiver *, &spi_printtupDR);
 
-		case DestTuplestore:
-			return CreateTuplestoreDestReceiver();
+        case DestTuplestore:
+            return CreateTuplestoreDestReceiver();
 
-		case DestIntoRel:
-			return CreateIntoRelDestReceiver(NULL);
+        case DestIntoRel:
+            return CreateIntoRelDestReceiver(NULL);
 
-		case DestCopyOut:
-			return CreateCopyDestReceiver();
+        case DestCopyOut:
+            return CreateCopyDestReceiver();
 
-		case DestSQLFunction:
-			return CreateSQLFunctionDestReceiver();
+        case DestSQLFunction:
+            return CreateSQLFunctionDestReceiver();
 
-		case DestTransientRel:
-			return CreateTransientRelDestReceiver(InvalidOid);
+        case DestTransientRel:
+            return CreateTransientRelDestReceiver(InvalidOid);
 
-		case DestTupleQueue:
-			return CreateTupleQueueDestReceiver(NULL);
-	}
+        case DestTupleQueue:
+            return CreateTupleQueueDestReceiver(NULL);
+    }
 
-	/* should never get here */
-	pg_unreachable();
+    /* should never get here */
+    pg_unreachable();
 }
 
 /* ----------------
@@ -163,32 +156,30 @@ CreateDestReceiver(CommandDest dest)
  * ----------------
  */
 void
-EndCommand(const char *commandTag, CommandDest dest)
-{
-	switch (dest)
-	{
-		case DestRemote:
-		case DestRemoteExecute:
-		case DestRemoteSimple:
+EndCommand(const char *commandTag, CommandDest dest) {
+    switch (dest) {
+        case DestRemote:
+        case DestRemoteExecute:
+        case DestRemoteSimple:
 
-			/*
-			 * We assume the commandTag is plain ASCII and therefore requires
-			 * no encoding conversion.
-			 */
-			pq_putmessage('C', commandTag, strlen(commandTag) + 1);
-			break;
+            /*
+             * We assume the commandTag is plain ASCII and therefore requires
+             * no encoding conversion.
+             */
+            pq_putmessage('C', commandTag, strlen(commandTag) + 1);
+            break;
 
-		case DestNone:
-		case DestDebug:
-		case DestSPI:
-		case DestTuplestore:
-		case DestIntoRel:
-		case DestCopyOut:
-		case DestSQLFunction:
-		case DestTransientRel:
-		case DestTupleQueue:
-			break;
-	}
+        case DestNone:
+        case DestDebug:
+        case DestSPI:
+        case DestTuplestore:
+        case DestIntoRel:
+        case DestCopyOut:
+        case DestSQLFunction:
+        case DestTransientRel:
+        case DestTupleQueue:
+            break;
+    }
 }
 
 /* ----------------
@@ -204,35 +195,33 @@ EndCommand(const char *commandTag, CommandDest dest)
  * ----------------
  */
 void
-NullCommand(CommandDest dest)
-{
-	switch (dest)
-	{
-		case DestRemote:
-		case DestRemoteExecute:
-		case DestRemoteSimple:
+NullCommand(CommandDest dest) {
+    switch (dest) {
+        case DestRemote:
+        case DestRemoteExecute:
+        case DestRemoteSimple:
 
-			/*
-			 * tell the fe that we saw an empty query string.  In protocols
-			 * before 3.0 this has a useless empty-string message body.
-			 */
-			if (PG_PROTOCOL_MAJOR(FrontendProtocol) >= 3)
-				pq_putemptymessage('I');
-			else
-				pq_putmessage('I', "", 1);
-			break;
+            /*
+             * tell the fe that we saw an empty query string.  In protocols
+             * before 3.0 this has a useless empty-string message body.
+             */
+            if (PG_PROTOCOL_MAJOR(FrontendProtocol) >= 3)
+                pq_putemptymessage('I');
+            else
+                pq_putmessage('I', "", 1);
+            break;
 
-		case DestNone:
-		case DestDebug:
-		case DestSPI:
-		case DestTuplestore:
-		case DestIntoRel:
-		case DestCopyOut:
-		case DestSQLFunction:
-		case DestTransientRel:
-		case DestTupleQueue:
-			break;
-	}
+        case DestNone:
+        case DestDebug:
+        case DestSPI:
+        case DestTuplestore:
+        case DestIntoRel:
+        case DestCopyOut:
+        case DestSQLFunction:
+        case DestTransientRel:
+        case DestTupleQueue:
+            break;
+    }
 }
 
 /* ----------------
@@ -247,36 +236,32 @@ NullCommand(CommandDest dest)
  * ----------------
  */
 void
-ReadyForQuery(CommandDest dest)
-{
-	switch (dest)
-	{
-		case DestRemote:
-		case DestRemoteExecute:
-		case DestRemoteSimple:
-			if (PG_PROTOCOL_MAJOR(FrontendProtocol) >= 3)
-			{
-				StringInfoData buf;
+ReadyForQuery(CommandDest dest) {
+    switch (dest) {
+        case DestRemote:
+        case DestRemoteExecute:
+        case DestRemoteSimple:
+            if (PG_PROTOCOL_MAJOR(FrontendProtocol) >= 3) {
+                StringInfoData buf;
 
-				pq_beginmessage(&buf, 'Z');
-				pq_sendbyte(&buf, TransactionBlockStatusCode());
-				pq_endmessage(&buf);
-			}
-			else
-				pq_putemptymessage('Z');
-			/* Flush output at end of cycle in any case. */
-			pq_flush();
-			break;
+                pq_beginmessage(&buf, 'Z');
+                pq_sendbyte(&buf, TransactionBlockStatusCode());
+                pq_endmessage(&buf);
+            } else
+                pq_putemptymessage('Z');
+            /* Flush output at end of cycle in any case. */
+            pq_flush();
+            break;
 
-		case DestNone:
-		case DestDebug:
-		case DestSPI:
-		case DestTuplestore:
-		case DestIntoRel:
-		case DestCopyOut:
-		case DestSQLFunction:
-		case DestTransientRel:
-		case DestTupleQueue:
-			break;
-	}
+        case DestNone:
+        case DestDebug:
+        case DestSPI:
+        case DestTuplestore:
+        case DestIntoRel:
+        case DestCopyOut:
+        case DestSQLFunction:
+        case DestTransientRel:
+        case DestTupleQueue:
+            break;
+    }
 }

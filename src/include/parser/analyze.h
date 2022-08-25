@@ -22,7 +22,7 @@ typedef void (*post_parse_analyze_hook_type) (ParseState *pstate,
 extern PGDLLIMPORT post_parse_analyze_hook_type post_parse_analyze_hook;
 
 
-extern Query *parse_analyze(RawStmt *parseTree, const char *sourceText,
+extern Query *parse_analyze(RawStmt *parseTree, const char *queryString,
 							Oid *paramTypes, int numParams, QueryEnvironment *queryEnv);
 extern Query *parse_analyze_varparams(RawStmt *parseTree, const char *sourceText,
 									  Oid **paramTypes, int *numParams);
@@ -32,7 +32,7 @@ extern Query *parse_sub_analyze(Node *parseTree, ParseState *parentParseState,
 								bool locked_from_parent,
 								bool resolve_unknowns);
 
-extern Query *transformTopLevelStmt(ParseState *pstate, RawStmt *parseTree);
+extern Query *transformTopLevelStmt(ParseState *parseState, RawStmt *parseTree);
 extern Query *transformStmt(ParseState *pstate, Node *parseTree);
 
 extern bool analyze_requires_snapshot(RawStmt *parseTree);

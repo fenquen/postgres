@@ -56,8 +56,7 @@ struct Latch *MyLatch;
 /*
  * DataDir is the absolute path to the top level of the PGDATA directory tree.
  * Except during early startup, this is also the server's working directory;
- * most code therefore can simply use relative paths and not reference DataDir
- * explicitly.
+ * most code therefore can simply use relative paths and not reference DataDir explicitly.
  */
 char *DataDir = NULL;
 

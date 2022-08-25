@@ -25,7 +25,7 @@
  */
 typedef struct GlobalTransactionData *GlobalTransaction;
 
-/* GUC variable */
+// GUC variable, 0是默认 means disable it
 extern PGDLLIMPORT int max_prepared_xacts;
 
 extern Size TwoPhaseShmemSize(void);

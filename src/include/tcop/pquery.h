@@ -29,15 +29,15 @@ extern List *FetchPortalTargetList(Portal portal);
 
 extern List *FetchStatementTargetList(Node *stmt);
 
-extern void PortalStart(Portal portal, ParamListInfo params,
+extern void PortalStart(Portal portal, ParamListInfo paramListInfo,
 						int eflags, Snapshot snapshot);
 
 extern void PortalSetResultFormat(Portal portal, int nFormats,
 								  int16 *formats);
 
 extern bool PortalRun(Portal portal, long count, bool isTopLevel,
-					  bool run_once, DestReceiver *dest, DestReceiver *altdest,
-					  char *completionTag);
+                      bool run_once, DestReceiver *destReceiver, DestReceiver *altdest,
+                      char *completionTag);
 
 extern uint64 PortalRunFetch(Portal portal,
 							 FetchDirection fdirection,

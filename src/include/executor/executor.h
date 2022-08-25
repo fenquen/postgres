@@ -172,9 +172,9 @@ extern TupleTableSlot *ExecFilterJunk(JunkFilter *junkfilter,
 extern void ExecutorStart(QueryDesc *queryDesc, int eflags);
 extern void standard_ExecutorStart(QueryDesc *queryDesc, int eflags);
 extern void ExecutorRun(QueryDesc *queryDesc,
-						ScanDirection direction, uint64 count, bool executeOnce);
+                        ScanDirection scanDirection, uint64 count, bool executeOnce);
 extern void standard_ExecutorRun(QueryDesc *queryDesc,
-								 ScanDirection direction, uint64 count, bool execute_once);
+                                 ScanDirection scanDirection, uint64 count, bool execute_once);
 extern void ExecutorFinish(QueryDesc *queryDesc);
 extern void standard_ExecutorFinish(QueryDesc *queryDesc);
 extern void ExecutorEnd(QueryDesc *queryDesc);
@@ -218,7 +218,7 @@ extern void EvalPlanQualEnd(EPQState *epqstate);
 /*
  * functions in execProcnode.c
  */
-extern PlanState *ExecInitNode(Plan *node, EState *estate, int eflags);
+extern PlanState *ExecInitNode(Plan *plan, EState *estate, int eflags);
 extern void ExecSetExecProcNode(PlanState *node, ExecProcNodeMtd function);
 extern Node *MultiExecProcNode(PlanState *node);
 extern void ExecEndNode(PlanState *node);

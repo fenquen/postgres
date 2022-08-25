@@ -94,7 +94,7 @@ FullTransactionIdAdvance(FullTransactionId *dest)
 		(dest)--; \
 	} while ((dest) < FirstNormalTransactionId)
 
-/* compare two XIDs already known to be normal; this is a macro for speed */
+/* 两个的id 前者是不是比后者小 */
 #define NormalTransactionIdPrecedes(id1, id2) \
 	(AssertMacro(TransactionIdIsNormal(id1) && TransactionIdIsNormal(id2)), \
 	(int32) ((id1) - (id2)) < 0)

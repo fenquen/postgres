@@ -174,9 +174,7 @@ TupleTableSlot *ExecScan(ScanState *scanState,
 
     // get a tuple from the access method.  Loop until we obtain a tuple that passes the qualification.
     for (;;) {
-        TupleTableSlot *tupleTableSlot;
-
-        tupleTableSlot = ExecScanFetch(scanState, accessMethod, recheckMethod);
+        TupleTableSlot *tupleTableSlot = ExecScanFetch(scanState, accessMethod, recheckMethod);
 
         /*
          * if the tupleTableSlot returned by the accessMethod contains NULL, then it means

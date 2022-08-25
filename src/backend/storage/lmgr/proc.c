@@ -59,7 +59,7 @@
 
 /* GUC variables */
 int			DeadlockTimeout = 1000;
-int			StatementTimeout = 0;
+int			StatementTimeout = 0; // 对应了配置statement_timeout默认是0不限制
 int			LockTimeout = 0;
 int			IdleInTransactionSessionTimeout = 0;
 bool		log_lock_waits = false;

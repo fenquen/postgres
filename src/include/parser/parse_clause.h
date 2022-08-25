@@ -16,7 +16,7 @@
 
 #include "parser/parse_node.h"
 
-extern void transformFromClause(ParseState *pstate, List *frmList);
+extern void transformFromClause(ParseState *parseState, List *fromList);
 extern int	setTargetTable(ParseState *pstate, RangeVar *relation,
 						   bool inh, bool alsoSource, AclMode requiredPerms);
 

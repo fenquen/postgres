@@ -19,7 +19,7 @@
 extern bool operator_precedence_warning;
 extern bool Transform_null_equals;
 
-extern Node *transformExpr(ParseState *pstate, Node *expr, ParseExprKind exprKind);
+extern Node *transformExpr(ParseState *parseState, Node *node, ParseExprKind parseExprKind);
 
 extern const char *ParseExprKindName(ParseExprKind exprKind);
 

@@ -785,11 +785,7 @@ GetCurrentTransactionStartTimestamp(void) {
     return xactStartTimestamp;
 }
 
-/*
- *	GetCurrentStatementStartTimestamp
- */
-TimestampTz
-GetCurrentStatementStartTimestamp(void) {
+TimestampTz GetCurrentStatementStartTimestamp(void) {
     return stmtStartTimestamp;
 }
 

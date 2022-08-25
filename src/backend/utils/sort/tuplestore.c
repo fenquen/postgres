@@ -1124,7 +1124,7 @@ static void dumptuples(Tuplestorestate *tuplestorestate) {
 }
 
 /*
- * tuplestore_rescan		- rewind the active read pointer to start
+ * rewind the active read pointer to start
  */
 void
 tuplestore_rescan(Tuplestorestate *state) {

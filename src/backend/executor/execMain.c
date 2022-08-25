@@ -89,7 +89,7 @@ static void ExecutePlan(EState *estate, PlanState *planState,
                         CmdType operation,
                         bool sendTuples,
                         uint64 numberTuples,
-                        ScanDirection direction,
+                        ScanDirection scanDirection,
                         DestReceiver *destReceiver,
                         bool executeOnce);
 
@@ -271,87 +271,73 @@ void standard_ExecutorStart(QueryDesc *queryDesc, int eflags) {
  * ----------------------------------------------------------------
  */
 void ExecutorRun(QueryDesc *queryDesc,
-                 ScanDirection direction,
+                 ScanDirection scanDirection,
                  uint64 count,
                  bool executeOnce) {
     if (ExecutorRun_hook) {
-        (*ExecutorRun_hook)(queryDesc, direction, count, executeOnce);
+        (*ExecutorRun_hook)(queryDesc, scanDirection, count, executeOnce);
     } else {
-        standard_ExecutorRun(queryDesc, direction, count, executeOnce);
+        standard_ExecutorRun(queryDesc, scanDirection, count, executeOnce);
     }
 }
 
 void standard_ExecutorRun(QueryDesc *queryDesc,
-                          ScanDirection direction,
+                          ScanDirection scanDirection,
                           uint64 count,
                           bool execute_once) {
-    EState *estate;
-    CmdType operation;
-    DestReceiver *dest;
-    bool sendTuples;
-    MemoryContext oldcontext;
-
     /* sanity checks */
     Assert(queryDesc != NULL);
 
-    estate = queryDesc->estate;
+    EState *estate = queryDesc->estate;
 
     Assert(estate != NULL);
     Assert(!(estate->es_top_eflags & EXEC_FLAG_EXPLAIN_ONLY));
 
-    /*
-     * Switch into per-query memory context
-     */
-    oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
+    MemoryContext oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
     /* Allow instrumentation of Executor overall runtime */
     if (queryDesc->totaltime)
         InstrStartNode(queryDesc->totaltime);
 
-    /*
-     * extract information from the query descriptor and the query feature.
-     */
-    operation = queryDesc->operation;
-    dest = queryDesc->dest;
+    // extract information from the query descriptor and the query feature.
+    CmdType cmdType = queryDesc->operation;
+    DestReceiver *destReceiver = queryDesc->dest;
 
-    /*
-     * startup tuple receiver, if we will be emitting tuples
-     */
+    // startup tuple receiver, if we will be emitting tuples
     estate->es_processed = 0;
 
-    sendTuples = (operation == CMD_SELECT || queryDesc->plannedstmt->hasReturning);
+    bool sendTuples = (cmdType == CMD_SELECT || queryDesc->plannedstmt->hasReturning);
 
     if (sendTuples)
-        dest->rStartup(dest, operation, queryDesc->tupDesc);
+        destReceiver->rStartup(destReceiver, cmdType, queryDesc->tupDesc);
 
-    /*
-     * run plan
-     */
-    if (!ScanDirectionIsNoMovement(direction)) {
-        if (execute_once && queryDesc->already_executed)
+    // run plan
+    if (!ScanDirectionIsNoMovement(scanDirection)) {
+        if (execute_once && queryDesc->already_executed) {
             elog(ERROR, "can't re-execute query flagged for single execution");
+        }
 
         queryDesc->already_executed = true;
 
         ExecutePlan(estate,
                     queryDesc->planstate,
                     queryDesc->plannedstmt->parallelModeNeeded,
-                    operation,
+                    cmdType,
                     sendTuples,
                     count,
-                    direction,
-                    dest,
+                    scanDirection,
+                    destReceiver,
                     execute_once);
     }
 
-    /*
-     * shutdown tuple receiver, if we started it
-     */
-    if (sendTuples)
-        dest->rShutdown(dest);
+    // shutdown destReceiver
+    if (sendTuples) {
+        destReceiver->rShutdown(destReceiver);
+    }
 
-    if (queryDesc->totaltime)
+    if (queryDesc->totaltime) {
         InstrStopNode(queryDesc->totaltime, estate->es_processed);
+    }
 
     MemoryContextSwitchTo(oldcontext);
 }
@@ -756,8 +742,8 @@ static void InitPlan(QueryDesc *queryDesc, int eflags) {
     Plan *plan = plannedstmt->planTree;
     List *rangeTable = plannedstmt->rtable;
     EState *estate = queryDesc->estate;
-    PlanState *planstate;
-    TupleDesc tupleDesc;
+
+
     ListCell *l;
     int i;
 
@@ -942,10 +928,10 @@ static void InitPlan(QueryDesc *queryDesc, int eflags) {
      * Initialize the private state information for all the nodes in the query
      * tree.  This opens files, allocates storage and leaves us ready to start processing tuples.
      */
-    planstate = ExecInitNode(plan, estate, eflags);
+    PlanState *planstate = ExecInitNode(plan, estate, eflags);
 
     // get the tuple descriptor describing the type of tuples to return.
-    tupleDesc = ExecGetResultType(planstate);
+    TupleDesc tupleDesc = ExecGetResultType(planstate);
 
     /*
      * Initialize the junk filter if needed.  SELECT queries need a filter if
@@ -1498,14 +1484,14 @@ static void ExecutePlan(EState *estate,
                         CmdType operation,
                         bool sendTuples,
                         uint64 numberTuples,
-                        ScanDirection direction,
+                        ScanDirection scanDirection,
                         DestReceiver *destReceiver,
                         bool executeOnce) {
     // initialize local variables
     uint64 currentTupleCount = 0;
 
     // set the direction.
-    estate->es_direction = direction;
+    estate->es_direction = scanDirection;
 
     /*
      * If the plan might potentially be executed multiple times, we must force

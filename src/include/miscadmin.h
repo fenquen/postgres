@@ -169,7 +169,7 @@ extern PGDLLIMPORT char *DataDir;
 extern PGDLLIMPORT int data_directory_mode;
 
 extern PGDLLIMPORT int NBuffers;
-extern PGDLLIMPORT int MaxBackends;
+extern PGDLLIMPORT int MaxBackends; // 大小主要是由配置文件中的MaxConnections
 extern PGDLLIMPORT int MaxConnections;
 extern PGDLLIMPORT int max_worker_processes;
 extern PGDLLIMPORT int max_parallel_workers;

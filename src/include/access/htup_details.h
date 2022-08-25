@@ -152,8 +152,7 @@ struct HeapTupleHeaderData {
         DatumTupleFields t_datum;
     } t_choice;
 
-    ItemPointerData t_ctid;        /* current TID of this or newer tuple (or a
-								 * speculative insertion token) */
+    ItemPointerData t_ctid;        /* current TID of this or newer tuple (or a speculative insertion token) */
 
     /* Fields below here must match MinimalTupleData! */
 

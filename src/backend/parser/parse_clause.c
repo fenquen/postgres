@@ -54,108 +54,122 @@
 
 
 /* Convenience macro for the most common makeNamespaceItem() case */
-#define makeDefaultNSItem(rte)	makeNamespaceItem(rte, true, true, false, true)
+#define makeDefaultNSItem(rte)    makeNamespaceItem(rte, true, true, false, true)
 
 static void extractRemainingColumns(List *common_colnames,
-									List *src_colnames, List *src_colvars,
-									List **res_colnames, List **res_colvars);
+                                    List *src_colnames, List *src_colvars,
+                                    List **res_colnames, List **res_colvars);
+
 static Node *transformJoinUsingClause(ParseState *pstate,
-									  RangeTblEntry *leftRTE, RangeTblEntry *rightRTE,
-									  List *leftVars, List *rightVars);
+                                      RangeTblEntry *leftRTE, RangeTblEntry *rightRTE,
+                                      List *leftVars, List *rightVars);
+
 static Node *transformJoinOnClause(ParseState *pstate, JoinExpr *j,
-								   List *namespace);
+                                   List *namespace);
+
 static RangeTblEntry *getRTEForSpecialRelationTypes(ParseState *pstate,
-													RangeVar *rv);
+                                                    RangeVar *rv);
+
 static RangeTblEntry *transformTableEntry(ParseState *pstate, RangeVar *r);
+
 static RangeTblEntry *transformRangeSubselect(ParseState *pstate,
-											  RangeSubselect *r);
-static RangeTblEntry *transformRangeFunction(ParseState *pstate,
-											 RangeFunction *r);
+                                              RangeSubselect *r);
+
+static RangeTblEntry *transformRangeFunction(ParseState *parseState,
+                                             RangeFunction *rangeFunction);
+
 static RangeTblEntry *transformRangeTableFunc(ParseState *pstate,
-											  RangeTableFunc *t);
+                                              RangeTableFunc *t);
+
 static TableSampleClause *transformRangeTableSample(ParseState *pstate,
-													RangeTableSample *rts);
-static Node *transformFromClauseItem(ParseState *pstate, Node *n,
-									 RangeTblEntry **top_rte, int *top_rti,
-									 List **namespace);
+                                                    RangeTableSample *rts);
+
+static Node *transformFromClauseItem(ParseState *parseState, Node *node,
+                                     RangeTblEntry **top_rte, int *top_rti,
+                                     List **namespaceList);
+
 static Node *buildMergedJoinVar(ParseState *pstate, JoinType jointype,
-								Var *l_colvar, Var *r_colvar);
+                                Var *l_colvar, Var *r_colvar);
+
 static ParseNamespaceItem *makeNamespaceItem(RangeTblEntry *rte,
-											 bool rel_visible, bool cols_visible,
-											 bool lateral_only, bool lateral_ok);
+                                             bool rel_visible, bool cols_visible,
+                                             bool lateral_only, bool lateral_ok);
+
 static void setNamespaceColumnVisibility(List *namespace, bool cols_visible);
+
 static void setNamespaceLateralState(List *namespace,
-									 bool lateral_only, bool lateral_ok);
+                                     bool lateral_only, bool lateral_ok);
+
 static void checkExprIsVarFree(ParseState *pstate, Node *n,
-							   const char *constructName);
+                               const char *constructName);
+
 static TargetEntry *findTargetlistEntrySQL92(ParseState *pstate, Node *node,
-											 List **tlist, ParseExprKind exprKind);
+                                             List **tlist, ParseExprKind exprKind);
+
 static TargetEntry *findTargetlistEntrySQL99(ParseState *pstate, Node *node,
-											 List **tlist, ParseExprKind exprKind);
-static int	get_matching_location(int sortgroupref,
-								  List *sortgrouprefs, List *exprs);
+                                             List **tlist, ParseExprKind exprKind);
+
+static int get_matching_location(int sortgroupref,
+                                 List *sortgrouprefs, List *exprs);
+
 static List *resolve_unique_index_expr(ParseState *pstate, InferClause *infer,
-									   Relation heapRel);
+                                       Relation heapRel);
+
 static List *addTargetToGroupList(ParseState *pstate, TargetEntry *tle,
-								  List *grouplist, List *targetlist, int location);
+                                  List *grouplist, List *targetlist, int location);
+
 static WindowClause *findWindowClause(List *wclist, const char *name);
+
 static Node *transformFrameOffset(ParseState *pstate, int frameOptions,
-								  Oid rangeopfamily, Oid rangeopcintype, Oid *inRangeFunc,
-								  Node *clause);
+                                  Oid rangeopfamily, Oid rangeopcintype, Oid *inRangeFunc,
+                                  Node *clause);
 
 
 /*
- * transformFromClause -
- *	  Process the FROM clause and add items to the query's range table,
- *	  joinlist, and namespace.
+ * process the FROM clause and add items to the query's range table, joinlist, and namespace.
  *
  * Note: we assume that the pstate's p_rtable, p_joinlist, and p_namespace
  * lists were initialized to NIL when the pstate was created.
  * We will add onto any entries already present --- this is needed for rule
  * processing, as well as for UPDATE and DELETE.
  */
-void
-transformFromClause(ParseState *pstate, List *frmList)
-{
-	ListCell   *fl;
+void transformFromClause(ParseState *parseState, List *fromList) {
+    /*
+     * The grammar will have produced a list of RangeVars, RangeSubselects,
+     * RangeFunctions, and/or JoinExprs. Transform each one (possibly adding
+     * entries to the rtable), check for duplicate refnames, and then add it
+     * to the joinlist and namespace.
+     *
+     * Note we must process the items left-to-right for proper handling of LATERAL references.
+     */
+    ListCell *fl;
+    foreach(fl, fromList) {
+        Node *node = lfirst(fl);
+        RangeTblEntry *rangeTblEntry;
+        int rangeTblIndex;
+        List *namespace;
 
-	/*
-	 * The grammar will have produced a list of RangeVars, RangeSubselects,
-	 * RangeFunctions, and/or JoinExprs. Transform each one (possibly adding
-	 * entries to the rtable), check for duplicate refnames, and then add it
-	 * to the joinlist and namespace.
-	 *
-	 * Note we must process the items left-to-right for proper handling of
-	 * LATERAL references.
-	 */
-	foreach(fl, frmList)
-	{
-		Node	   *n = lfirst(fl);
-		RangeTblEntry *rte;
-		int			rtindex;
-		List	   *namespace;
+        node = transformFromClauseItem(parseState, node,
+                                       &rangeTblEntry,
+                                       &rangeTblIndex,
+                                       &namespace);
 
-		n = transformFromClauseItem(pstate, n,
-									&rte,
-									&rtindex,
-									&namespace);
+        checkNameSpaceConflicts(parseState, parseState->p_namespace, namespace);
 
-		checkNameSpaceConflicts(pstate, pstate->p_namespace, namespace);
+        /* Mark the new namespace items as visible only to LATERAL */
+        setNamespaceLateralState(namespace, true, true);
 
-		/* Mark the new namespace items as visible only to LATERAL */
-		setNamespaceLateralState(namespace, true, true);
+        parseState->p_joinlist = lappend(parseState->p_joinlist, node);
+        parseState->p_namespace = list_concat(parseState->p_namespace, namespace);
+    }
 
-		pstate->p_joinlist = lappend(pstate->p_joinlist, n);
-		pstate->p_namespace = list_concat(pstate->p_namespace, namespace);
-	}
-
-	/*
-	 * We're done parsing the FROM list, so make all namespace items
-	 * unconditionally visible.  Note that this will also reset lateral_only
-	 * for any namespace items that were already present when we were called;
-	 * but those should have been that way already.
-	 */
-	setNamespaceLateralState(pstate->p_namespace, false, true);
+    /*
+     * We're done parsing the FROM list, so make all namespace items
+     * unconditionally visible.  Note that this will also reset lateral_only
+     * for any namespace items that were already present when we were called;
+     * but those should have been that way already.
+     */
+    setNamespaceLateralState(parseState->p_namespace, false, true);
 }
 
 /*
@@ -182,70 +196,69 @@ transformFromClause(ParseState *pstate, List *frmList)
  */
 int
 setTargetTable(ParseState *pstate, RangeVar *relation,
-			   bool inh, bool alsoSource, AclMode requiredPerms)
-{
-	RangeTblEntry *rte;
-	int			rtindex;
+               bool inh, bool alsoSource, AclMode requiredPerms) {
+    RangeTblEntry *rte;
+    int rtindex;
 
-	/*
-	 * ENRs hide tables of the same name, so we need to check for them first.
-	 * In contrast, CTEs don't hide tables (for this purpose).
-	 */
-	if (relation->schemaname == NULL &&
-		scanNameSpaceForENR(pstate, relation->relname))
-		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("relation \"%s\" cannot be the target of a modifying statement",
-						relation->relname)));
+    /*
+     * ENRs hide tables of the same name, so we need to check for them first.
+     * In contrast, CTEs don't hide tables (for this purpose).
+     */
+    if (relation->schemaname == NULL &&
+        scanNameSpaceForENR(pstate, relation->relname))
+        ereport(ERROR,
+                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                        errmsg("relation \"%s\" cannot be the target of a modifying statement",
+                               relation->relname)));
 
-	/* Close old target; this could only happen for multi-action rules */
-	if (pstate->p_target_relation != NULL)
-		table_close(pstate->p_target_relation, NoLock);
+    /* Close old target; this could only happen for multi-action rules */
+    if (pstate->p_target_relation != NULL)
+        table_close(pstate->p_target_relation, NoLock);
 
-	/*
-	 * Open target rel and grab suitable lock (which we will hold till end of
-	 * transaction).
-	 *
-	 * free_parsestate() will eventually do the corresponding table_close(),
-	 * but *not* release the lock.
-	 */
-	pstate->p_target_relation = parserOpenTable(pstate, relation,
-												RowExclusiveLock);
+    /*
+     * Open target rel and grab suitable lock (which we will hold till end of
+     * transaction).
+     *
+     * free_parsestate() will eventually do the corresponding table_close(),
+     * but *not* release the lock.
+     */
+    pstate->p_target_relation = parserOpenTable(pstate, relation,
+                                                RowExclusiveLock);
 
-	/*
-	 * Now build an RTE.
-	 */
-	rte = addRangeTableEntryForRelation(pstate, pstate->p_target_relation,
-										RowExclusiveLock,
-										relation->alias, inh, false);
-	pstate->p_target_rangetblentry = rte;
+    /*
+     * Now build an RTE.
+     */
+    rte = addRangeTableEntryForRelation(pstate, pstate->p_target_relation,
+                                        RowExclusiveLock,
+                                        relation->alias, inh, false);
+    pstate->p_target_rangetblentry = rte;
 
-	/* assume new rte is at end */
-	rtindex = list_length(pstate->p_rtable);
-	Assert(rte == rt_fetch(rtindex, pstate->p_rtable));
+    /* assume new rte is at end */
+    rtindex = list_length(pstate->p_rtable);
+    Assert(rte == rt_fetch(rtindex, pstate->p_rtable));
 
-	/*
-	 * Override addRangeTableEntry's default ACL_SELECT permissions check, and
-	 * instead mark target table as requiring exactly the specified
-	 * permissions.
-	 *
-	 * If we find an explicit reference to the rel later during parse
-	 * analysis, we will add the ACL_SELECT bit back again; see
-	 * markVarForSelectPriv and its callers.
-	 */
-	rte->requiredPerms = requiredPerms;
+    /*
+     * Override addRangeTableEntry's default ACL_SELECT permissions check, and
+     * instead mark target table as requiring exactly the specified
+     * permissions.
+     *
+     * If we find an explicit reference to the rel later during parse
+     * analysis, we will add the ACL_SELECT bit back again; see
+     * markVarForSelectPriv and its callers.
+     */
+    rte->requiredPerms = requiredPerms;
 
-	/*
-	 * If UPDATE/DELETE, add table to joinlist and namespace.
-	 *
-	 * Note: some callers know that they can find the new ParseNamespaceItem
-	 * at the end of the pstate->p_namespace list.  This is a bit ugly but not
-	 * worth complicating this function's signature for.
-	 */
-	if (alsoSource)
-		addRTEtoQuery(pstate, rte, true, true, true);
+    /*
+     * If UPDATE/DELETE, add table to joinlist and namespace.
+     *
+     * Note: some callers know that they can find the new ParseNamespaceItem
+     * at the end of the pstate->p_namespace list.  This is a bit ugly but not
+     * worth complicating this function's signature for.
+     */
+    if (alsoSource)
+        addRTEtoQuery(pstate, rte, true, true, true);
 
-	return rtindex;
+    return rtindex;
 }
 
 /*
@@ -253,42 +266,37 @@ setTargetTable(ParseState *pstate, RangeVar *relation,
  */
 static void
 extractRemainingColumns(List *common_colnames,
-						List *src_colnames, List *src_colvars,
-						List **res_colnames, List **res_colvars)
-{
-	List	   *new_colnames = NIL;
-	List	   *new_colvars = NIL;
-	ListCell   *lnames,
-			   *lvars;
+                        List *src_colnames, List *src_colvars,
+                        List **res_colnames, List **res_colvars) {
+    List *new_colnames = NIL;
+    List *new_colvars = NIL;
+    ListCell *lnames,
+            *lvars;
 
-	Assert(list_length(src_colnames) == list_length(src_colvars));
+    Assert(list_length(src_colnames) == list_length(src_colvars));
 
-	forboth(lnames, src_colnames, lvars, src_colvars)
-	{
-		char	   *colname = strVal(lfirst(lnames));
-		bool		match = false;
-		ListCell   *cnames;
+    forboth(lnames, src_colnames, lvars, src_colvars) {
+        char *colname = strVal(lfirst(lnames));
+        bool match = false;
+        ListCell *cnames;
 
-		foreach(cnames, common_colnames)
-		{
-			char	   *ccolname = strVal(lfirst(cnames));
+        foreach(cnames, common_colnames) {
+            char *ccolname = strVal(lfirst(cnames));
 
-			if (strcmp(colname, ccolname) == 0)
-			{
-				match = true;
-				break;
-			}
-		}
+            if (strcmp(colname, ccolname) == 0) {
+                match = true;
+                break;
+            }
+        }
 
-		if (!match)
-		{
-			new_colnames = lappend(new_colnames, lfirst(lnames));
-			new_colvars = lappend(new_colvars, lfirst(lvars));
-		}
-	}
+        if (!match) {
+            new_colnames = lappend(new_colnames, lfirst(lnames));
+            new_colvars = lappend(new_colvars, lfirst(lvars));
+        }
+    }
 
-	*res_colnames = new_colnames;
-	*res_colvars = new_colvars;
+    *res_colnames = new_colnames;
+    *res_colvars = new_colvars;
 }
 
 /* transformJoinUsingClause()
@@ -298,58 +306,57 @@ extractRemainingColumns(List *common_colnames,
  */
 static Node *
 transformJoinUsingClause(ParseState *pstate,
-						 RangeTblEntry *leftRTE, RangeTblEntry *rightRTE,
-						 List *leftVars, List *rightVars)
-{
-	Node	   *result;
-	List	   *andargs = NIL;
-	ListCell   *lvars,
-			   *rvars;
+                         RangeTblEntry *leftRTE, RangeTblEntry *rightRTE,
+                         List *leftVars, List *rightVars) {
+    Node *result;
+    List *andargs = NIL;
+    ListCell *lvars,
+            *rvars;
 
-	/*
-	 * We cheat a little bit here by building an untransformed operator tree
-	 * whose leaves are the already-transformed Vars.  This requires collusion
-	 * from transformExpr(), which normally could be expected to complain
-	 * about already-transformed subnodes.  However, this does mean that we
-	 * have to mark the columns as requiring SELECT privilege for ourselves;
-	 * transformExpr() won't do it.
-	 */
-	forboth(lvars, leftVars, rvars, rightVars)
-	{
-		Var		   *lvar = (Var *) lfirst(lvars);
-		Var		   *rvar = (Var *) lfirst(rvars);
-		A_Expr	   *e;
+    /*
+     * We cheat a little bit here by building an untransformed operator tree
+     * whose leaves are the already-transformed Vars.  This requires collusion
+     * from transformExpr(), which normally could be expected to complain
+     * about already-transformed subnodes.  However, this does mean that we
+     * have to mark the columns as requiring SELECT privilege for ourselves;
+     * transformExpr() won't do it.
+     */
+    forboth(lvars, leftVars, rvars, rightVars) {
+        Var *lvar = (Var *) lfirst(lvars);
+        Var *rvar = (Var *) lfirst(rvars);
+        A_Expr *e;
 
-		/* Require read access to the join variables */
-		markVarForSelectPriv(pstate, lvar, leftRTE);
-		markVarForSelectPriv(pstate, rvar, rightRTE);
+        /* Require read access to the join variables */
+        markVarForSelectPriv(pstate, lvar, leftRTE);
+        markVarForSelectPriv(pstate, rvar, rightRTE);
 
-		/* Now create the lvar = rvar join condition */
-		e = makeSimpleA_Expr(AEXPR_OP, "=",
-							 (Node *) copyObject(lvar), (Node *) copyObject(rvar),
-							 -1);
+        /* Now create the lvar = rvar join condition */
+        e = makeSimpleA_Expr(AEXPR_OP, "=",
+                             (Node *) copyObject(lvar),
+                             (Node *) copyObject(rvar),
+                             -1);
 
-		/* Prepare to combine into an AND clause, if multiple join columns */
-		andargs = lappend(andargs, e);
-	}
+        /* Prepare to combine into an AND clause, if multiple join columns */
+        andargs = lappend(andargs, e);
+    }
 
-	/* Only need an AND if there's more than one join column */
-	if (list_length(andargs) == 1)
-		result = (Node *) linitial(andargs);
-	else
-		result = (Node *) makeBoolExpr(AND_EXPR, andargs, -1);
+    /* Only need an AND if there's more than one join column */
+    if (list_length(andargs) == 1)
+        result = (Node *) linitial(andargs);
+    else
+        result = (Node *) makeBoolExpr(AND_EXPR, andargs, -1);
 
-	/*
-	 * Since the references are already Vars, and are certainly from the input
-	 * relations, we don't have to go through the same pushups that
-	 * transformJoinOnClause() does.  Just invoke transformExpr() to fix up
-	 * the operators, and we're done.
-	 */
-	result = transformExpr(pstate, result, EXPR_KIND_JOIN_USING);
+    /*
+     * Since the references are already Vars, and are certainly from the input
+     * relations, we don't have to go through the same pushups that
+     * transformJoinOnClause() does.  Just invoke transformExpr() to fix up
+     * the operators, and we're done.
+     */
+    result = transformExpr(pstate, result, EXPR_KIND_JOIN_USING);
 
-	result = coerce_to_boolean(pstate, result, "JOIN/USING");
+    result = coerce_to_boolean(pstate, result, "JOIN/USING");
 
-	return result;
+    return result;
 }
 
 /* transformJoinOnClause()
@@ -357,331 +364,314 @@ transformJoinUsingClause(ParseState *pstate,
  *	  Result is a transformed qualification expression.
  */
 static Node *
-transformJoinOnClause(ParseState *pstate, JoinExpr *j, List *namespace)
-{
-	Node	   *result;
-	List	   *save_namespace;
+transformJoinOnClause(ParseState *pstate, JoinExpr *j, List *namespace) {
+    Node *result;
+    List *save_namespace;
 
-	/*
-	 * The namespace that the join expression should see is just the two
-	 * subtrees of the JOIN plus any outer references from upper pstate
-	 * levels.  Temporarily set this pstate's namespace accordingly.  (We need
-	 * not check for refname conflicts, because transformFromClauseItem()
-	 * already did.)  All namespace items are marked visible regardless of
-	 * LATERAL state.
-	 */
-	setNamespaceLateralState(namespace, false, true);
+    /*
+     * The namespace that the join expression should see is just the two
+     * subtrees of the JOIN plus any outer references from upper pstate
+     * levels.  Temporarily set this pstate's namespace accordingly.  (We need
+     * not check for refname conflicts, because transformFromClauseItem()
+     * already did.)  All namespace items are marked visible regardless of
+     * LATERAL state.
+     */
+    setNamespaceLateralState(namespace, false, true);
 
-	save_namespace = pstate->p_namespace;
-	pstate->p_namespace = namespace;
+    save_namespace = pstate->p_namespace;
+    pstate->p_namespace = namespace;
 
-	result = transformWhereClause(pstate, j->quals,
-								  EXPR_KIND_JOIN_ON, "JOIN/ON");
+    result = transformWhereClause(pstate, j->quals,
+                                  EXPR_KIND_JOIN_ON, "JOIN/ON");
 
-	pstate->p_namespace = save_namespace;
+    pstate->p_namespace = save_namespace;
 
-	return result;
+    return result;
 }
 
 /*
  * transformTableEntry --- transform a RangeVar (simple relation reference)
  */
 static RangeTblEntry *
-transformTableEntry(ParseState *pstate, RangeVar *r)
-{
-	RangeTblEntry *rte;
+transformTableEntry(ParseState *pstate, RangeVar *r) {
+    RangeTblEntry *rte;
 
-	/* We need only build a range table entry */
-	rte = addRangeTableEntry(pstate, r, r->alias, r->inh, true);
+    /* We need only build a range table entry */
+    rte = addRangeTableEntry(pstate,
+                             r,
+                             r->alias,
+                             r->inh,
+                             true);
 
-	return rte;
+    return rte;
 }
 
 /*
  * transformRangeSubselect --- transform a sub-SELECT appearing in FROM
  */
 static RangeTblEntry *
-transformRangeSubselect(ParseState *pstate, RangeSubselect *r)
-{
-	Query	   *query;
-	RangeTblEntry *rte;
+transformRangeSubselect(ParseState *pstate, RangeSubselect *r) {
+    Query *query;
+    RangeTblEntry *rte;
 
-	/*
-	 * We require user to supply an alias for a subselect, per SQL92. To relax
-	 * this, we'd have to be prepared to gin up a unique alias for an
-	 * unlabeled subselect.  (This is just elog, not ereport, because the
-	 * grammar should have enforced it already.  It'd probably be better to
-	 * report the error here, but we don't have a good error location here.)
-	 */
-	if (r->alias == NULL)
-		elog(ERROR, "subquery in FROM must have an alias");
+    /*
+     * We require user to supply an alias for a subselect, per SQL92. To relax
+     * this, we'd have to be prepared to gin up a unique alias for an
+     * unlabeled subselect.  (This is just elog, not ereport, because the
+     * grammar should have enforced it already.  It'd probably be better to
+     * report the error here, but we don't have a good error location here.)
+     */
+    if (r->alias == NULL)
+        elog(ERROR, "subquery in FROM must have an alias");
 
-	/*
-	 * Set p_expr_kind to show this parse level is recursing to a subselect.
-	 * We can't be nested within any expression, so don't need save-restore
-	 * logic here.
-	 */
-	Assert(pstate->p_expr_kind == EXPR_KIND_NONE);
-	pstate->p_expr_kind = EXPR_KIND_FROM_SUBSELECT;
+    /*
+     * Set p_expr_kind to show this parse level is recursing to a subselect.
+     * We can't be nested within any expression, so don't need save-restore
+     * logic here.
+     */
+    Assert(pstate->p_expr_kind == EXPR_KIND_NONE);
+    pstate->p_expr_kind = EXPR_KIND_FROM_SUBSELECT;
 
-	/*
-	 * If the subselect is LATERAL, make lateral_only names of this level
-	 * visible to it.  (LATERAL can't nest within a single pstate level, so we
-	 * don't need save/restore logic here.)
-	 */
-	Assert(!pstate->p_lateral_active);
-	pstate->p_lateral_active = r->lateral;
+    /*
+     * If the subselect is LATERAL, make lateral_only names of this level
+     * visible to it.  (LATERAL can't nest within a single pstate level, so we
+     * don't need save/restore logic here.)
+     */
+    Assert(!pstate->p_lateral_active);
+    pstate->p_lateral_active = r->lateral;
 
-	/*
-	 * Analyze and transform the subquery.
-	 */
-	query = parse_sub_analyze(r->subquery, pstate, NULL,
-							  isLockedRefname(pstate, r->alias->aliasname),
-							  true);
+    /*
+     * Analyze and transform the subquery.
+     */
+    query = parse_sub_analyze(r->subquery, pstate, NULL,
+                              isLockedRefname(pstate, r->alias->aliasname),
+                              true);
 
-	/* Restore state */
-	pstate->p_lateral_active = false;
-	pstate->p_expr_kind = EXPR_KIND_NONE;
+    /* Restore state */
+    pstate->p_lateral_active = false;
+    pstate->p_expr_kind = EXPR_KIND_NONE;
 
-	/*
-	 * Check that we got a SELECT.  Anything else should be impossible given
-	 * restrictions of the grammar, but check anyway.
-	 */
-	if (!IsA(query, Query) ||
-		query->commandType != CMD_SELECT)
-		elog(ERROR, "unexpected non-SELECT command in subquery in FROM");
+    // Check that we got a SELECT.  Anything else should be impossible given
+    // restrictions of the grammar, but check anyway.
+    if (!IsA(query, Query) ||
+        query->commandType != CMD_SELECT)
+        elog(ERROR, "unexpected non-SELECT command in subquery in FROM");
 
-	/*
-	 * OK, build an RTE for the subquery.
-	 */
-	rte = addRangeTableEntryForSubquery(pstate,
-										query,
-										r->alias,
-										r->lateral,
-										true);
+    /*
+     * OK, build an RTE for the subquery.
+     */
+    rte = addRangeTableEntryForSubquery(pstate,
+                                        query,
+                                        r->alias,
+                                        r->lateral,
+                                        true);
 
-	return rte;
+    return rte;
 }
 
+// transform a function call appearing in FROM
+static RangeTblEntry *transformRangeFunction(ParseState *parseState, RangeFunction *rangeFunction) {
+    List *functionExprList = NIL;
+    List *functionNameList = NIL;
+    List *coldeflists = NIL;
 
-/*
- * transformRangeFunction --- transform a function call appearing in FROM
- */
-static RangeTblEntry *
-transformRangeFunction(ParseState *pstate, RangeFunction *r)
-{
-	List	   *funcexprs = NIL;
-	List	   *funcnames = NIL;
-	List	   *coldeflists = NIL;
-	bool		is_lateral;
-	RangeTblEntry *rte;
-	ListCell   *lc;
+    /*
+     * We make lateral_only names of this level visible, whether or not the
+     * RangeFunction is explicitly marked LATERAL.  This is needed for SQL
+     * spec compliance in the case of UNNEST(), and seems useful on
+     * convenience grounds for all functions in FROM.
+     *
+     * (LATERAL can't nest within a single pstate level, so we don't need
+     * save/restore logic here.)
+     */
+    Assert(!parseState->p_lateral_active);
+    parseState->p_lateral_active = true;
 
-	/*
-	 * We make lateral_only names of this level visible, whether or not the
-	 * RangeFunction is explicitly marked LATERAL.  This is needed for SQL
-	 * spec compliance in the case of UNNEST(), and seems useful on
-	 * convenience grounds for all functions in FROM.
-	 *
-	 * (LATERAL can't nest within a single pstate level, so we don't need
-	 * save/restore logic here.)
-	 */
-	Assert(!pstate->p_lateral_active);
-	pstate->p_lateral_active = true;
+    /*
+     * Transform the raw expressions.
+     *
+     * While transforming, also save function names for possible use as alias
+     * and column names.  We use the same transformation rules as for a SELECT
+     * output expression.  For a FuncCall node, the result will be the
+     * function name, but it is possible for the grammar to hand back other
+     * node types.
+     *
+     * We have to get this info now, because FigureColname only works on raw
+     * parsetrees.  Actually deciding what to do with the names is left up to
+     * addRangeTableEntryForFunction.
+     *
+     * Likewise, collect column definition lists if there were any.  But
+     * complain if we find one here and the RangeFunction has one too.
+     */
+    ListCell *listCell;
+    foreach(listCell, rangeFunction->functions) {
+        List *pair = (List *) lfirst(listCell);
 
-	/*
-	 * Transform the raw expressions.
-	 *
-	 * While transforming, also save function names for possible use as alias
-	 * and column names.  We use the same transformation rules as for a SELECT
-	 * output expression.  For a FuncCall node, the result will be the
-	 * function name, but it is possible for the grammar to hand back other
-	 * node types.
-	 *
-	 * We have to get this info now, because FigureColname only works on raw
-	 * parsetrees.  Actually deciding what to do with the names is left up to
-	 * addRangeTableEntryForFunction.
-	 *
-	 * Likewise, collect column definition lists if there were any.  But
-	 * complain if we find one here and the RangeFunction has one too.
-	 */
-	foreach(lc, r->functions)
-	{
-		List	   *pair = (List *) lfirst(lc);
-		Node	   *fexpr;
-		List	   *coldeflist;
-		Node	   *newfexpr;
-		Node	   *last_srf;
+        Node *newFuncExpr;
+        Node *last_srf;
 
-		/* Disassemble the function-call/column-def-list pairs */
-		Assert(list_length(pair) == 2);
-		fexpr = (Node *) linitial(pair);
-		coldeflist = (List *) lsecond(pair);
+        /* disassemble the function-call/column-def-list pairs */
+        Assert(list_length(pair) == 2);
 
-		/*
-		 * If we find a function call unnest() with more than one argument and
-		 * no special decoration, transform it into separate unnest() calls on
-		 * each argument.  This is a kluge, for sure, but it's less nasty than
-		 * other ways of implementing the SQL-standard UNNEST() syntax.
-		 *
-		 * If there is any decoration (including a coldeflist), we don't
-		 * transform, which probably means a no-such-function error later.  We
-		 * could alternatively throw an error right now, but that doesn't seem
-		 * tremendously helpful.  If someone is using any such decoration,
-		 * then they're not using the SQL-standard syntax, and they're more
-		 * likely expecting an un-tweaked function call.
-		 *
-		 * Note: the transformation changes a non-schema-qualified unnest()
-		 * function name into schema-qualified pg_catalog.unnest().  This
-		 * choice is also a bit debatable, but it seems reasonable to force
-		 * use of built-in unnest() when we make this transformation.
-		 */
-		if (IsA(fexpr, FuncCall))
-		{
-			FuncCall   *fc = (FuncCall *) fexpr;
+        Node *fexpr = (Node *) linitial(pair);
+        List *columnDefList = (List *) lsecond(pair);
 
-			if (list_length(fc->funcname) == 1 &&
-				strcmp(strVal(linitial(fc->funcname)), "unnest") == 0 &&
-				list_length(fc->args) > 1 &&
-				fc->agg_order == NIL &&
-				fc->agg_filter == NULL &&
-				!fc->agg_star &&
-				!fc->agg_distinct &&
-				!fc->func_variadic &&
-				fc->over == NULL &&
-				coldeflist == NIL)
-			{
-				ListCell   *lc;
+        /*
+         * If we find a function call unnest() with more than one argument and
+         * no special decoration, transform it into separate unnest() calls on
+         * each argument.  This is a kluge, for sure, but it's less nasty than
+         * other ways of implementing the SQL-standard UNNEST() syntax.
+         *
+         * If there is any decoration (including a coldeflist), we don't
+         * transform, which probably means a no-such-function error later.  We
+         * could alternatively throw an error right now, but that doesn't seem
+         * tremendously helpful.  If someone is using any such decoration,
+         * then they're not using the SQL-standard syntax, and they're more
+         * likely expecting an un-tweaked function call.
+         *
+         * Note: the transformation changes a non-schema-qualified unnest()
+         * function name into schema-qualified pg_catalog.unnest().  This
+         * choice is also a bit debatable, but it seems reasonable to force
+         * use of built-in unnest() when we make this transformation.
+         */
+        if (IsA(fexpr, FuncCall)) {
+            FuncCall *functionCall = (FuncCall *) fexpr;
 
-				foreach(lc, fc->args)
-				{
-					Node	   *arg = (Node *) lfirst(lc);
-					FuncCall   *newfc;
+            if (list_length(functionCall->funcname) == 1 &&
+                strcmp(strVal(linitial(functionCall->funcname)), "unnest") == 0 &&
+                list_length(functionCall->args) > 1 &&
+                functionCall->agg_order == NIL &&
+                functionCall->agg_filter == NULL &&
+                !functionCall->agg_star &&
+                !functionCall->agg_distinct &&
+                !functionCall->func_variadic &&
+                functionCall->over == NULL &&
+                columnDefList == NIL) {
+                ListCell *lc;
 
-					last_srf = pstate->p_last_srf;
+                foreach(lc, functionCall->args) {
+                    Node *arg = (Node *) lfirst(lc);
+                    FuncCall *newfc;
 
-					newfc = makeFuncCall(SystemFuncName("unnest"),
-										 list_make1(arg),
-										 fc->location);
+                    last_srf = parseState->p_last_srf;
 
-					newfexpr = transformExpr(pstate, (Node *) newfc,
-											 EXPR_KIND_FROM_FUNCTION);
+                    newfc = makeFuncCall(SystemFuncName("unnest"),
+                                         list_make1(arg),
+                                         functionCall->location);
 
-					/* nodeFunctionscan.c requires SRFs to be at top level */
-					if (pstate->p_last_srf != last_srf &&
-						pstate->p_last_srf != newfexpr)
-						ereport(ERROR,
-								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-								 errmsg("set-returning functions must appear at top level of FROM"),
-								 parser_errposition(pstate,
-													exprLocation(pstate->p_last_srf))));
+                    newFuncExpr = transformExpr(parseState, (Node *) newfc,
+                                                EXPR_KIND_FROM_FUNCTION);
 
-					funcexprs = lappend(funcexprs, newfexpr);
+                    /* nodeFunctionscan.c requires SRFs to be at top level */
+                    if (parseState->p_last_srf != last_srf &&
+                        parseState->p_last_srf != newFuncExpr)
+                        ereport(ERROR,
+                                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                                        errmsg("set-returning functions must appear at top level of FROM"),
+                                        parser_errposition(parseState,
+                                                           exprLocation(parseState->p_last_srf))));
 
-					funcnames = lappend(funcnames,
-										FigureColname((Node *) newfc));
+                    functionExprList = lappend(functionExprList, newFuncExpr);
 
-					/* coldeflist is empty, so no error is possible */
+                    functionNameList = lappend(functionNameList,
+                                               FigureColname((Node *) newfc));
 
-					coldeflists = lappend(coldeflists, coldeflist);
-				}
-				continue;		/* done with this function item */
-			}
-		}
+                    /* coldeflist is empty, so no error is possible */
 
-		/* normal case ... */
-		last_srf = pstate->p_last_srf;
+                    coldeflists = lappend(coldeflists, columnDefList);
+                }
 
-		newfexpr = transformExpr(pstate, fexpr,
-								 EXPR_KIND_FROM_FUNCTION);
+                continue;        /* done with this function item */
+            }
+        }
 
-		/* nodeFunctionscan.c requires SRFs to be at top level */
-		if (pstate->p_last_srf != last_srf &&
-			pstate->p_last_srf != newfexpr)
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("set-returning functions must appear at top level of FROM"),
-					 parser_errposition(pstate,
-										exprLocation(pstate->p_last_srf))));
+        /* normal case ... */
+        last_srf = parseState->p_last_srf;
 
-		funcexprs = lappend(funcexprs, newfexpr);
+        newFuncExpr = transformExpr(parseState, fexpr, EXPR_KIND_FROM_FUNCTION);
 
-		funcnames = lappend(funcnames,
-							FigureColname(fexpr));
+        /* nodeFunctionscan.c requires SRFs to be at top level */
+        if (parseState->p_last_srf != last_srf && parseState->p_last_srf != newFuncExpr) {
+            ereport(ERROR,
+                    (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                            errmsg("set-returning functions must appear at top level of FROM"),
+                            parser_errposition(parseState, exprLocation(parseState->p_last_srf))));
+        }
 
-		if (coldeflist && r->coldeflist)
-			ereport(ERROR,
-					(errcode(ERRCODE_SYNTAX_ERROR),
-					 errmsg("multiple column definition lists are not allowed for the same function"),
-					 parser_errposition(pstate,
-										exprLocation((Node *) r->coldeflist))));
+        functionExprList = lappend(functionExprList, newFuncExpr);
 
-		coldeflists = lappend(coldeflists, coldeflist);
-	}
+        functionNameList = lappend(functionNameList, FigureColname(fexpr));
 
-	pstate->p_lateral_active = false;
+        if (columnDefList && rangeFunction->coldeflist) {
+            ereport(ERROR,
+                    (errcode(ERRCODE_SYNTAX_ERROR),
+                            errmsg("multiple column definition lists are not allowed for the same function"),
+                            parser_errposition(parseState, exprLocation((Node *) rangeFunction->coldeflist))));
+        }
 
-	/*
-	 * We must assign collations now so that the RTE exposes correct collation
-	 * info for Vars created from it.
-	 */
-	assign_list_collations(pstate, funcexprs);
+        coldeflists = lappend(coldeflists, columnDefList);
+    }
 
-	/*
-	 * Install the top-level coldeflist if there was one (we already checked
-	 * that there was no conflicting per-function coldeflist).
-	 *
-	 * We only allow this when there's a single function (even after UNNEST
-	 * expansion) and no WITH ORDINALITY.  The reason for the latter
-	 * restriction is that it's not real clear whether the ordinality column
-	 * should be in the coldeflist, and users are too likely to make mistakes
-	 * in one direction or the other.  Putting the coldeflist inside ROWS
-	 * FROM() is much clearer in this case.
-	 */
-	if (r->coldeflist)
-	{
-		if (list_length(funcexprs) != 1)
-		{
-			if (r->is_rowsfrom)
-				ereport(ERROR,
-						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("ROWS FROM() with multiple functions cannot have a column definition list"),
-						 errhint("Put a separate column definition list for each function inside ROWS FROM()."),
-						 parser_errposition(pstate,
-											exprLocation((Node *) r->coldeflist))));
-			else
-				ereport(ERROR,
-						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("UNNEST() with multiple arguments cannot have a column definition list"),
-						 errhint("Use separate UNNEST() calls inside ROWS FROM(), and attach a column definition list to each one."),
-						 parser_errposition(pstate,
-											exprLocation((Node *) r->coldeflist))));
-		}
-		if (r->ordinality)
-			ereport(ERROR,
-					(errcode(ERRCODE_SYNTAX_ERROR),
-					 errmsg("WITH ORDINALITY cannot be used with a column definition list"),
-					 errhint("Put the column definition list inside ROWS FROM()."),
-					 parser_errposition(pstate,
-										exprLocation((Node *) r->coldeflist))));
+    parseState->p_lateral_active = false;
 
-		coldeflists = list_make1(r->coldeflist);
-	}
+    /*
+     * We must assign collations now so that the RTE exposes correct collation
+     * info for Vars created from it.
+     */
+    assign_list_collations(parseState, functionExprList);
 
-	/*
-	 * Mark the RTE as LATERAL if the user said LATERAL explicitly, or if
-	 * there are any lateral cross-references in it.
-	 */
-	is_lateral = r->lateral || contain_vars_of_level((Node *) funcexprs, 0);
+    /*
+     * Install the top-level coldeflist if there was one (we already checked
+     * that there was no conflicting per-function coldeflist).
+     *
+     * We only allow this when there's a single function (even after UNNEST
+     * expansion) and no WITH ORDINALITY.  The reason for the latter
+     * restriction is that it's not real clear whether the ordinality column
+     * should be in the coldeflist, and users are too likely to make mistakes
+     * in one direction or the other.  Putting the coldeflist inside ROWS
+     * FROM() is much clearer in this case.
+     */
+    if (rangeFunction->coldeflist) {
+        if (list_length(functionExprList) != 1) {
+            if (rangeFunction->is_rowsfrom) {
+                ereport(ERROR,
+                        (errcode(ERRCODE_SYNTAX_ERROR),
+                                errmsg("ROWS FROM() with multiple functions cannot have a column definition list"),
+                                errhint("Put a separate column definition list for each function inside ROWS FROM()."),
+                                parser_errposition(parseState, exprLocation((Node *) rangeFunction->coldeflist))));
+            } else {
+                ereport(ERROR,
+                        (errcode(ERRCODE_SYNTAX_ERROR),
+                                errmsg("UNNEST() with multiple arguments cannot have a column definition list"),
+                                errhint("Use separate UNNEST() calls inside ROWS FROM(), and attach a column definition list to each one."),
+                                parser_errposition(parseState, exprLocation((Node *) rangeFunction->coldeflist))));
+            }
+        }
 
-	/*
-	 * OK, build an RTE for the function.
-	 */
-	rte = addRangeTableEntryForFunction(pstate,
-										funcnames, funcexprs, coldeflists,
-										r, is_lateral, true);
+        if (rangeFunction->ordinality) {
+            ereport(ERROR,
+                    (errcode(ERRCODE_SYNTAX_ERROR),
+                            errmsg("WITH ORDINALITY cannot be used with a column definition list"),
+                            errhint("Put the column definition list inside ROWS FROM()."),
+                            parser_errposition(parseState, exprLocation((Node *) rangeFunction->coldeflist))));
+        }
 
-	return rte;
+        coldeflists = list_make1(rangeFunction->coldeflist);
+    }
+
+    // Mark the RTE as LATERAL if the user said LATERAL explicitly, or if there are any lateral cross-references in it.
+    bool isLateral = rangeFunction->lateral || contain_vars_of_level((Node *) functionExprList, 0);
+
+    // OK, build an RTE for the function.
+    RangeTblEntry *rangeTblEntry = addRangeTableEntryForFunction(parseState,
+                                                                 functionNameList,
+                                                                 functionExprList,
+                                                                 coldeflists,
+                                                                 rangeFunction,
+                                                                 isLateral,
+                                                                 true);
+
+    return rangeTblEntry;
 }
 
 /*
@@ -693,218 +683,203 @@ transformRangeFunction(ParseState *pstate, RangeFunction *r)
  * default value expressions.
  */
 static RangeTblEntry *
-transformRangeTableFunc(ParseState *pstate, RangeTableFunc *rtf)
-{
-	TableFunc  *tf = makeNode(TableFunc);
-	const char *constructName;
-	Oid			docType;
-	RangeTblEntry *rte;
-	bool		is_lateral;
-	ListCell   *col;
-	char	  **names;
-	int			colno;
+transformRangeTableFunc(ParseState *pstate, RangeTableFunc *rtf) {
+    TableFunc *tf = makeNode(TableFunc);
+    const char *constructName;
+    Oid docType;
+    RangeTblEntry *rte;
+    bool is_lateral;
+    ListCell *col;
+    char **names;
+    int colno;
 
-	/* Currently only XMLTABLE is supported */
-	constructName = "XMLTABLE";
-	docType = XMLOID;
+    /* Currently only XMLTABLE is supported */
+    constructName = "XMLTABLE";
+    docType = XMLOID;
 
-	/*
-	 * We make lateral_only names of this level visible, whether or not the
-	 * RangeTableFunc is explicitly marked LATERAL.  This is needed for SQL
-	 * spec compliance and seems useful on convenience grounds for all
-	 * functions in FROM.
-	 *
-	 * (LATERAL can't nest within a single pstate level, so we don't need
-	 * save/restore logic here.)
-	 */
-	Assert(!pstate->p_lateral_active);
-	pstate->p_lateral_active = true;
+    /*
+     * We make lateral_only names of this level visible, whether or not the
+     * RangeTableFunc is explicitly marked LATERAL.  This is needed for SQL
+     * spec compliance and seems useful on convenience grounds for all
+     * functions in FROM.
+     *
+     * (LATERAL can't nest within a single pstate level, so we don't need
+     * save/restore logic here.)
+     */
+    Assert(!pstate->p_lateral_active);
+    pstate->p_lateral_active = true;
 
-	/* Transform and apply typecast to the row-generating expression ... */
-	Assert(rtf->rowexpr != NULL);
-	tf->rowexpr = coerce_to_specific_type(pstate,
-										  transformExpr(pstate, rtf->rowexpr, EXPR_KIND_FROM_FUNCTION),
-										  TEXTOID,
-										  constructName);
-	assign_expr_collations(pstate, tf->rowexpr);
+    /* Transform and apply typecast to the row-generating expression ... */
+    Assert(rtf->rowexpr != NULL);
+    tf->rowexpr = coerce_to_specific_type(pstate,
+                                          transformExpr(pstate, rtf->rowexpr, EXPR_KIND_FROM_FUNCTION),
+                                          TEXTOID,
+                                          constructName);
+    assign_expr_collations(pstate, tf->rowexpr);
 
-	/* ... and to the document itself */
-	Assert(rtf->docexpr != NULL);
-	tf->docexpr = coerce_to_specific_type(pstate,
-										  transformExpr(pstate, rtf->docexpr, EXPR_KIND_FROM_FUNCTION),
-										  docType,
-										  constructName);
-	assign_expr_collations(pstate, tf->docexpr);
+    /* ... and to the document itself */
+    Assert(rtf->docexpr != NULL);
+    tf->docexpr = coerce_to_specific_type(pstate,
+                                          transformExpr(pstate, rtf->docexpr, EXPR_KIND_FROM_FUNCTION),
+                                          docType,
+                                          constructName);
+    assign_expr_collations(pstate, tf->docexpr);
 
-	/* undef ordinality column number */
-	tf->ordinalitycol = -1;
+    /* undef ordinality column number */
+    tf->ordinalitycol = -1;
 
-	/* Process column specs */
-	names = palloc(sizeof(char *) * list_length(rtf->columns));
+    /* Process column specs */
+    names = palloc(sizeof(char *) * list_length(rtf->columns));
 
-	colno = 0;
-	foreach(col, rtf->columns)
-	{
-		RangeTableFuncCol *rawc = (RangeTableFuncCol *) lfirst(col);
-		Oid			typid;
-		int32		typmod;
-		Node	   *colexpr;
-		Node	   *coldefexpr;
-		int			j;
+    colno = 0;
+    foreach(col, rtf->columns) {
+        RangeTableFuncCol *rawc = (RangeTableFuncCol *) lfirst(col);
+        Oid typid;
+        int32 typmod;
+        Node *colexpr;
+        Node *coldefexpr;
+        int j;
 
-		tf->colnames = lappend(tf->colnames,
-							   makeString(pstrdup(rawc->colname)));
+        tf->colnames = lappend(tf->colnames,
+                               makeString(pstrdup(rawc->colname)));
 
-		/*
-		 * Determine the type and typmod for the new column. FOR ORDINALITY
-		 * columns are INTEGER per spec; the others are user-specified.
-		 */
-		if (rawc->for_ordinality)
-		{
-			if (tf->ordinalitycol != -1)
-				ereport(ERROR,
-						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("only one FOR ORDINALITY column is allowed"),
-						 parser_errposition(pstate, rawc->location)));
+        /*
+         * Determine the type and typmod for the new column. FOR ORDINALITY
+         * columns are INTEGER per spec; the others are user-specified.
+         */
+        if (rawc->for_ordinality) {
+            if (tf->ordinalitycol != -1)
+                ereport(ERROR,
+                        (errcode(ERRCODE_SYNTAX_ERROR),
+                                errmsg("only one FOR ORDINALITY column is allowed"),
+                                parser_errposition(pstate, rawc->location)));
 
-			typid = INT4OID;
-			typmod = -1;
-			tf->ordinalitycol = colno;
-		}
-		else
-		{
-			if (rawc->typeName->setof)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_TABLE_DEFINITION),
-						 errmsg("column \"%s\" cannot be declared SETOF",
-								rawc->colname),
-						 parser_errposition(pstate, rawc->location)));
+            typid = INT4OID;
+            typmod = -1;
+            tf->ordinalitycol = colno;
+        } else {
+            if (rawc->typeName->setof)
+                ereport(ERROR,
+                        (errcode(ERRCODE_INVALID_TABLE_DEFINITION),
+                                errmsg("column \"%s\" cannot be declared SETOF",
+                                       rawc->colname),
+                                parser_errposition(pstate, rawc->location)));
 
-			typenameTypeIdAndMod(pstate, rawc->typeName,
-								 &typid, &typmod);
-		}
+            typenameTypeIdAndMod(pstate, rawc->typeName,
+                                 &typid, &typmod);
+        }
 
-		tf->coltypes = lappend_oid(tf->coltypes, typid);
-		tf->coltypmods = lappend_int(tf->coltypmods, typmod);
-		tf->colcollations = lappend_oid(tf->colcollations,
-										get_typcollation(typid));
+        tf->coltypes = lappend_oid(tf->coltypes, typid);
+        tf->coltypmods = lappend_int(tf->coltypmods, typmod);
+        tf->colcollations = lappend_oid(tf->colcollations,
+                                        get_typcollation(typid));
 
-		/* Transform the PATH and DEFAULT expressions */
-		if (rawc->colexpr)
-		{
-			colexpr = coerce_to_specific_type(pstate,
-											  transformExpr(pstate, rawc->colexpr,
-															EXPR_KIND_FROM_FUNCTION),
-											  TEXTOID,
-											  constructName);
-			assign_expr_collations(pstate, colexpr);
-		}
-		else
-			colexpr = NULL;
+        /* Transform the PATH and DEFAULT expressions */
+        if (rawc->colexpr) {
+            colexpr = coerce_to_specific_type(pstate,
+                                              transformExpr(pstate, rawc->colexpr,
+                                                            EXPR_KIND_FROM_FUNCTION),
+                                              TEXTOID,
+                                              constructName);
+            assign_expr_collations(pstate, colexpr);
+        } else
+            colexpr = NULL;
 
-		if (rawc->coldefexpr)
-		{
-			coldefexpr = coerce_to_specific_type_typmod(pstate,
-														transformExpr(pstate, rawc->coldefexpr,
-																	  EXPR_KIND_FROM_FUNCTION),
-														typid, typmod,
-														constructName);
-			assign_expr_collations(pstate, coldefexpr);
-		}
-		else
-			coldefexpr = NULL;
+        if (rawc->coldefexpr) {
+            coldefexpr = coerce_to_specific_type_typmod(pstate,
+                                                        transformExpr(pstate, rawc->coldefexpr,
+                                                                      EXPR_KIND_FROM_FUNCTION),
+                                                        typid, typmod,
+                                                        constructName);
+            assign_expr_collations(pstate, coldefexpr);
+        } else
+            coldefexpr = NULL;
 
-		tf->colexprs = lappend(tf->colexprs, colexpr);
-		tf->coldefexprs = lappend(tf->coldefexprs, coldefexpr);
+        tf->colexprs = lappend(tf->colexprs, colexpr);
+        tf->coldefexprs = lappend(tf->coldefexprs, coldefexpr);
 
-		if (rawc->is_not_null)
-			tf->notnulls = bms_add_member(tf->notnulls, colno);
+        if (rawc->is_not_null)
+            tf->notnulls = bms_add_member(tf->notnulls, colno);
 
-		/* make sure column names are unique */
-		for (j = 0; j < colno; j++)
-			if (strcmp(names[j], rawc->colname) == 0)
-				ereport(ERROR,
-						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("column name \"%s\" is not unique",
-								rawc->colname),
-						 parser_errposition(pstate, rawc->location)));
-		names[colno] = rawc->colname;
+        /* make sure column names are unique */
+        for (j = 0; j < colno; j++)
+            if (strcmp(names[j], rawc->colname) == 0)
+                ereport(ERROR,
+                        (errcode(ERRCODE_SYNTAX_ERROR),
+                                errmsg("column name \"%s\" is not unique",
+                                       rawc->colname),
+                                parser_errposition(pstate, rawc->location)));
+        names[colno] = rawc->colname;
 
-		colno++;
-	}
-	pfree(names);
+        colno++;
+    }
+    pfree(names);
 
-	/* Namespaces, if any, also need to be transformed */
-	if (rtf->namespaces != NIL)
-	{
-		ListCell   *ns;
-		ListCell   *lc2;
-		List	   *ns_uris = NIL;
-		List	   *ns_names = NIL;
-		bool		default_ns_seen = false;
+    /* Namespaces, if any, also need to be transformed */
+    if (rtf->namespaces != NIL) {
+        ListCell *ns;
+        ListCell *lc2;
+        List *ns_uris = NIL;
+        List *ns_names = NIL;
+        bool default_ns_seen = false;
 
-		foreach(ns, rtf->namespaces)
-		{
-			ResTarget  *r = (ResTarget *) lfirst(ns);
-			Node	   *ns_uri;
+        foreach(ns, rtf->namespaces) {
+            ResTarget *r = (ResTarget *) lfirst(ns);
+            Node *ns_uri;
 
-			Assert(IsA(r, ResTarget));
-			ns_uri = transformExpr(pstate, r->val, EXPR_KIND_FROM_FUNCTION);
-			ns_uri = coerce_to_specific_type(pstate, ns_uri,
-											 TEXTOID, constructName);
-			assign_expr_collations(pstate, ns_uri);
-			ns_uris = lappend(ns_uris, ns_uri);
+            Assert(IsA(r, ResTarget));
+            ns_uri = transformExpr(pstate, r->val, EXPR_KIND_FROM_FUNCTION);
+            ns_uri = coerce_to_specific_type(pstate, ns_uri,
+                                             TEXTOID, constructName);
+            assign_expr_collations(pstate, ns_uri);
+            ns_uris = lappend(ns_uris, ns_uri);
 
-			/* Verify consistency of name list: no dupes, only one DEFAULT */
-			if (r->name != NULL)
-			{
-				foreach(lc2, ns_names)
-				{
-					Value	   *ns_node = (Value *) lfirst(lc2);
+            /* Verify consistency of name list: no dupes, only one DEFAULT */
+            if (r->name != NULL) {
+                foreach(lc2, ns_names) {
+                    Value *ns_node = (Value *) lfirst(lc2);
 
-					if (ns_node == NULL)
-						continue;
-					if (strcmp(strVal(ns_node), r->name) == 0)
-						ereport(ERROR,
-								(errcode(ERRCODE_SYNTAX_ERROR),
-								 errmsg("namespace name \"%s\" is not unique",
-										r->name),
-								 parser_errposition(pstate, r->location)));
-				}
-			}
-			else
-			{
-				if (default_ns_seen)
-					ereport(ERROR,
-							(errcode(ERRCODE_SYNTAX_ERROR),
-							 errmsg("only one default namespace is allowed"),
-							 parser_errposition(pstate, r->location)));
-				default_ns_seen = true;
-			}
+                    if (ns_node == NULL)
+                        continue;
+                    if (strcmp(strVal(ns_node), r->name) == 0)
+                        ereport(ERROR,
+                                (errcode(ERRCODE_SYNTAX_ERROR),
+                                        errmsg("namespace name \"%s\" is not unique",
+                                               r->name),
+                                        parser_errposition(pstate, r->location)));
+                }
+            } else {
+                if (default_ns_seen)
+                    ereport(ERROR,
+                            (errcode(ERRCODE_SYNTAX_ERROR),
+                                    errmsg("only one default namespace is allowed"),
+                                    parser_errposition(pstate, r->location)));
+                default_ns_seen = true;
+            }
 
-			/* We represent DEFAULT by a null pointer */
-			ns_names = lappend(ns_names,
-							   r->name ? makeString(r->name) : NULL);
-		}
+            /* We represent DEFAULT by a null pointer */
+            ns_names = lappend(ns_names,
+                               r->name ? makeString(r->name) : NULL);
+        }
 
-		tf->ns_uris = ns_uris;
-		tf->ns_names = ns_names;
-	}
+        tf->ns_uris = ns_uris;
+        tf->ns_names = ns_names;
+    }
 
-	tf->location = rtf->location;
+    tf->location = rtf->location;
 
-	pstate->p_lateral_active = false;
+    pstate->p_lateral_active = false;
 
-	/*
-	 * Mark the RTE as LATERAL if the user said LATERAL explicitly, or if
-	 * there are any lateral cross-references in it.
-	 */
-	is_lateral = rtf->lateral || contain_vars_of_level((Node *) tf, 0);
+    /*
+     * Mark the RTE as LATERAL if the user said LATERAL explicitly, or if
+     * there are any lateral cross-references in it.
+     */
+    is_lateral = rtf->lateral || contain_vars_of_level((Node *) tf, 0);
 
-	rte = addRangeTableEntryForTableFunc(pstate,
-										 tf, rtf->alias, is_lateral, true);
+    rte = addRangeTableEntryForTableFunc(pstate,
+                                         tf, rtf->alias, is_lateral, true);
 
-	return rte;
+    return rte;
 }
 
 /*
@@ -914,100 +889,96 @@ transformRangeTableFunc(ParseState *pstate, RangeTableFunc *rtf)
  * the remaining fields and create a TableSampleClause node.
  */
 static TableSampleClause *
-transformRangeTableSample(ParseState *pstate, RangeTableSample *rts)
-{
-	TableSampleClause *tablesample;
-	Oid			handlerOid;
-	Oid			funcargtypes[1];
-	TsmRoutine *tsm;
-	List	   *fargs;
-	ListCell   *larg,
-			   *ltyp;
+transformRangeTableSample(ParseState *pstate, RangeTableSample *rts) {
+    TableSampleClause *tablesample;
+    Oid handlerOid;
+    Oid funcargtypes[1];
+    TsmRoutine *tsm;
+    List *fargs;
+    ListCell *larg,
+            *ltyp;
 
-	/*
-	 * To validate the sample method name, look up the handler function, which
-	 * has the same name, one dummy INTERNAL argument, and a result type of
-	 * tsm_handler.  (Note: tablesample method names are not schema-qualified
-	 * in the SQL standard; but since they are just functions to us, we allow
-	 * schema qualification to resolve any potential ambiguity.)
-	 */
-	funcargtypes[0] = INTERNALOID;
+    /*
+     * To validate the sample method name, look up the handler function, which
+     * has the same name, one dummy INTERNAL argument, and a result type of
+     * tsm_handler.  (Note: tablesample method names are not schema-qualified
+     * in the SQL standard; but since they are just functions to us, we allow
+     * schema qualification to resolve any potential ambiguity.)
+     */
+    funcargtypes[0] = INTERNALOID;
 
-	handlerOid = LookupFuncName(rts->method, 1, funcargtypes, true);
+    handlerOid = LookupFuncName(rts->method, 1, funcargtypes, true);
 
-	/* we want error to complain about no-such-method, not no-such-function */
-	if (!OidIsValid(handlerOid))
-		ereport(ERROR,
-				(errcode(ERRCODE_UNDEFINED_OBJECT),
-				 errmsg("tablesample method %s does not exist",
-						NameListToString(rts->method)),
-				 parser_errposition(pstate, rts->location)));
+    /* we want error to complain about no-such-method, not no-such-function */
+    if (!OidIsValid(handlerOid))
+        ereport(ERROR,
+                (errcode(ERRCODE_UNDEFINED_OBJECT),
+                        errmsg("tablesample method %s does not exist",
+                               NameListToString(rts->method)),
+                        parser_errposition(pstate, rts->location)));
 
-	/* check that handler has correct return type */
-	if (get_func_rettype(handlerOid) != TSM_HANDLEROID)
-		ereport(ERROR,
-				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-				 errmsg("function %s must return type %s",
-						NameListToString(rts->method), "tsm_handler"),
-				 parser_errposition(pstate, rts->location)));
+    /* check that handler has correct return type */
+    if (get_func_rettype(handlerOid) != TSM_HANDLEROID)
+        ereport(ERROR,
+                (errcode(ERRCODE_WRONG_OBJECT_TYPE),
+                        errmsg("function %s must return type %s",
+                               NameListToString(rts->method), "tsm_handler"),
+                        parser_errposition(pstate, rts->location)));
 
-	/* OK, run the handler to get TsmRoutine, for argument type info */
-	tsm = GetTsmRoutine(handlerOid);
+    /* OK, run the handler to get TsmRoutine, for argument type info */
+    tsm = GetTsmRoutine(handlerOid);
 
-	tablesample = makeNode(TableSampleClause);
-	tablesample->tsmhandler = handlerOid;
+    tablesample = makeNode(TableSampleClause);
+    tablesample->tsmhandler = handlerOid;
 
-	/* check user provided the expected number of arguments */
-	if (list_length(rts->args) != list_length(tsm->parameterTypes))
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_TABLESAMPLE_ARGUMENT),
-				 errmsg_plural("tablesample method %s requires %d argument, not %d",
-							   "tablesample method %s requires %d arguments, not %d",
-							   list_length(tsm->parameterTypes),
-							   NameListToString(rts->method),
-							   list_length(tsm->parameterTypes),
-							   list_length(rts->args)),
-				 parser_errposition(pstate, rts->location)));
+    /* check user provided the expected number of arguments */
+    if (list_length(rts->args) != list_length(tsm->parameterTypes))
+        ereport(ERROR,
+                (errcode(ERRCODE_INVALID_TABLESAMPLE_ARGUMENT),
+                        errmsg_plural("tablesample method %s requires %d argument, not %d",
+                                      "tablesample method %s requires %d arguments, not %d",
+                                      list_length(tsm->parameterTypes),
+                                      NameListToString(rts->method),
+                                      list_length(tsm->parameterTypes),
+                                      list_length(rts->args)),
+                        parser_errposition(pstate, rts->location)));
 
-	/*
-	 * Transform the arguments, typecasting them as needed.  Note we must also
-	 * assign collations now, because assign_query_collations() doesn't
-	 * examine any substructure of RTEs.
-	 */
-	fargs = NIL;
-	forboth(larg, rts->args, ltyp, tsm->parameterTypes)
-	{
-		Node	   *arg = (Node *) lfirst(larg);
-		Oid			argtype = lfirst_oid(ltyp);
+    /*
+     * Transform the arguments, typecasting them as needed.  Note we must also
+     * assign collations now, because assign_query_collations() doesn't
+     * examine any substructure of RTEs.
+     */
+    fargs = NIL;
+    forboth(larg, rts->args, ltyp, tsm->parameterTypes) {
+        Node *arg = (Node *) lfirst(larg);
+        Oid argtype = lfirst_oid(ltyp);
 
-		arg = transformExpr(pstate, arg, EXPR_KIND_FROM_FUNCTION);
-		arg = coerce_to_specific_type(pstate, arg, argtype, "TABLESAMPLE");
-		assign_expr_collations(pstate, arg);
-		fargs = lappend(fargs, arg);
-	}
-	tablesample->args = fargs;
+        arg = transformExpr(pstate, arg, EXPR_KIND_FROM_FUNCTION);
+        arg = coerce_to_specific_type(pstate, arg, argtype, "TABLESAMPLE");
+        assign_expr_collations(pstate, arg);
+        fargs = lappend(fargs, arg);
+    }
+    tablesample->args = fargs;
 
-	/* Process REPEATABLE (seed) */
-	if (rts->repeatable != NULL)
-	{
-		Node	   *arg;
+    /* Process REPEATABLE (seed) */
+    if (rts->repeatable != NULL) {
+        Node *arg;
 
-		if (!tsm->repeatable_across_queries)
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("tablesample method %s does not support REPEATABLE",
-							NameListToString(rts->method)),
-					 parser_errposition(pstate, rts->location)));
+        if (!tsm->repeatable_across_queries)
+            ereport(ERROR,
+                    (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                            errmsg("tablesample method %s does not support REPEATABLE",
+                                   NameListToString(rts->method)),
+                            parser_errposition(pstate, rts->location)));
 
-		arg = transformExpr(pstate, rts->repeatable, EXPR_KIND_FROM_FUNCTION);
-		arg = coerce_to_specific_type(pstate, arg, FLOAT8OID, "REPEATABLE");
-		assign_expr_collations(pstate, arg);
-		tablesample->repeatable = (Expr *) arg;
-	}
-	else
-		tablesample->repeatable = NULL;
+        arg = transformExpr(pstate, rts->repeatable, EXPR_KIND_FROM_FUNCTION);
+        arg = coerce_to_specific_type(pstate, arg, FLOAT8OID, "REPEATABLE");
+        assign_expr_collations(pstate, arg);
+        tablesample->repeatable = (Expr *) arg;
+    } else
+        tablesample->repeatable = NULL;
 
-	return tablesample;
+    return tablesample;
 }
 
 /*
@@ -1017,27 +988,26 @@ transformRangeTableSample(ParseState *pstate, RangeTableSample *rts)
  * build and return an appropriate RTE, otherwise return NULL
  */
 static RangeTblEntry *
-getRTEForSpecialRelationTypes(ParseState *pstate, RangeVar *rv)
-{
-	CommonTableExpr *cte;
-	Index		levelsup;
-	RangeTblEntry *rte;
+getRTEForSpecialRelationTypes(ParseState *pstate, RangeVar *rv) {
+    CommonTableExpr *cte;
+    Index levelsup;
+    RangeTblEntry *rte;
 
-	/*
-	 * if it is a qualified name, it can't be a CTE or tuplestore reference
-	 */
-	if (rv->schemaname)
-		return NULL;
+    /*
+     * if it is a qualified name, it can't be a CTE or tuplestore reference
+     */
+    if (rv->schemaname)
+        return NULL;
 
-	cte = scanNameSpaceForCTE(pstate, rv->relname, &levelsup);
-	if (cte)
-		rte = addRangeTableEntryForCTE(pstate, cte, levelsup, rv, true);
-	else if (scanNameSpaceForENR(pstate, rv->relname))
-		rte = addRangeTableEntryForENR(pstate, rv, true);
-	else
-		rte = NULL;
+    cte = scanNameSpaceForCTE(pstate, rv->relname, &levelsup);
+    if (cte)
+        rte = addRangeTableEntryForCTE(pstate, cte, levelsup, rv, true);
+    else if (scanNameSpaceForENR(pstate, rv->relname))
+        rte = addRangeTableEntryForENR(pstate, rv, true);
+    else
+        rte = NULL;
 
-	return rte;
+    return rte;
 }
 
 /*
@@ -1061,426 +1031,400 @@ getRTEForSpecialRelationTypes(ParseState *pstate, RangeVar *rv)
  * as table/column names by this item.  (The lateral_only flags in these items
  * are indeterminate and should be explicitly set by the caller before use.)
  */
-static Node *
-transformFromClauseItem(ParseState *pstate, Node *n,
-						RangeTblEntry **top_rte, int *top_rti,
-						List **namespace)
-{
-	if (IsA(n, RangeVar))
-	{
-		/* Plain relation reference, or perhaps a CTE reference */
-		RangeVar   *rv = (RangeVar *) n;
-		RangeTblRef *rtr;
-		RangeTblEntry *rte;
-		int			rtindex;
+static Node *transformFromClauseItem(ParseState *parseState,
+                                     Node *node,
+                                     RangeTblEntry **top_rte,
+                                     int *top_rti,
+                                     List **namespaceList) {
+    if (IsA(node, RangeVar)) {
+        /* Plain relation reference, or perhaps a CTE reference */
+        RangeVar *rv = (RangeVar *) node;
+        RangeTblRef *rtr;
+        RangeTblEntry *rte;
+        int rtindex;
 
-		/* Check if it's a CTE or tuplestore reference */
-		rte = getRTEForSpecialRelationTypes(pstate, rv);
+        /* Check if it's a CTE or tuplestore reference */
+        rte = getRTEForSpecialRelationTypes(parseState, rv);
 
-		/* if not found above, must be a table reference */
-		if (!rte)
-			rte = transformTableEntry(pstate, rv);
+        /* if not found above, must be a table reference */
+        if (!rte)
+            rte = transformTableEntry(parseState, rv);
 
-		/* assume new rte is at end */
-		rtindex = list_length(pstate->p_rtable);
-		Assert(rte == rt_fetch(rtindex, pstate->p_rtable));
-		*top_rte = rte;
-		*top_rti = rtindex;
-		*namespace = list_make1(makeDefaultNSItem(rte));
-		rtr = makeNode(RangeTblRef);
-		rtr->rtindex = rtindex;
-		return (Node *) rtr;
-	}
-	else if (IsA(n, RangeSubselect))
-	{
-		/* sub-SELECT is like a plain relation */
-		RangeTblRef *rtr;
-		RangeTblEntry *rte;
-		int			rtindex;
+        /* assume new rte is at end */
+        rtindex = list_length(parseState->p_rtable);
+        Assert(rte == rt_fetch(rtindex, parseState->p_rtable));
+        *top_rte = rte;
+        *top_rti = rtindex;
+        *namespaceList = list_make1(makeDefaultNSItem(rte));
+        rtr = makeNode(RangeTblRef);
+        rtr->rtindex = rtindex;
+        return (Node *) rtr;
+    } else if (IsA(node, RangeSubselect)) {
+        /* sub-SELECT is like a plain relation */
+        RangeTblRef *rtr;
+        RangeTblEntry *rte;
+        int rtindex;
 
-		rte = transformRangeSubselect(pstate, (RangeSubselect *) n);
-		/* assume new rte is at end */
-		rtindex = list_length(pstate->p_rtable);
-		Assert(rte == rt_fetch(rtindex, pstate->p_rtable));
-		*top_rte = rte;
-		*top_rti = rtindex;
-		*namespace = list_make1(makeDefaultNSItem(rte));
-		rtr = makeNode(RangeTblRef);
-		rtr->rtindex = rtindex;
-		return (Node *) rtr;
-	}
-	else if (IsA(n, RangeFunction))
-	{
-		/* function is like a plain relation */
-		RangeTblRef *rtr;
-		RangeTblEntry *rte;
-		int			rtindex;
+        rte = transformRangeSubselect(parseState, (RangeSubselect *) node);
+        /* assume new rte is at end */
+        rtindex = list_length(parseState->p_rtable);
+        Assert(rte == rt_fetch(rtindex, parseState->p_rtable));
+        *top_rte = rte;
+        *top_rti = rtindex;
+        *namespaceList = list_make1(makeDefaultNSItem(rte));
+        rtr = makeNode(RangeTblRef);
+        rtr->rtindex = rtindex;
+        return (Node *) rtr;
+    } else if (IsA(node, RangeFunction)) {
+        // function is like a plain relation
+        RangeTblEntry *rangeTblEntry = transformRangeFunction(parseState, (RangeFunction *) node);
 
-		rte = transformRangeFunction(pstate, (RangeFunction *) n);
-		/* assume new rte is at end */
-		rtindex = list_length(pstate->p_rtable);
-		Assert(rte == rt_fetch(rtindex, pstate->p_rtable));
-		*top_rte = rte;
-		*top_rti = rtindex;
-		*namespace = list_make1(makeDefaultNSItem(rte));
-		rtr = makeNode(RangeTblRef);
-		rtr->rtindex = rtindex;
-		return (Node *) rtr;
-	}
-	else if (IsA(n, RangeTableFunc))
-	{
-		/* table function is like a plain relation */
-		RangeTblRef *rtr;
-		RangeTblEntry *rte;
-		int			rtindex;
+        // assume new rte is at end
+        int rtindex = list_length(parseState->p_rtable);
 
-		rte = transformRangeTableFunc(pstate, (RangeTableFunc *) n);
-		/* assume new rte is at end */
-		rtindex = list_length(pstate->p_rtable);
-		Assert(rte == rt_fetch(rtindex, pstate->p_rtable));
-		*top_rte = rte;
-		*top_rti = rtindex;
-		*namespace = list_make1(makeDefaultNSItem(rte));
-		rtr = makeNode(RangeTblRef);
-		rtr->rtindex = rtindex;
-		return (Node *) rtr;
-	}
-	else if (IsA(n, RangeTableSample))
-	{
-		/* TABLESAMPLE clause (wrapping some other valid FROM node) */
-		RangeTableSample *rts = (RangeTableSample *) n;
-		Node	   *rel;
-		RangeTblRef *rtr;
-		RangeTblEntry *rte;
+        Assert(rangeTblEntry == rt_fetch(rtindex, parseState->p_rtable));
 
-		/* Recursively transform the contained relation */
-		rel = transformFromClauseItem(pstate, rts->relation,
-									  top_rte, top_rti, namespace);
-		/* Currently, grammar could only return a RangeVar as contained rel */
-		rtr = castNode(RangeTblRef, rel);
-		rte = rt_fetch(rtr->rtindex, pstate->p_rtable);
-		/* We only support this on plain relations and matviews */
-		if (rte->relkind != RELKIND_RELATION &&
-			rte->relkind != RELKIND_MATVIEW &&
-			rte->relkind != RELKIND_PARTITIONED_TABLE)
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("TABLESAMPLE clause can only be applied to tables and materialized views"),
-					 parser_errposition(pstate, exprLocation(rts->relation))));
+        *top_rte = rangeTblEntry;
+        *top_rti = rtindex;
 
-		/* Transform TABLESAMPLE details and attach to the RTE */
-		rte->tablesample = transformRangeTableSample(pstate, rts);
-		return (Node *) rtr;
-	}
-	else if (IsA(n, JoinExpr))
-	{
-		/* A newfangled join expression */
-		JoinExpr   *j = (JoinExpr *) n;
-		RangeTblEntry *l_rte;
-		RangeTblEntry *r_rte;
-		int			l_rtindex;
-		int			r_rtindex;
-		List	   *l_namespace,
-				   *r_namespace,
-				   *my_namespace,
-				   *l_colnames,
-				   *r_colnames,
-				   *res_colnames,
-				   *l_colvars,
-				   *r_colvars,
-				   *res_colvars;
-		bool		lateral_ok;
-		int			sv_namespace_length;
-		RangeTblEntry *rte;
-		int			k;
+        *namespaceList = list_make1(makeDefaultNSItem(rangeTblEntry));
 
-		/*
-		 * Recursively process the left subtree, then the right.  We must do
-		 * it in this order for correct visibility of LATERAL references.
-		 */
-		j->larg = transformFromClauseItem(pstate, j->larg,
-										  &l_rte,
-										  &l_rtindex,
-										  &l_namespace);
+        RangeTblRef *rangeTblRef = makeNode(RangeTblRef);
+        rangeTblRef->rtindex = rtindex;
+        return (Node *) rangeTblRef;
+    } else if (IsA(node, RangeTableFunc)) {
+        /* table function is like a plain relation */
+        RangeTblRef *rtr;
+        RangeTblEntry *rte;
+        int rtindex;
 
-		/*
-		 * Make the left-side RTEs available for LATERAL access within the
-		 * right side, by temporarily adding them to the pstate's namespace
-		 * list.  Per SQL:2008, if the join type is not INNER or LEFT then the
-		 * left-side names must still be exposed, but it's an error to
-		 * reference them.  (Stupid design, but that's what it says.)  Hence,
-		 * we always push them into the namespace, but mark them as not
-		 * lateral_ok if the jointype is wrong.
-		 *
-		 * Notice that we don't require the merged namespace list to be
-		 * conflict-free.  See the comments for scanNameSpaceForRefname().
-		 *
-		 * NB: this coding relies on the fact that list_concat is not
-		 * destructive to its second argument.
-		 */
-		lateral_ok = (j->jointype == JOIN_INNER || j->jointype == JOIN_LEFT);
-		setNamespaceLateralState(l_namespace, true, lateral_ok);
+        rte = transformRangeTableFunc(parseState, (RangeTableFunc *) node);
+        /* assume new rte is at end */
+        rtindex = list_length(parseState->p_rtable);
+        Assert(rte == rt_fetch(rtindex, parseState->p_rtable));
+        *top_rte = rte;
+        *top_rti = rtindex;
+        *namespaceList = list_make1(makeDefaultNSItem(rte));
+        rtr = makeNode(RangeTblRef);
+        rtr->rtindex = rtindex;
+        return (Node *) rtr;
+    } else if (IsA(node, RangeTableSample)) {
+        /* TABLESAMPLE clause (wrapping some other valid FROM node) */
+        RangeTableSample *rts = (RangeTableSample *) node;
+        Node *rel;
+        RangeTblRef *rtr;
+        RangeTblEntry *rte;
 
-		sv_namespace_length = list_length(pstate->p_namespace);
-		pstate->p_namespace = list_concat(pstate->p_namespace, l_namespace);
+        /* Recursively transform the contained relation */
+        rel = transformFromClauseItem(parseState, rts->relation,
+                                      top_rte, top_rti, namespaceList);
+        /* Currently, grammar could only return a RangeVar as contained rel */
+        rtr = castNode(RangeTblRef, rel);
+        rte = rt_fetch(rtr->rtindex, parseState->p_rtable);
+        /* We only support this on plain relations and matviews */
+        if (rte->relkind != RELKIND_RELATION &&
+            rte->relkind != RELKIND_MATVIEW &&
+            rte->relkind != RELKIND_PARTITIONED_TABLE)
+            ereport(ERROR,
+                    (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                            errmsg("TABLESAMPLE clause can only be applied to tables and materialized views"),
+                            parser_errposition(parseState, exprLocation(rts->relation))));
 
-		/* And now we can process the RHS */
-		j->rarg = transformFromClauseItem(pstate, j->rarg,
-										  &r_rte,
-										  &r_rtindex,
-										  &r_namespace);
+        /* Transform TABLESAMPLE details and attach to the RTE */
+        rte->tablesample = transformRangeTableSample(parseState, rts);
+        return (Node *) rtr;
+    } else if (IsA(node, JoinExpr)) {
+        /* A newfangled join expression */
+        JoinExpr *j = (JoinExpr *) node;
+        RangeTblEntry *l_rte;
+        RangeTblEntry *r_rte;
+        int l_rtindex;
+        int r_rtindex;
+        List *l_namespace,
+                *r_namespace,
+                *my_namespace,
+                *l_colnames,
+                *r_colnames,
+                *res_colnames,
+                *l_colvars,
+                *r_colvars,
+                *res_colvars;
+        bool lateral_ok;
+        int sv_namespace_length;
+        RangeTblEntry *rte;
+        int k;
 
-		/* Remove the left-side RTEs from the namespace list again */
-		pstate->p_namespace = list_truncate(pstate->p_namespace,
-											sv_namespace_length);
+        /*
+         * Recursively process the left subtree, then the right.  We must do
+         * it in this order for correct visibility of LATERAL references.
+         */
+        j->larg = transformFromClauseItem(parseState, j->larg,
+                                          &l_rte,
+                                          &l_rtindex,
+                                          &l_namespace);
 
-		/*
-		 * Check for conflicting refnames in left and right subtrees. Must do
-		 * this because higher levels will assume I hand back a self-
-		 * consistent namespace list.
-		 */
-		checkNameSpaceConflicts(pstate, l_namespace, r_namespace);
+        /*
+         * Make the left-side RTEs available for LATERAL access within the
+         * right side, by temporarily adding them to the pstate's namespace
+         * list.  Per SQL:2008, if the join type is not INNER or LEFT then the
+         * left-side names must still be exposed, but it's an error to
+         * reference them.  (Stupid design, but that's what it says.)  Hence,
+         * we always push them into the namespace, but mark them as not
+         * lateral_ok if the jointype is wrong.
+         *
+         * Notice that we don't require the merged namespace list to be
+         * conflict-free.  See the comments for scanNameSpaceForRefname().
+         *
+         * NB: this coding relies on the fact that list_concat is not
+         * destructive to its second argument.
+         */
+        lateral_ok = (j->jointype == JOIN_INNER || j->jointype == JOIN_LEFT);
+        setNamespaceLateralState(l_namespace, true, lateral_ok);
 
-		/*
-		 * Generate combined namespace info for possible use below.
-		 */
-		my_namespace = list_concat(l_namespace, r_namespace);
+        sv_namespace_length = list_length(parseState->p_namespace);
+        parseState->p_namespace = list_concat(parseState->p_namespace, l_namespace);
 
-		/*
-		 * Extract column name and var lists from both subtrees
-		 *
-		 * Note: expandRTE returns new lists, safe for me to modify
-		 */
-		expandRTE(l_rte, l_rtindex, 0, -1, false,
-				  &l_colnames, &l_colvars);
-		expandRTE(r_rte, r_rtindex, 0, -1, false,
-				  &r_colnames, &r_colvars);
+        /* And now we can process the RHS */
+        j->rarg = transformFromClauseItem(parseState, j->rarg,
+                                          &r_rte,
+                                          &r_rtindex,
+                                          &r_namespace);
 
-		/*
-		 * Natural join does not explicitly specify columns; must generate
-		 * columns to join. Need to run through the list of columns from each
-		 * table or join result and match up the column names. Use the first
-		 * table, and check every column in the second table for a match.
-		 * (We'll check that the matches were unique later on.) The result of
-		 * this step is a list of column names just like an explicitly-written
-		 * USING list.
-		 */
-		if (j->isNatural)
-		{
-			List	   *rlist = NIL;
-			ListCell   *lx,
-					   *rx;
+        /* Remove the left-side RTEs from the namespace list again */
+        parseState->p_namespace = list_truncate(parseState->p_namespace,
+                                                sv_namespace_length);
 
-			Assert(j->usingClause == NIL);	/* shouldn't have USING() too */
+        /*
+         * Check for conflicting refnames in left and right subtrees. Must do
+         * this because higher levels will assume I hand back a self-
+         * consistent namespace list.
+         */
+        checkNameSpaceConflicts(parseState, l_namespace, r_namespace);
 
-			foreach(lx, l_colnames)
-			{
-				char	   *l_colname = strVal(lfirst(lx));
-				Value	   *m_name = NULL;
+        /*
+         * Generate combined namespace info for possible use below.
+         */
+        my_namespace = list_concat(l_namespace, r_namespace);
 
-				foreach(rx, r_colnames)
-				{
-					char	   *r_colname = strVal(lfirst(rx));
+        /*
+         * Extract column name and var lists from both subtrees
+         *
+         * Note: expandRTE returns new lists, safe for me to modify
+         */
+        expandRTE(l_rte, l_rtindex, 0, -1, false,
+                  &l_colnames, &l_colvars);
+        expandRTE(r_rte, r_rtindex, 0, -1, false,
+                  &r_colnames, &r_colvars);
 
-					if (strcmp(l_colname, r_colname) == 0)
-					{
-						m_name = makeString(l_colname);
-						break;
-					}
-				}
+        /*
+         * Natural join does not explicitly specify columns; must generate
+         * columns to join. Need to run through the list of columns from each
+         * table or join result and match up the column names. Use the first
+         * table, and check every column in the second table for a match.
+         * (We'll check that the matches were unique later on.) The result of
+         * this step is a list of column names just like an explicitly-written
+         * USING list.
+         */
+        if (j->isNatural) {
+            List *rlist = NIL;
+            ListCell *lx,
+                    *rx;
 
-				/* matched a right column? then keep as join column... */
-				if (m_name != NULL)
-					rlist = lappend(rlist, m_name);
-			}
+            Assert(j->usingClause == NIL);    /* shouldn't have USING() too */
 
-			j->usingClause = rlist;
-		}
+            foreach(lx, l_colnames) {
+                char *l_colname = strVal(lfirst(lx));
+                Value *m_name = NULL;
 
-		/*
-		 * Now transform the join qualifications, if any.
-		 */
-		res_colnames = NIL;
-		res_colvars = NIL;
+                foreach(rx, r_colnames) {
+                    char *r_colname = strVal(lfirst(rx));
 
-		if (j->usingClause)
-		{
-			/*
-			 * JOIN/USING (or NATURAL JOIN, as transformed above). Transform
-			 * the list into an explicit ON-condition, and generate a list of
-			 * merged result columns.
-			 */
-			List	   *ucols = j->usingClause;
-			List	   *l_usingvars = NIL;
-			List	   *r_usingvars = NIL;
-			ListCell   *ucol;
+                    if (strcmp(l_colname, r_colname) == 0) {
+                        m_name = makeString(l_colname);
+                        break;
+                    }
+                }
 
-			Assert(j->quals == NULL);	/* shouldn't have ON() too */
+                /* matched a right column? then keep as join column... */
+                if (m_name != NULL)
+                    rlist = lappend(rlist, m_name);
+            }
 
-			foreach(ucol, ucols)
-			{
-				char	   *u_colname = strVal(lfirst(ucol));
-				ListCell   *col;
-				int			ndx;
-				int			l_index = -1;
-				int			r_index = -1;
-				Var		   *l_colvar,
-						   *r_colvar;
+            j->usingClause = rlist;
+        }
 
-				/* Check for USING(foo,foo) */
-				foreach(col, res_colnames)
-				{
-					char	   *res_colname = strVal(lfirst(col));
+        /*
+         * Now transform the join qualifications, if any.
+         */
+        res_colnames = NIL;
+        res_colvars = NIL;
 
-					if (strcmp(res_colname, u_colname) == 0)
-						ereport(ERROR,
-								(errcode(ERRCODE_DUPLICATE_COLUMN),
-								 errmsg("column name \"%s\" appears more than once in USING clause",
-										u_colname)));
-				}
+        if (j->usingClause) {
+            /*
+             * JOIN/USING (or NATURAL JOIN, as transformed above). Transform
+             * the list into an explicit ON-condition, and generate a list of
+             * merged result columns.
+             */
+            List *ucols = j->usingClause;
+            List *l_usingvars = NIL;
+            List *r_usingvars = NIL;
+            ListCell *ucol;
 
-				/* Find it in left input */
-				ndx = 0;
-				foreach(col, l_colnames)
-				{
-					char	   *l_colname = strVal(lfirst(col));
+            Assert(j->quals == NULL);    /* shouldn't have ON() too */
 
-					if (strcmp(l_colname, u_colname) == 0)
-					{
-						if (l_index >= 0)
-							ereport(ERROR,
-									(errcode(ERRCODE_AMBIGUOUS_COLUMN),
-									 errmsg("common column name \"%s\" appears more than once in left table",
-											u_colname)));
-						l_index = ndx;
-					}
-					ndx++;
-				}
-				if (l_index < 0)
-					ereport(ERROR,
-							(errcode(ERRCODE_UNDEFINED_COLUMN),
-							 errmsg("column \"%s\" specified in USING clause does not exist in left table",
-									u_colname)));
+            foreach(ucol, ucols) {
+                char *u_colname = strVal(lfirst(ucol));
+                ListCell *col;
+                int ndx;
+                int l_index = -1;
+                int r_index = -1;
+                Var *l_colvar,
+                        *r_colvar;
 
-				/* Find it in right input */
-				ndx = 0;
-				foreach(col, r_colnames)
-				{
-					char	   *r_colname = strVal(lfirst(col));
+                /* Check for USING(foo,foo) */
+                foreach(col, res_colnames) {
+                    char *res_colname = strVal(lfirst(col));
 
-					if (strcmp(r_colname, u_colname) == 0)
-					{
-						if (r_index >= 0)
-							ereport(ERROR,
-									(errcode(ERRCODE_AMBIGUOUS_COLUMN),
-									 errmsg("common column name \"%s\" appears more than once in right table",
-											u_colname)));
-						r_index = ndx;
-					}
-					ndx++;
-				}
-				if (r_index < 0)
-					ereport(ERROR,
-							(errcode(ERRCODE_UNDEFINED_COLUMN),
-							 errmsg("column \"%s\" specified in USING clause does not exist in right table",
-									u_colname)));
+                    if (strcmp(res_colname, u_colname) == 0)
+                        ereport(ERROR,
+                                (errcode(ERRCODE_DUPLICATE_COLUMN),
+                                        errmsg("column name \"%s\" appears more than once in USING clause",
+                                               u_colname)));
+                }
 
-				l_colvar = list_nth(l_colvars, l_index);
-				l_usingvars = lappend(l_usingvars, l_colvar);
-				r_colvar = list_nth(r_colvars, r_index);
-				r_usingvars = lappend(r_usingvars, r_colvar);
+                /* Find it in left input */
+                ndx = 0;
+                foreach(col, l_colnames) {
+                    char *l_colname = strVal(lfirst(col));
 
-				res_colnames = lappend(res_colnames, lfirst(ucol));
-				res_colvars = lappend(res_colvars,
-									  buildMergedJoinVar(pstate,
-														 j->jointype,
-														 l_colvar,
-														 r_colvar));
-			}
+                    if (strcmp(l_colname, u_colname) == 0) {
+                        if (l_index >= 0)
+                            ereport(ERROR,
+                                    (errcode(ERRCODE_AMBIGUOUS_COLUMN),
+                                            errmsg("common column name \"%s\" appears more than once in left table",
+                                                   u_colname)));
+                        l_index = ndx;
+                    }
+                    ndx++;
+                }
+                if (l_index < 0)
+                    ereport(ERROR,
+                            (errcode(ERRCODE_UNDEFINED_COLUMN),
+                                    errmsg("column \"%s\" specified in USING clause does not exist in left table",
+                                           u_colname)));
 
-			j->quals = transformJoinUsingClause(pstate,
-												l_rte,
-												r_rte,
-												l_usingvars,
-												r_usingvars);
-		}
-		else if (j->quals)
-		{
-			/* User-written ON-condition; transform it */
-			j->quals = transformJoinOnClause(pstate, j, my_namespace);
-		}
-		else
-		{
-			/* CROSS JOIN: no quals */
-		}
+                /* Find it in right input */
+                ndx = 0;
+                foreach(col, r_colnames) {
+                    char *r_colname = strVal(lfirst(col));
 
-		/* Add remaining columns from each side to the output columns */
-		extractRemainingColumns(res_colnames,
-								l_colnames, l_colvars,
-								&l_colnames, &l_colvars);
-		extractRemainingColumns(res_colnames,
-								r_colnames, r_colvars,
-								&r_colnames, &r_colvars);
-		res_colnames = list_concat(res_colnames, l_colnames);
-		res_colvars = list_concat(res_colvars, l_colvars);
-		res_colnames = list_concat(res_colnames, r_colnames);
-		res_colvars = list_concat(res_colvars, r_colvars);
+                    if (strcmp(r_colname, u_colname) == 0) {
+                        if (r_index >= 0)
+                            ereport(ERROR,
+                                    (errcode(ERRCODE_AMBIGUOUS_COLUMN),
+                                            errmsg("common column name \"%s\" appears more than once in right table",
+                                                   u_colname)));
+                        r_index = ndx;
+                    }
+                    ndx++;
+                }
+                if (r_index < 0)
+                    ereport(ERROR,
+                            (errcode(ERRCODE_UNDEFINED_COLUMN),
+                                    errmsg("column \"%s\" specified in USING clause does not exist in right table",
+                                           u_colname)));
 
-		/*
-		 * Now build an RTE for the result of the join
-		 */
-		rte = addRangeTableEntryForJoin(pstate,
-										res_colnames,
-										j->jointype,
-										res_colvars,
-										j->alias,
-										true);
+                l_colvar = list_nth(l_colvars, l_index);
+                l_usingvars = lappend(l_usingvars, l_colvar);
+                r_colvar = list_nth(r_colvars, r_index);
+                r_usingvars = lappend(r_usingvars, r_colvar);
 
-		/* assume new rte is at end */
-		j->rtindex = list_length(pstate->p_rtable);
-		Assert(rte == rt_fetch(j->rtindex, pstate->p_rtable));
+                res_colnames = lappend(res_colnames, lfirst(ucol));
+                res_colvars = lappend(res_colvars,
+                                      buildMergedJoinVar(parseState,
+                                                         j->jointype,
+                                                         l_colvar,
+                                                         r_colvar));
+            }
 
-		*top_rte = rte;
-		*top_rti = j->rtindex;
+            j->quals = transformJoinUsingClause(parseState,
+                                                l_rte,
+                                                r_rte,
+                                                l_usingvars,
+                                                r_usingvars);
+        } else if (j->quals) {
+            /* User-written ON-condition; transform it */
+            j->quals = transformJoinOnClause(parseState, j, my_namespace);
+        } else {
+            /* CROSS JOIN: no quals */
+        }
 
-		/* make a matching link to the JoinExpr for later use */
-		for (k = list_length(pstate->p_joinexprs) + 1; k < j->rtindex; k++)
-			pstate->p_joinexprs = lappend(pstate->p_joinexprs, NULL);
-		pstate->p_joinexprs = lappend(pstate->p_joinexprs, j);
-		Assert(list_length(pstate->p_joinexprs) == j->rtindex);
+        /* Add remaining columns from each side to the output columns */
+        extractRemainingColumns(res_colnames,
+                                l_colnames, l_colvars,
+                                &l_colnames, &l_colvars);
+        extractRemainingColumns(res_colnames,
+                                r_colnames, r_colvars,
+                                &r_colnames, &r_colvars);
+        res_colnames = list_concat(res_colnames, l_colnames);
+        res_colvars = list_concat(res_colvars, l_colvars);
+        res_colnames = list_concat(res_colnames, r_colnames);
+        res_colvars = list_concat(res_colvars, r_colvars);
 
-		/*
-		 * Prepare returned namespace list.  If the JOIN has an alias then it
-		 * hides the contained RTEs completely; otherwise, the contained RTEs
-		 * are still visible as table names, but are not visible for
-		 * unqualified column-name access.
-		 *
-		 * Note: if there are nested alias-less JOINs, the lower-level ones
-		 * will remain in the list although they have neither p_rel_visible
-		 * nor p_cols_visible set.  We could delete such list items, but it's
-		 * unclear that it's worth expending cycles to do so.
-		 */
-		if (j->alias != NULL)
-			my_namespace = NIL;
-		else
-			setNamespaceColumnVisibility(my_namespace, false);
+        /*
+         * Now build an RTE for the result of the join
+         */
+        rte = addRangeTableEntryForJoin(parseState,
+                                        res_colnames,
+                                        j->jointype,
+                                        res_colvars,
+                                        j->alias,
+                                        true);
 
-		/*
-		 * The join RTE itself is always made visible for unqualified column
-		 * names.  It's visible as a relation name only if it has an alias.
-		 */
-		*namespace = lappend(my_namespace,
-							 makeNamespaceItem(rte,
-											   (j->alias != NULL),
-											   true,
-											   false,
-											   true));
+        /* assume new rte is at end */
+        j->rtindex = list_length(parseState->p_rtable);
+        Assert(rte == rt_fetch(j->rtindex, parseState->p_rtable));
 
-		return (Node *) j;
-	}
-	else
-		elog(ERROR, "unrecognized node type: %d", (int) nodeTag(n));
-	return NULL;				/* can't get here, keep compiler quiet */
+        *top_rte = rte;
+        *top_rti = j->rtindex;
+
+        /* make a matching link to the JoinExpr for later use */
+        for (k = list_length(parseState->p_joinexprs) + 1; k < j->rtindex; k++)
+            parseState->p_joinexprs = lappend(parseState->p_joinexprs, NULL);
+        parseState->p_joinexprs = lappend(parseState->p_joinexprs, j);
+        Assert(list_length(parseState->p_joinexprs) == j->rtindex);
+
+        /*
+         * Prepare returned namespace list.  If the JOIN has an alias then it
+         * hides the contained RTEs completely; otherwise, the contained RTEs
+         * are still visible as table names, but are not visible for
+         * unqualified column-name access.
+         *
+         * Note: if there are nested alias-less JOINs, the lower-level ones
+         * will remain in the list although they have neither p_rel_visible
+         * nor p_cols_visible set.  We could delete such list items, but it's
+         * unclear that it's worth expending cycles to do so.
+         */
+        if (j->alias != NULL)
+            my_namespace = NIL;
+        else
+            setNamespaceColumnVisibility(my_namespace, false);
+
+        /*
+         * The join RTE itself is always made visible for unqualified column
+         * names.  It's visible as a relation name only if it has an alias.
+         */
+        *namespaceList = lappend(my_namespace,
+                                 makeNamespaceItem(rte,
+                                                   (j->alias != NULL),
+                                                   true,
+                                                   false,
+                                                   true));
+
+        return (Node *) j;
+    } else
+        elog(ERROR, "unrecognized node type: %d", (int) nodeTag(node));
+    return NULL;                /* can't get here, keep compiler quiet */
 }
 
 /*
@@ -1489,117 +1433,111 @@ transformFromClauseItem(ParseState *pstate, Node *n,
  */
 static Node *
 buildMergedJoinVar(ParseState *pstate, JoinType jointype,
-				   Var *l_colvar, Var *r_colvar)
-{
-	Oid			outcoltype;
-	int32		outcoltypmod;
-	Node	   *l_node,
-			   *r_node,
-			   *res_node;
+                   Var *l_colvar, Var *r_colvar) {
+    Oid outcoltype;
+    int32 outcoltypmod;
+    Node *l_node,
+            *r_node,
+            *res_node;
 
-	/*
-	 * Choose output type if input types are dissimilar.
-	 */
-	outcoltype = l_colvar->vartype;
-	outcoltypmod = l_colvar->vartypmod;
-	if (outcoltype != r_colvar->vartype)
-	{
-		outcoltype = select_common_type(pstate,
-										list_make2(l_colvar, r_colvar),
-										"JOIN/USING",
-										NULL);
-		outcoltypmod = -1;		/* ie, unknown */
-	}
-	else if (outcoltypmod != r_colvar->vartypmod)
-	{
-		/* same type, but not same typmod */
-		outcoltypmod = -1;		/* ie, unknown */
-	}
+    /*
+     * Choose output type if input types are dissimilar.
+     */
+    outcoltype = l_colvar->vartype;
+    outcoltypmod = l_colvar->vartypmod;
+    if (outcoltype != r_colvar->vartype) {
+        outcoltype = select_common_type(pstate,
+                                        list_make2(l_colvar, r_colvar),
+                                        "JOIN/USING",
+                                        NULL);
+        outcoltypmod = -1;        /* ie, unknown */
+    } else if (outcoltypmod != r_colvar->vartypmod) {
+        /* same type, but not same typmod */
+        outcoltypmod = -1;        /* ie, unknown */
+    }
 
-	/*
-	 * Insert coercion functions if needed.  Note that a difference in typmod
-	 * can only happen if input has typmod but outcoltypmod is -1. In that
-	 * case we insert a RelabelType to clearly mark that result's typmod is
-	 * not same as input.  We never need coerce_type_typmod.
-	 */
-	if (l_colvar->vartype != outcoltype)
-		l_node = coerce_type(pstate, (Node *) l_colvar, l_colvar->vartype,
-							 outcoltype, outcoltypmod,
-							 COERCION_IMPLICIT, COERCE_IMPLICIT_CAST, -1);
-	else if (l_colvar->vartypmod != outcoltypmod)
-		l_node = (Node *) makeRelabelType((Expr *) l_colvar,
-										  outcoltype, outcoltypmod,
-										  InvalidOid,	/* fixed below */
-										  COERCE_IMPLICIT_CAST);
-	else
-		l_node = (Node *) l_colvar;
+    /*
+     * Insert coercion functions if needed.  Note that a difference in typmod
+     * can only happen if input has typmod but outcoltypmod is -1. In that
+     * case we insert a RelabelType to clearly mark that result's typmod is
+     * not same as input.  We never need coerce_type_typmod.
+     */
+    if (l_colvar->vartype != outcoltype)
+        l_node = coerce_type(pstate, (Node *) l_colvar, l_colvar->vartype,
+                             outcoltype, outcoltypmod,
+                             COERCION_IMPLICIT, COERCE_IMPLICIT_CAST, -1);
+    else if (l_colvar->vartypmod != outcoltypmod)
+        l_node = (Node *) makeRelabelType((Expr *) l_colvar,
+                                          outcoltype, outcoltypmod,
+                                          InvalidOid,    /* fixed below */
+                                          COERCE_IMPLICIT_CAST);
+    else
+        l_node = (Node *) l_colvar;
 
-	if (r_colvar->vartype != outcoltype)
-		r_node = coerce_type(pstate, (Node *) r_colvar, r_colvar->vartype,
-							 outcoltype, outcoltypmod,
-							 COERCION_IMPLICIT, COERCE_IMPLICIT_CAST, -1);
-	else if (r_colvar->vartypmod != outcoltypmod)
-		r_node = (Node *) makeRelabelType((Expr *) r_colvar,
-										  outcoltype, outcoltypmod,
-										  InvalidOid,	/* fixed below */
-										  COERCE_IMPLICIT_CAST);
-	else
-		r_node = (Node *) r_colvar;
+    if (r_colvar->vartype != outcoltype)
+        r_node = coerce_type(pstate, (Node *) r_colvar, r_colvar->vartype,
+                             outcoltype, outcoltypmod,
+                             COERCION_IMPLICIT, COERCE_IMPLICIT_CAST, -1);
+    else if (r_colvar->vartypmod != outcoltypmod)
+        r_node = (Node *) makeRelabelType((Expr *) r_colvar,
+                                          outcoltype, outcoltypmod,
+                                          InvalidOid,    /* fixed below */
+                                          COERCE_IMPLICIT_CAST);
+    else
+        r_node = (Node *) r_colvar;
 
-	/*
-	 * Choose what to emit
-	 */
-	switch (jointype)
-	{
-		case JOIN_INNER:
+    /*
+     * Choose what to emit
+     */
+    switch (jointype) {
+        case JOIN_INNER:
 
-			/*
-			 * We can use either var; prefer non-coerced one if available.
-			 */
-			if (IsA(l_node, Var))
-				res_node = l_node;
-			else if (IsA(r_node, Var))
-				res_node = r_node;
-			else
-				res_node = l_node;
-			break;
-		case JOIN_LEFT:
-			/* Always use left var */
-			res_node = l_node;
-			break;
-		case JOIN_RIGHT:
-			/* Always use right var */
-			res_node = r_node;
-			break;
-		case JOIN_FULL:
-			{
-				/*
-				 * Here we must build a COALESCE expression to ensure that the
-				 * join output is non-null if either input is.
-				 */
-				CoalesceExpr *c = makeNode(CoalesceExpr);
+            /*
+             * We can use either var; prefer non-coerced one if available.
+             */
+            if (IsA(l_node, Var))
+                res_node = l_node;
+            else if (IsA(r_node, Var))
+                res_node = r_node;
+            else
+                res_node = l_node;
+            break;
+        case JOIN_LEFT:
+            /* Always use left var */
+            res_node = l_node;
+            break;
+        case JOIN_RIGHT:
+            /* Always use right var */
+            res_node = r_node;
+            break;
+        case JOIN_FULL: {
+            /*
+             * Here we must build a COALESCE expression to ensure that the
+             * join output is non-null if either input is.
+             */
+            CoalesceExpr *c = makeNode(CoalesceExpr);
 
-				c->coalescetype = outcoltype;
-				/* coalescecollid will get set below */
-				c->args = list_make2(l_node, r_node);
-				c->location = -1;
-				res_node = (Node *) c;
-				break;
-			}
-		default:
-			elog(ERROR, "unrecognized join type: %d", (int) jointype);
-			res_node = NULL;	/* keep compiler quiet */
-			break;
-	}
+            c->coalescetype = outcoltype;
+            /* coalescecollid will get set below */
+            c->args = list_make2(l_node, r_node);
+            c->location = -1;
+            res_node = (Node *) c;
+            break;
+        }
+        default:
+            elog(ERROR, "unrecognized join type: %d", (int) jointype);
+            res_node = NULL;    /* keep compiler quiet */
+            break;
+    }
 
-	/*
-	 * Apply assign_expr_collations to fix up the collation info in the
-	 * coercion and CoalesceExpr nodes, if we made any.  This must be done now
-	 * so that the join node's alias vars show correct collation info.
-	 */
-	assign_expr_collations(pstate, res_node);
+    /*
+     * Apply assign_expr_collations to fix up the collation info in the
+     * coercion and CoalesceExpr nodes, if we made any.  This must be done now
+     * so that the join node's alias vars show correct collation info.
+     */
+    assign_expr_collations(pstate, res_node);
 
-	return res_node;
+    return res_node;
 }
 
 /*
@@ -1608,17 +1546,16 @@ buildMergedJoinVar(ParseState *pstate, JoinType jointype,
  */
 static ParseNamespaceItem *
 makeNamespaceItem(RangeTblEntry *rte, bool rel_visible, bool cols_visible,
-				  bool lateral_only, bool lateral_ok)
-{
-	ParseNamespaceItem *nsitem;
+                  bool lateral_only, bool lateral_ok) {
+    ParseNamespaceItem *nsitem;
 
-	nsitem = (ParseNamespaceItem *) palloc(sizeof(ParseNamespaceItem));
-	nsitem->p_rte = rte;
-	nsitem->p_rel_visible = rel_visible;
-	nsitem->p_cols_visible = cols_visible;
-	nsitem->p_lateral_only = lateral_only;
-	nsitem->p_lateral_ok = lateral_ok;
-	return nsitem;
+    nsitem = (ParseNamespaceItem *) palloc(sizeof(ParseNamespaceItem));
+    nsitem->p_rte = rte;
+    nsitem->p_rel_visible = rel_visible;
+    nsitem->p_cols_visible = cols_visible;
+    nsitem->p_lateral_only = lateral_only;
+    nsitem->p_lateral_ok = lateral_ok;
+    return nsitem;
 }
 
 /*
@@ -1626,16 +1563,14 @@ makeNamespaceItem(RangeTblEntry *rte, bool rel_visible, bool cols_visible,
  *	  Convenience subroutine to update cols_visible flags in a namespace list.
  */
 static void
-setNamespaceColumnVisibility(List *namespace, bool cols_visible)
-{
-	ListCell   *lc;
+setNamespaceColumnVisibility(List *namespace, bool cols_visible) {
+    ListCell *lc;
 
-	foreach(lc, namespace)
-	{
-		ParseNamespaceItem *nsitem = (ParseNamespaceItem *) lfirst(lc);
+    foreach(lc, namespace) {
+        ParseNamespaceItem *nsitem = (ParseNamespaceItem *) lfirst(lc);
 
-		nsitem->p_cols_visible = cols_visible;
-	}
+        nsitem->p_cols_visible = cols_visible;
+    }
 }
 
 /*
@@ -1643,17 +1578,15 @@ setNamespaceColumnVisibility(List *namespace, bool cols_visible)
  *	  Convenience subroutine to update LATERAL flags in a namespace list.
  */
 static void
-setNamespaceLateralState(List *namespace, bool lateral_only, bool lateral_ok)
-{
-	ListCell   *lc;
+setNamespaceLateralState(List *namespace, bool lateral_only, bool lateral_ok) {
+    ListCell *lc;
 
-	foreach(lc, namespace)
-	{
-		ParseNamespaceItem *nsitem = (ParseNamespaceItem *) lfirst(lc);
+    foreach(lc, namespace) {
+        ParseNamespaceItem *nsitem = (ParseNamespaceItem *) lfirst(lc);
 
-		nsitem->p_lateral_only = lateral_only;
-		nsitem->p_lateral_ok = lateral_ok;
-	}
+        nsitem->p_lateral_only = lateral_only;
+        nsitem->p_lateral_ok = lateral_ok;
+    }
 }
 
 
@@ -1666,18 +1599,17 @@ setNamespaceLateralState(List *namespace, bool lateral_only, bool lateral_ok)
  */
 Node *
 transformWhereClause(ParseState *pstate, Node *clause,
-					 ParseExprKind exprKind, const char *constructName)
-{
-	Node	   *qual;
+                     ParseExprKind exprKind, const char *constructName) {
+    Node *qual;
 
-	if (clause == NULL)
-		return NULL;
+    if (clause == NULL)
+        return NULL;
 
-	qual = transformExpr(pstate, clause, exprKind);
+    qual = transformExpr(pstate, clause, exprKind);
 
-	qual = coerce_to_boolean(pstate, qual, constructName);
+    qual = coerce_to_boolean(pstate, qual, constructName);
 
-	return qual;
+    return qual;
 }
 
 
@@ -1693,21 +1625,20 @@ transformWhereClause(ParseState *pstate, Node *clause,
  */
 Node *
 transformLimitClause(ParseState *pstate, Node *clause,
-					 ParseExprKind exprKind, const char *constructName)
-{
-	Node	   *qual;
+                     ParseExprKind exprKind, const char *constructName) {
+    Node *qual;
 
-	if (clause == NULL)
-		return NULL;
+    if (clause == NULL)
+        return NULL;
 
-	qual = transformExpr(pstate, clause, exprKind);
+    qual = transformExpr(pstate, clause, exprKind);
 
-	qual = coerce_to_specific_type(pstate, qual, INT8OID, constructName);
+    qual = coerce_to_specific_type(pstate, qual, INT8OID, constructName);
 
-	/* LIMIT can't refer to any variables of the current query */
-	checkExprIsVarFree(pstate, qual, constructName);
+    /* LIMIT can't refer to any variables of the current query */
+    checkExprIsVarFree(pstate, qual, constructName);
 
-	return qual;
+    return qual;
 }
 
 /*
@@ -1723,18 +1654,16 @@ transformLimitClause(ParseState *pstate, Node *clause,
  * constructName does not affect the semantics, but is used in error messages
  */
 static void
-checkExprIsVarFree(ParseState *pstate, Node *n, const char *constructName)
-{
-	if (contain_vars_of_level(n, 0))
-	{
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
-		/* translator: %s is name of a SQL construct, eg LIMIT */
-				 errmsg("argument of %s must not contain variables",
-						constructName),
-				 parser_errposition(pstate,
-									locate_var_of_level(n, 0))));
-	}
+checkExprIsVarFree(ParseState *pstate, Node *n, const char *constructName) {
+    if (contain_vars_of_level(n, 0)) {
+        ereport(ERROR,
+                (errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
+                        /* translator: %s is name of a SQL construct, eg LIMIT */
+                        errmsg("argument of %s must not contain variables",
+                               constructName),
+                        parser_errposition(pstate,
+                                           locate_var_of_level(n, 0))));
+    }
 }
 
 
@@ -1749,41 +1678,39 @@ checkExprIsVarFree(ParseState *pstate, Node *n, const char *constructName)
  */
 static void
 checkTargetlistEntrySQL92(ParseState *pstate, TargetEntry *tle,
-						  ParseExprKind exprKind)
-{
-	switch (exprKind)
-	{
-		case EXPR_KIND_GROUP_BY:
-			/* reject aggregates and window functions */
-			if (pstate->p_hasAggs &&
-				contain_aggs_of_level((Node *) tle->expr, 0))
-				ereport(ERROR,
-						(errcode(ERRCODE_GROUPING_ERROR),
-				/* translator: %s is name of a SQL construct, eg GROUP BY */
-						 errmsg("aggregate functions are not allowed in %s",
-								ParseExprKindName(exprKind)),
-						 parser_errposition(pstate,
-											locate_agg_of_level((Node *) tle->expr, 0))));
-			if (pstate->p_hasWindowFuncs &&
-				contain_windowfuncs((Node *) tle->expr))
-				ereport(ERROR,
-						(errcode(ERRCODE_WINDOWING_ERROR),
-				/* translator: %s is name of a SQL construct, eg GROUP BY */
-						 errmsg("window functions are not allowed in %s",
-								ParseExprKindName(exprKind)),
-						 parser_errposition(pstate,
-											locate_windowfunc((Node *) tle->expr))));
-			break;
-		case EXPR_KIND_ORDER_BY:
-			/* no extra checks needed */
-			break;
-		case EXPR_KIND_DISTINCT_ON:
-			/* no extra checks needed */
-			break;
-		default:
-			elog(ERROR, "unexpected exprKind in checkTargetlistEntrySQL92");
-			break;
-	}
+                          ParseExprKind exprKind) {
+    switch (exprKind) {
+        case EXPR_KIND_GROUP_BY:
+            /* reject aggregates and window functions */
+            if (pstate->p_hasAggs &&
+                contain_aggs_of_level((Node *) tle->expr, 0))
+                ereport(ERROR,
+                        (errcode(ERRCODE_GROUPING_ERROR),
+                                /* translator: %s is name of a SQL construct, eg GROUP BY */
+                                errmsg("aggregate functions are not allowed in %s",
+                                       ParseExprKindName(exprKind)),
+                                parser_errposition(pstate,
+                                                   locate_agg_of_level((Node *) tle->expr, 0))));
+            if (pstate->p_hasWindowFuncs &&
+                contain_windowfuncs((Node *) tle->expr))
+                ereport(ERROR,
+                        (errcode(ERRCODE_WINDOWING_ERROR),
+                                /* translator: %s is name of a SQL construct, eg GROUP BY */
+                                errmsg("window functions are not allowed in %s",
+                                       ParseExprKindName(exprKind)),
+                                parser_errposition(pstate,
+                                                   locate_windowfunc((Node *) tle->expr))));
+            break;
+        case EXPR_KIND_ORDER_BY:
+            /* no extra checks needed */
+            break;
+        case EXPR_KIND_DISTINCT_ON:
+            /* no extra checks needed */
+            break;
+        default:
+            elog(ERROR, "unexpected exprKind in checkTargetlistEntrySQL92");
+            break;
+    }
 }
 
 /*
@@ -1805,156 +1732,143 @@ checkTargetlistEntrySQL92(ParseState *pstate, TargetEntry *tle,
  */
 static TargetEntry *
 findTargetlistEntrySQL92(ParseState *pstate, Node *node, List **tlist,
-						 ParseExprKind exprKind)
-{
-	ListCell   *tl;
+                         ParseExprKind exprKind) {
+    ListCell *tl;
 
-	/*----------
-	 * Handle two special cases as mandated by the SQL92 spec:
-	 *
-	 * 1. Bare ColumnName (no qualifier or subscripts)
-	 *	  For a bare identifier, we search for a matching column name
-	 *	  in the existing target list.  Multiple matches are an error
-	 *	  unless they refer to identical values; for example,
-	 *	  we allow	SELECT a, a FROM table ORDER BY a
-	 *	  but not	SELECT a AS b, b FROM table ORDER BY b
-	 *	  If no match is found, we fall through and treat the identifier
-	 *	  as an expression.
-	 *	  For GROUP BY, it is incorrect to match the grouping item against
-	 *	  targetlist entries: according to SQL92, an identifier in GROUP BY
-	 *	  is a reference to a column name exposed by FROM, not to a target
-	 *	  list column.  However, many implementations (including pre-7.0
-	 *	  PostgreSQL) accept this anyway.  So for GROUP BY, we look first
-	 *	  to see if the identifier matches any FROM column name, and only
-	 *	  try for a targetlist name if it doesn't.  This ensures that we
-	 *	  adhere to the spec in the case where the name could be both.
-	 *	  DISTINCT ON isn't in the standard, so we can do what we like there;
-	 *	  we choose to make it work like ORDER BY, on the rather flimsy
-	 *	  grounds that ordinary DISTINCT works on targetlist entries.
-	 *
-	 * 2. IntegerConstant
-	 *	  This means to use the n'th item in the existing target list.
-	 *	  Note that it would make no sense to order/group/distinct by an
-	 *	  actual constant, so this does not create a conflict with SQL99.
-	 *	  GROUP BY column-number is not allowed by SQL92, but since
-	 *	  the standard has no other behavior defined for this syntax,
-	 *	  we may as well accept this common extension.
-	 *
-	 * Note that pre-existing resjunk targets must not be used in either case,
-	 * since the user didn't write them in his SELECT list.
-	 *
-	 * If neither special case applies, fall through to treat the item as
-	 * an expression per SQL99.
-	 *----------
-	 */
-	if (IsA(node, ColumnRef) &&
-		list_length(((ColumnRef *) node)->fields) == 1 &&
-		IsA(linitial(((ColumnRef *) node)->fields), String))
-	{
-		char	   *name = strVal(linitial(((ColumnRef *) node)->fields));
-		int			location = ((ColumnRef *) node)->location;
+    /*----------
+     * Handle two special cases as mandated by the SQL92 spec:
+     *
+     * 1. Bare ColumnName (no qualifier or subscripts)
+     *	  For a bare identifier, we search for a matching column name
+     *	  in the existing target list.  Multiple matches are an error
+     *	  unless they refer to identical values; for example,
+     *	  we allow	SELECT a, a FROM table ORDER BY a
+     *	  but not	SELECT a AS b, b FROM table ORDER BY b
+     *	  If no match is found, we fall through and treat the identifier
+     *	  as an expression.
+     *	  For GROUP BY, it is incorrect to match the grouping item against
+     *	  targetlist entries: according to SQL92, an identifier in GROUP BY
+     *	  is a reference to a column name exposed by FROM, not to a target
+     *	  list column.  However, many implementations (including pre-7.0
+     *	  PostgreSQL) accept this anyway.  So for GROUP BY, we look first
+     *	  to see if the identifier matches any FROM column name, and only
+     *	  try for a targetlist name if it doesn't.  This ensures that we
+     *	  adhere to the spec in the case where the name could be both.
+     *	  DISTINCT ON isn't in the standard, so we can do what we like there;
+     *	  we choose to make it work like ORDER BY, on the rather flimsy
+     *	  grounds that ordinary DISTINCT works on targetlist entries.
+     *
+     * 2. IntegerConstant
+     *	  This means to use the n'th item in the existing target list.
+     *	  Note that it would make no sense to order/group/distinct by an
+     *	  actual constant, so this does not create a conflict with SQL99.
+     *	  GROUP BY column-number is not allowed by SQL92, but since
+     *	  the standard has no other behavior defined for this syntax,
+     *	  we may as well accept this common extension.
+     *
+     * Note that pre-existing resjunk targets must not be used in either case,
+     * since the user didn't write them in his SELECT list.
+     *
+     * If neither special case applies, fall through to treat the item as
+     * an expression per SQL99.
+     *----------
+     */
+    if (IsA(node, ColumnRef) &&
+        list_length(((ColumnRef *) node)->fields) == 1 &&
+        IsA(linitial(((ColumnRef *) node)->fields), String)) {
+        char *name = strVal(linitial(((ColumnRef *) node)->fields));
+        int location = ((ColumnRef *) node)->location;
 
-		if (exprKind == EXPR_KIND_GROUP_BY)
-		{
-			/*
-			 * In GROUP BY, we must prefer a match against a FROM-clause
-			 * column to one against the targetlist.  Look to see if there is
-			 * a matching column.  If so, fall through to use SQL99 rules.
-			 * NOTE: if name could refer ambiguously to more than one column
-			 * name exposed by FROM, colNameToVar will ereport(ERROR). That's
-			 * just what we want here.
-			 *
-			 * Small tweak for 7.4.3: ignore matches in upper query levels.
-			 * This effectively changes the search order for bare names to (1)
-			 * local FROM variables, (2) local targetlist aliases, (3) outer
-			 * FROM variables, whereas before it was (1) (3) (2). SQL92 and
-			 * SQL99 do not allow GROUPing BY an outer reference, so this
-			 * breaks no cases that are legal per spec, and it seems a more
-			 * self-consistent behavior.
-			 */
-			if (colNameToVar(pstate, name, true, location) != NULL)
-				name = NULL;
-		}
+        if (exprKind == EXPR_KIND_GROUP_BY) {
+            /*
+             * In GROUP BY, we must prefer a match against a FROM-clause
+             * column to one against the targetlist.  Look to see if there is
+             * a matching column.  If so, fall through to use SQL99 rules.
+             * NOTE: if name could refer ambiguously to more than one column
+             * name exposed by FROM, colNameToVar will ereport(ERROR). That's
+             * just what we want here.
+             *
+             * Small tweak for 7.4.3: ignore matches in upper query levels.
+             * This effectively changes the search order for bare names to (1)
+             * local FROM variables, (2) local targetlist aliases, (3) outer
+             * FROM variables, whereas before it was (1) (3) (2). SQL92 and
+             * SQL99 do not allow GROUPing BY an outer reference, so this
+             * breaks no cases that are legal per spec, and it seems a more
+             * self-consistent behavior.
+             */
+            if (colNameToVar(pstate, name, true, location) != NULL)
+                name = NULL;
+        }
 
-		if (name != NULL)
-		{
-			TargetEntry *target_result = NULL;
+        if (name != NULL) {
+            TargetEntry *target_result = NULL;
 
-			foreach(tl, *tlist)
-			{
-				TargetEntry *tle = (TargetEntry *) lfirst(tl);
+            foreach(tl, *tlist) {
+                TargetEntry *tle = (TargetEntry *) lfirst(tl);
 
-				if (!tle->resjunk &&
-					strcmp(tle->resname, name) == 0)
-				{
-					if (target_result != NULL)
-					{
-						if (!equal(target_result->expr, tle->expr))
-							ereport(ERROR,
-									(errcode(ERRCODE_AMBIGUOUS_COLUMN),
+                if (!tle->resjunk &&
+                    strcmp(tle->resname, name) == 0) {
+                    if (target_result != NULL) {
+                        if (!equal(target_result->expr, tle->expr))
+                            ereport(ERROR,
+                                    (errcode(ERRCODE_AMBIGUOUS_COLUMN),
 
-							/*------
-							  translator: first %s is name of a SQL construct, eg ORDER BY */
-									 errmsg("%s \"%s\" is ambiguous",
-											ParseExprKindName(exprKind),
-											name),
-									 parser_errposition(pstate, location)));
-					}
-					else
-						target_result = tle;
-					/* Stay in loop to check for ambiguity */
-				}
-			}
-			if (target_result != NULL)
-			{
-				/* return the first match, after suitable validation */
-				checkTargetlistEntrySQL92(pstate, target_result, exprKind);
-				return target_result;
-			}
-		}
-	}
-	if (IsA(node, A_Const))
-	{
-		Value	   *val = &((A_Const *) node)->val;
-		int			location = ((A_Const *) node)->location;
-		int			targetlist_pos = 0;
-		int			target_pos;
+                                            /*------
+                                              translator: first %s is name of a SQL construct, eg ORDER BY */
+                                            errmsg("%s \"%s\" is ambiguous",
+                                                   ParseExprKindName(exprKind),
+                                                   name),
+                                            parser_errposition(pstate, location)));
+                    } else
+                        target_result = tle;
+                    /* Stay in loop to check for ambiguity */
+                }
+            }
+            if (target_result != NULL) {
+                /* return the first match, after suitable validation */
+                checkTargetlistEntrySQL92(pstate, target_result, exprKind);
+                return target_result;
+            }
+        }
+    }
+    if (IsA(node, A_Const)) {
+        Value *val = &((A_Const *) node)->val;
+        int location = ((A_Const *) node)->location;
+        int targetlist_pos = 0;
+        int target_pos;
 
-		if (!IsA(val, Integer))
-			ereport(ERROR,
-					(errcode(ERRCODE_SYNTAX_ERROR),
-			/* translator: %s is name of a SQL construct, eg ORDER BY */
-					 errmsg("non-integer constant in %s",
-							ParseExprKindName(exprKind)),
-					 parser_errposition(pstate, location)));
+        if (!IsA(val, Integer))
+            ereport(ERROR,
+                    (errcode(ERRCODE_SYNTAX_ERROR),
+                            /* translator: %s is name of a SQL construct, eg ORDER BY */
+                            errmsg("non-integer constant in %s",
+                                   ParseExprKindName(exprKind)),
+                            parser_errposition(pstate, location)));
 
-		target_pos = intVal(val);
-		foreach(tl, *tlist)
-		{
-			TargetEntry *tle = (TargetEntry *) lfirst(tl);
+        target_pos = intVal(val);
+        foreach(tl, *tlist) {
+            TargetEntry *tle = (TargetEntry *) lfirst(tl);
 
-			if (!tle->resjunk)
-			{
-				if (++targetlist_pos == target_pos)
-				{
-					/* return the unique match, after suitable validation */
-					checkTargetlistEntrySQL92(pstate, tle, exprKind);
-					return tle;
-				}
-			}
-		}
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
-		/* translator: %s is name of a SQL construct, eg ORDER BY */
-				 errmsg("%s position %d is not in select list",
-						ParseExprKindName(exprKind), target_pos),
-				 parser_errposition(pstate, location)));
-	}
+            if (!tle->resjunk) {
+                if (++targetlist_pos == target_pos) {
+                    /* return the unique match, after suitable validation */
+                    checkTargetlistEntrySQL92(pstate, tle, exprKind);
+                    return tle;
+                }
+            }
+        }
+        ereport(ERROR,
+                (errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
+                        /* translator: %s is name of a SQL construct, eg ORDER BY */
+                        errmsg("%s position %d is not in select list",
+                               ParseExprKindName(exprKind), target_pos),
+                        parser_errposition(pstate, location)));
+    }
 
-	/*
-	 * Otherwise, we have an expression, so process it per SQL99 rules.
-	 */
-	return findTargetlistEntrySQL99(pstate, node, tlist, exprKind);
+    /*
+     * Otherwise, we have an expression, so process it per SQL99 rules.
+     */
+    return findTargetlistEntrySQL99(pstate, node, tlist, exprKind);
 }
 
 /*
@@ -1972,52 +1886,50 @@ findTargetlistEntrySQL92(ParseState *pstate, Node *node, List **tlist,
  */
 static TargetEntry *
 findTargetlistEntrySQL99(ParseState *pstate, Node *node, List **tlist,
-						 ParseExprKind exprKind)
-{
-	TargetEntry *target_result;
-	ListCell   *tl;
-	Node	   *expr;
+                         ParseExprKind exprKind) {
+    TargetEntry *target_result;
+    ListCell *tl;
+    Node *expr;
 
-	/*
-	 * Convert the untransformed node to a transformed expression, and search
-	 * for a match in the tlist.  NOTE: it doesn't really matter whether there
-	 * is more than one match.  Also, we are willing to match an existing
-	 * resjunk target here, though the SQL92 cases above must ignore resjunk
-	 * targets.
-	 */
-	expr = transformExpr(pstate, node, exprKind);
+    /*
+     * Convert the untransformed node to a transformed expression, and search
+     * for a match in the tlist.  NOTE: it doesn't really matter whether there
+     * is more than one match.  Also, we are willing to match an existing
+     * resjunk target here, though the SQL92 cases above must ignore resjunk
+     * targets.
+     */
+    expr = transformExpr(pstate, node, exprKind);
 
-	foreach(tl, *tlist)
-	{
-		TargetEntry *tle = (TargetEntry *) lfirst(tl);
-		Node	   *texpr;
+    foreach(tl, *tlist) {
+        TargetEntry *tle = (TargetEntry *) lfirst(tl);
+        Node *texpr;
 
-		/*
-		 * Ignore any implicit cast on the existing tlist expression.
-		 *
-		 * This essentially allows the ORDER/GROUP/etc item to adopt the same
-		 * datatype previously selected for a textually-equivalent tlist item.
-		 * There can't be any implicit cast at top level in an ordinary SELECT
-		 * tlist at this stage, but the case does arise with ORDER BY in an
-		 * aggregate function.
-		 */
-		texpr = strip_implicit_coercions((Node *) tle->expr);
+        /*
+         * Ignore any implicit cast on the existing tlist expression.
+         *
+         * This essentially allows the ORDER/GROUP/etc item to adopt the same
+         * datatype previously selected for a textually-equivalent tlist item.
+         * There can't be any implicit cast at top level in an ordinary SELECT
+         * tlist at this stage, but the case does arise with ORDER BY in an
+         * aggregate function.
+         */
+        texpr = strip_implicit_coercions((Node *) tle->expr);
 
-		if (equal(expr, texpr))
-			return tle;
-	}
+        if (equal(expr, texpr))
+            return tle;
+    }
 
-	/*
-	 * If no matches, construct a new target entry which is appended to the
-	 * end of the target list.  This target is given resjunk = true so that it
-	 * will not be projected into the final tuple.
-	 */
-	target_result = transformTargetEntry(pstate, node, expr, exprKind,
-										 NULL, true);
+    /*
+     * If no matches, construct a new target entry which is appended to the
+     * end of the target list.  This target is given resjunk = true so that it
+     * will not be projected into the final tuple.
+     */
+    target_result = transformTargetEntry(pstate, node, expr, exprKind,
+                                         NULL, true);
 
-	*tlist = lappend(*tlist, target_result);
+    *tlist = lappend(*tlist, target_result);
 
-	return target_result;
+    return target_result;
 }
 
 /*-------------------------------------------------------------------------
@@ -2057,95 +1969,83 @@ findTargetlistEntrySQL99(ParseState *pstate, Node *node, List **tlist,
  *-------------------------------------------------------------------------
  */
 static Node *
-flatten_grouping_sets(Node *expr, bool toplevel, bool *hasGroupingSets)
-{
-	/* just in case of pathological input */
-	check_stack_depth();
+flatten_grouping_sets(Node *expr, bool toplevel, bool *hasGroupingSets) {
+    /* just in case of pathological input */
+    check_stack_depth();
 
-	if (expr == (Node *) NIL)
-		return (Node *) NIL;
+    if (expr == (Node *) NIL)
+        return (Node *) NIL;
 
-	switch (expr->type)
-	{
-		case T_RowExpr:
-			{
-				RowExpr    *r = (RowExpr *) expr;
+    switch (expr->type) {
+        case T_RowExpr: {
+            RowExpr *r = (RowExpr *) expr;
 
-				if (r->row_format == COERCE_IMPLICIT_CAST)
-					return flatten_grouping_sets((Node *) r->args,
-												 false, NULL);
-			}
-			break;
-		case T_GroupingSet:
-			{
-				GroupingSet *gset = (GroupingSet *) expr;
-				ListCell   *l2;
-				List	   *result_set = NIL;
+            if (r->row_format == COERCE_IMPLICIT_CAST)
+                return flatten_grouping_sets((Node *) r->args,
+                                             false, NULL);
+        }
+            break;
+        case T_GroupingSet: {
+            GroupingSet *gset = (GroupingSet *) expr;
+            ListCell *l2;
+            List *result_set = NIL;
 
-				if (hasGroupingSets)
-					*hasGroupingSets = true;
+            if (hasGroupingSets)
+                *hasGroupingSets = true;
 
-				/*
-				 * at the top level, we skip over all empty grouping sets; the
-				 * caller can supply the canonical GROUP BY () if nothing is
-				 * left.
-				 */
+            /*
+             * at the top level, we skip over all empty grouping sets; the
+             * caller can supply the canonical GROUP BY () if nothing is
+             * left.
+             */
 
-				if (toplevel && gset->kind == GROUPING_SET_EMPTY)
-					return (Node *) NIL;
+            if (toplevel && gset->kind == GROUPING_SET_EMPTY)
+                return (Node *) NIL;
 
-				foreach(l2, gset->content)
-				{
-					Node	   *n1 = lfirst(l2);
-					Node	   *n2 = flatten_grouping_sets(n1, false, NULL);
+            foreach(l2, gset->content) {
+                Node *n1 = lfirst(l2);
+                Node *n2 = flatten_grouping_sets(n1, false, NULL);
 
-					if (IsA(n1, GroupingSet) &&
-						((GroupingSet *) n1)->kind == GROUPING_SET_SETS)
-					{
-						result_set = list_concat(result_set, (List *) n2);
-					}
-					else
-						result_set = lappend(result_set, n2);
-				}
+                if (IsA(n1, GroupingSet) &&
+                    ((GroupingSet *) n1)->kind == GROUPING_SET_SETS) {
+                    result_set = list_concat(result_set, (List *) n2);
+                } else
+                    result_set = lappend(result_set, n2);
+            }
 
-				/*
-				 * At top level, keep the grouping set node; but if we're in a
-				 * nested grouping set, then we need to concat the flattened
-				 * result into the outer list if it's simply nested.
-				 */
+            /*
+             * At top level, keep the grouping set node; but if we're in a
+             * nested grouping set, then we need to concat the flattened
+             * result into the outer list if it's simply nested.
+             */
 
-				if (toplevel || (gset->kind != GROUPING_SET_SETS))
-				{
-					return (Node *) makeGroupingSet(gset->kind, result_set, gset->location);
-				}
-				else
-					return (Node *) result_set;
-			}
-		case T_List:
-			{
-				List	   *result = NIL;
-				ListCell   *l;
+            if (toplevel || (gset->kind != GROUPING_SET_SETS)) {
+                return (Node *) makeGroupingSet(gset->kind, result_set, gset->location);
+            } else
+                return (Node *) result_set;
+        }
+        case T_List: {
+            List *result = NIL;
+            ListCell *l;
 
-				foreach(l, (List *) expr)
-				{
-					Node	   *n = flatten_grouping_sets(lfirst(l), toplevel, hasGroupingSets);
+            foreach(l, (List *) expr) {
+                Node *n = flatten_grouping_sets(lfirst(l), toplevel, hasGroupingSets);
 
-					if (n != (Node *) NIL)
-					{
-						if (IsA(n, List))
-							result = list_concat(result, (List *) n);
-						else
-							result = lappend(result, n);
-					}
-				}
+                if (n != (Node *) NIL) {
+                    if (IsA(n, List))
+                        result = list_concat(result, (List *) n);
+                    else
+                        result = lappend(result, n);
+                }
+            }
 
-				return (Node *) result;
-			}
-		default:
-			break;
-	}
+            return (Node *) result;
+        }
+        default:
+            break;
+    }
 
-	return expr;
+    return expr;
 }
 
 /*
@@ -2169,93 +2069,89 @@ flatten_grouping_sets(Node *expr, bool toplevel, bool *hasGroupingSets)
  */
 static Index
 transformGroupClauseExpr(List **flatresult, Bitmapset *seen_local,
-						 ParseState *pstate, Node *gexpr,
-						 List **targetlist, List *sortClause,
-						 ParseExprKind exprKind, bool useSQL99, bool toplevel)
-{
-	TargetEntry *tle;
-	bool		found = false;
+                         ParseState *pstate, Node *gexpr,
+                         List **targetlist, List *sortClause,
+                         ParseExprKind exprKind, bool useSQL99, bool toplevel) {
+    TargetEntry *tle;
+    bool found = false;
 
-	if (useSQL99)
-		tle = findTargetlistEntrySQL99(pstate, gexpr,
-									   targetlist, exprKind);
-	else
-		tle = findTargetlistEntrySQL92(pstate, gexpr,
-									   targetlist, exprKind);
+    if (useSQL99)
+        tle = findTargetlistEntrySQL99(pstate, gexpr,
+                                       targetlist, exprKind);
+    else
+        tle = findTargetlistEntrySQL92(pstate, gexpr,
+                                       targetlist, exprKind);
 
-	if (tle->ressortgroupref > 0)
-	{
-		ListCell   *sl;
+    if (tle->ressortgroupref > 0) {
+        ListCell *sl;
 
-		/*
-		 * Eliminate duplicates (GROUP BY x, x) but only at local level.
-		 * (Duplicates in grouping sets can affect the number of returned
-		 * rows, so can't be dropped indiscriminately.)
-		 *
-		 * Since we don't care about anything except the sortgroupref, we can
-		 * use a bitmapset rather than scanning lists.
-		 */
-		if (bms_is_member(tle->ressortgroupref, seen_local))
-			return 0;
+        /*
+         * Eliminate duplicates (GROUP BY x, x) but only at local level.
+         * (Duplicates in grouping sets can affect the number of returned
+         * rows, so can't be dropped indiscriminately.)
+         *
+         * Since we don't care about anything except the sortgroupref, we can
+         * use a bitmapset rather than scanning lists.
+         */
+        if (bms_is_member(tle->ressortgroupref, seen_local))
+            return 0;
 
-		/*
-		 * If we're already in the flat clause list, we don't need to consider
-		 * adding ourselves again.
-		 */
-		found = targetIsInSortList(tle, InvalidOid, *flatresult);
-		if (found)
-			return tle->ressortgroupref;
+        /*
+         * If we're already in the flat clause list, we don't need to consider
+         * adding ourselves again.
+         */
+        found = targetIsInSortList(tle, InvalidOid, *flatresult);
+        if (found)
+            return tle->ressortgroupref;
 
-		/*
-		 * If the GROUP BY tlist entry also appears in ORDER BY, copy operator
-		 * info from the (first) matching ORDER BY item.  This means that if
-		 * you write something like "GROUP BY foo ORDER BY foo USING <<<", the
-		 * GROUP BY operation silently takes on the equality semantics implied
-		 * by the ORDER BY.  There are two reasons to do this: it improves the
-		 * odds that we can implement both GROUP BY and ORDER BY with a single
-		 * sort step, and it allows the user to choose the equality semantics
-		 * used by GROUP BY, should she be working with a datatype that has
-		 * more than one equality operator.
-		 *
-		 * If we're in a grouping set, though, we force our requested ordering
-		 * to be NULLS LAST, because if we have any hope of using a sorted agg
-		 * for the job, we're going to be tacking on generated NULL values
-		 * after the corresponding groups. If the user demands nulls first,
-		 * another sort step is going to be inevitable, but that's the
-		 * planner's problem.
-		 */
+        /*
+         * If the GROUP BY tlist entry also appears in ORDER BY, copy operator
+         * info from the (first) matching ORDER BY item.  This means that if
+         * you write something like "GROUP BY foo ORDER BY foo USING <<<", the
+         * GROUP BY operation silently takes on the equality semantics implied
+         * by the ORDER BY.  There are two reasons to do this: it improves the
+         * odds that we can implement both GROUP BY and ORDER BY with a single
+         * sort step, and it allows the user to choose the equality semantics
+         * used by GROUP BY, should she be working with a datatype that has
+         * more than one equality operator.
+         *
+         * If we're in a grouping set, though, we force our requested ordering
+         * to be NULLS LAST, because if we have any hope of using a sorted agg
+         * for the job, we're going to be tacking on generated NULL values
+         * after the corresponding groups. If the user demands nulls first,
+         * another sort step is going to be inevitable, but that's the
+         * planner's problem.
+         */
 
-		foreach(sl, sortClause)
-		{
-			SortGroupClause *sc = (SortGroupClause *) lfirst(sl);
+        foreach(sl, sortClause) {
+            SortGroupClause *sc = (SortGroupClause *) lfirst(sl);
 
-			if (sc->tleSortGroupRef == tle->ressortgroupref)
-			{
-				SortGroupClause *grpc = copyObject(sc);
+            if (sc->tleSortGroupRef == tle->ressortgroupref) {
+                SortGroupClause *grpc = copyObject(sc);
 
-				if (!toplevel)
-					grpc->nulls_first = false;
-				*flatresult = lappend(*flatresult, grpc);
-				found = true;
-				break;
-			}
-		}
-	}
+                if (!toplevel)
+                    grpc->nulls_first = false;
+                *flatresult = lappend(*flatresult, grpc);
+                found = true;
+                break;
+            }
+        }
+    }
 
-	/*
-	 * If no match in ORDER BY, just add it to the result using default
-	 * sort/group semantics.
-	 */
-	if (!found)
-		*flatresult = addTargetToGroupList(pstate, tle,
-										   *flatresult, *targetlist,
-										   exprLocation(gexpr));
+    /*
+     * If no match in ORDER BY, just add it to the result using default
+     * sort/group semantics.
+     */
+    if (!found)
+        *flatresult = addTargetToGroupList(pstate, tle,
+                                           *flatresult, *targetlist,
+                                           exprLocation(gexpr));
 
-	/*
-	 * _something_ must have assigned us a sortgroupref by now...
-	 */
+    /*
+     * _something_ must have assigned us a sortgroupref by now...
+     */
 
-	return tle->ressortgroupref;
+    return tle->ressortgroupref;
 }
 
 /*
@@ -2277,36 +2173,33 @@ transformGroupClauseExpr(List **flatresult, Bitmapset *seen_local,
  */
 static List *
 transformGroupClauseList(List **flatresult,
-						 ParseState *pstate, List *list,
-						 List **targetlist, List *sortClause,
-						 ParseExprKind exprKind, bool useSQL99, bool toplevel)
-{
-	Bitmapset  *seen_local = NULL;
-	List	   *result = NIL;
-	ListCell   *gl;
+                         ParseState *pstate, List *list,
+                         List **targetlist, List *sortClause,
+                         ParseExprKind exprKind, bool useSQL99, bool toplevel) {
+    Bitmapset *seen_local = NULL;
+    List *result = NIL;
+    ListCell *gl;
 
-	foreach(gl, list)
-	{
-		Node	   *gexpr = (Node *) lfirst(gl);
+    foreach(gl, list) {
+        Node *gexpr = (Node *) lfirst(gl);
 
-		Index		ref = transformGroupClauseExpr(flatresult,
-												   seen_local,
-												   pstate,
-												   gexpr,
-												   targetlist,
-												   sortClause,
-												   exprKind,
-												   useSQL99,
-												   toplevel);
+        Index ref = transformGroupClauseExpr(flatresult,
+                                             seen_local,
+                                             pstate,
+                                             gexpr,
+                                             targetlist,
+                                             sortClause,
+                                             exprKind,
+                                             useSQL99,
+                                             toplevel);
 
-		if (ref > 0)
-		{
-			seen_local = bms_add_member(seen_local, ref);
-			result = lappend_int(result, ref);
-		}
-	}
+        if (ref > 0) {
+            seen_local = bms_add_member(seen_local, ref);
+            result = lappend_int(result, ref);
+        }
+    }
 
-	return result;
+    return result;
 }
 
 /*
@@ -2330,68 +2223,60 @@ transformGroupClauseList(List **flatresult,
  */
 static Node *
 transformGroupingSet(List **flatresult,
-					 ParseState *pstate, GroupingSet *gset,
-					 List **targetlist, List *sortClause,
-					 ParseExprKind exprKind, bool useSQL99, bool toplevel)
-{
-	ListCell   *gl;
-	List	   *content = NIL;
+                     ParseState *pstate, GroupingSet *gset,
+                     List **targetlist, List *sortClause,
+                     ParseExprKind exprKind, bool useSQL99, bool toplevel) {
+    ListCell *gl;
+    List *content = NIL;
 
-	Assert(toplevel || gset->kind != GROUPING_SET_SETS);
+    Assert(toplevel || gset->kind != GROUPING_SET_SETS);
 
-	foreach(gl, gset->content)
-	{
-		Node	   *n = lfirst(gl);
+    foreach(gl, gset->content) {
+        Node *n = lfirst(gl);
 
-		if (IsA(n, List))
-		{
-			List	   *l = transformGroupClauseList(flatresult,
-													 pstate, (List *) n,
-													 targetlist, sortClause,
-													 exprKind, useSQL99, false);
+        if (IsA(n, List)) {
+            List *l = transformGroupClauseList(flatresult,
+                                               pstate, (List *) n,
+                                               targetlist, sortClause,
+                                               exprKind, useSQL99, false);
 
-			content = lappend(content, makeGroupingSet(GROUPING_SET_SIMPLE,
-													   l,
-													   exprLocation(n)));
-		}
-		else if (IsA(n, GroupingSet))
-		{
-			GroupingSet *gset2 = (GroupingSet *) lfirst(gl);
+            content = lappend(content, makeGroupingSet(GROUPING_SET_SIMPLE,
+                                                       l,
+                                                       exprLocation(n)));
+        } else if (IsA(n, GroupingSet)) {
+            GroupingSet *gset2 = (GroupingSet *) lfirst(gl);
 
-			content = lappend(content, transformGroupingSet(flatresult,
-															pstate, gset2,
-															targetlist, sortClause,
-															exprKind, useSQL99, false));
-		}
-		else
-		{
-			Index		ref = transformGroupClauseExpr(flatresult,
-													   NULL,
-													   pstate,
-													   n,
-													   targetlist,
-													   sortClause,
-													   exprKind,
-													   useSQL99,
-													   false);
+            content = lappend(content, transformGroupingSet(flatresult,
+                                                            pstate, gset2,
+                                                            targetlist, sortClause,
+                                                            exprKind, useSQL99, false));
+        } else {
+            Index ref = transformGroupClauseExpr(flatresult,
+                                                 NULL,
+                                                 pstate,
+                                                 n,
+                                                 targetlist,
+                                                 sortClause,
+                                                 exprKind,
+                                                 useSQL99,
+                                                 false);
 
-			content = lappend(content, makeGroupingSet(GROUPING_SET_SIMPLE,
-													   list_make1_int(ref),
-													   exprLocation(n)));
-		}
-	}
+            content = lappend(content, makeGroupingSet(GROUPING_SET_SIMPLE,
+                                                       list_make1_int(ref),
+                                                       exprLocation(n)));
+        }
+    }
 
-	/* Arbitrarily cap the size of CUBE, which has exponential growth */
-	if (gset->kind == GROUPING_SET_CUBE)
-	{
-		if (list_length(content) > 12)
-			ereport(ERROR,
-					(errcode(ERRCODE_TOO_MANY_COLUMNS),
-					 errmsg("CUBE is limited to 12 elements"),
-					 parser_errposition(pstate, gset->location)));
-	}
+    /* Arbitrarily cap the size of CUBE, which has exponential growth */
+    if (gset->kind == GROUPING_SET_CUBE) {
+        if (list_length(content) > 12)
+            ereport(ERROR,
+                    (errcode(ERRCODE_TOO_MANY_COLUMNS),
+                            errmsg("CUBE is limited to 12 elements"),
+                            parser_errposition(pstate, gset->location)));
+    }
 
-	return (Node *) makeGroupingSet(gset->kind, content, gset->location);
+    return (Node *) makeGroupingSet(gset->kind, content, gset->location);
 }
 
 
@@ -2434,92 +2319,84 @@ transformGroupingSet(List **flatresult,
  */
 List *
 transformGroupClause(ParseState *pstate, List *grouplist, List **groupingSets,
-					 List **targetlist, List *sortClause,
-					 ParseExprKind exprKind, bool useSQL99)
-{
-	List	   *result = NIL;
-	List	   *flat_grouplist;
-	List	   *gsets = NIL;
-	ListCell   *gl;
-	bool		hasGroupingSets = false;
-	Bitmapset  *seen_local = NULL;
+                     List **targetlist, List *sortClause,
+                     ParseExprKind exprKind, bool useSQL99) {
+    List *result = NIL;
+    List *flat_grouplist;
+    List *gsets = NIL;
+    ListCell *gl;
+    bool hasGroupingSets = false;
+    Bitmapset *seen_local = NULL;
 
-	/*
-	 * Recursively flatten implicit RowExprs. (Technically this is only needed
-	 * for GROUP BY, per the syntax rules for grouping sets, but we do it
-	 * anyway.)
-	 */
-	flat_grouplist = (List *) flatten_grouping_sets((Node *) grouplist,
-													true,
-													&hasGroupingSets);
+    /*
+     * Recursively flatten implicit RowExprs. (Technically this is only needed
+     * for GROUP BY, per the syntax rules for grouping sets, but we do it
+     * anyway.)
+     */
+    flat_grouplist = (List *) flatten_grouping_sets((Node *) grouplist,
+                                                    true,
+                                                    &hasGroupingSets);
 
-	/*
-	 * If the list is now empty, but hasGroupingSets is true, it's because we
-	 * elided redundant empty grouping sets. Restore a single empty grouping
-	 * set to leave a canonical form: GROUP BY ()
-	 */
+    /*
+     * If the list is now empty, but hasGroupingSets is true, it's because we
+     * elided redundant empty grouping sets. Restore a single empty grouping
+     * set to leave a canonical form: GROUP BY ()
+     */
 
-	if (flat_grouplist == NIL && hasGroupingSets)
-	{
-		flat_grouplist = list_make1(makeGroupingSet(GROUPING_SET_EMPTY,
-													NIL,
-													exprLocation((Node *) grouplist)));
-	}
+    if (flat_grouplist == NIL && hasGroupingSets) {
+        flat_grouplist = list_make1(makeGroupingSet(GROUPING_SET_EMPTY,
+                                                    NIL,
+                                                    exprLocation((Node *) grouplist)));
+    }
 
-	foreach(gl, flat_grouplist)
-	{
-		Node	   *gexpr = (Node *) lfirst(gl);
+    foreach(gl, flat_grouplist) {
+        Node *gexpr = (Node *) lfirst(gl);
 
-		if (IsA(gexpr, GroupingSet))
-		{
-			GroupingSet *gset = (GroupingSet *) gexpr;
+        if (IsA(gexpr, GroupingSet)) {
+            GroupingSet *gset = (GroupingSet *) gexpr;
 
-			switch (gset->kind)
-			{
-				case GROUPING_SET_EMPTY:
-					gsets = lappend(gsets, gset);
-					break;
-				case GROUPING_SET_SIMPLE:
-					/* can't happen */
-					Assert(false);
-					break;
-				case GROUPING_SET_SETS:
-				case GROUPING_SET_CUBE:
-				case GROUPING_SET_ROLLUP:
-					gsets = lappend(gsets,
-									transformGroupingSet(&result,
-														 pstate, gset,
-														 targetlist, sortClause,
-														 exprKind, useSQL99, true));
-					break;
-			}
-		}
-		else
-		{
-			Index		ref = transformGroupClauseExpr(&result, seen_local,
-													   pstate, gexpr,
-													   targetlist, sortClause,
-													   exprKind, useSQL99, true);
+            switch (gset->kind) {
+                case GROUPING_SET_EMPTY:
+                    gsets = lappend(gsets, gset);
+                    break;
+                case GROUPING_SET_SIMPLE:
+                    /* can't happen */
+                    Assert(false);
+                    break;
+                case GROUPING_SET_SETS:
+                case GROUPING_SET_CUBE:
+                case GROUPING_SET_ROLLUP:
+                    gsets = lappend(gsets,
+                                    transformGroupingSet(&result,
+                                                         pstate, gset,
+                                                         targetlist, sortClause,
+                                                         exprKind, useSQL99, true));
+                    break;
+            }
+        } else {
+            Index ref = transformGroupClauseExpr(&result, seen_local,
+                                                 pstate, gexpr,
+                                                 targetlist, sortClause,
+                                                 exprKind, useSQL99, true);
 
-			if (ref > 0)
-			{
-				seen_local = bms_add_member(seen_local, ref);
-				if (hasGroupingSets)
-					gsets = lappend(gsets,
-									makeGroupingSet(GROUPING_SET_SIMPLE,
-													list_make1_int(ref),
-													exprLocation(gexpr)));
-			}
-		}
-	}
+            if (ref > 0) {
+                seen_local = bms_add_member(seen_local, ref);
+                if (hasGroupingSets)
+                    gsets = lappend(gsets,
+                                    makeGroupingSet(GROUPING_SET_SIMPLE,
+                                                    list_make1_int(ref),
+                                                    exprLocation(gexpr)));
+            }
+        }
+    }
 
-	/* parser should prevent this */
-	Assert(gsets == NIL || groupingSets != NULL);
+    /* parser should prevent this */
+    Assert(gsets == NIL || groupingSets != NULL);
 
-	if (groupingSets)
-		*groupingSets = gsets;
+    if (groupingSets)
+        *groupingSets = gsets;
 
-	return result;
+    return result;
 }
 
 /*
@@ -2534,31 +2411,29 @@ transformGroupClause(ParseState *pstate, List *grouplist, List **groupingSets,
  */
 List *
 transformSortClause(ParseState *pstate,
-					List *orderlist,
-					List **targetlist,
-					ParseExprKind exprKind,
-					bool useSQL99)
-{
-	List	   *sortlist = NIL;
-	ListCell   *olitem;
+                    List *orderlist,
+                    List **targetlist,
+                    ParseExprKind exprKind,
+                    bool useSQL99) {
+    List *sortlist = NIL;
+    ListCell *olitem;
 
-	foreach(olitem, orderlist)
-	{
-		SortBy	   *sortby = (SortBy *) lfirst(olitem);
-		TargetEntry *tle;
+    foreach(olitem, orderlist) {
+        SortBy *sortby = (SortBy *) lfirst(olitem);
+        TargetEntry *tle;
 
-		if (useSQL99)
-			tle = findTargetlistEntrySQL99(pstate, sortby->node,
-										   targetlist, exprKind);
-		else
-			tle = findTargetlistEntrySQL92(pstate, sortby->node,
-										   targetlist, exprKind);
+        if (useSQL99)
+            tle = findTargetlistEntrySQL99(pstate, sortby->node,
+                                           targetlist, exprKind);
+        else
+            tle = findTargetlistEntrySQL92(pstate, sortby->node,
+                                           targetlist, exprKind);
 
-		sortlist = addTargetToSortList(pstate, tle,
-									   sortlist, *targetlist, sortby);
-	}
+        sortlist = addTargetToSortList(pstate, tle,
+                                       sortlist, *targetlist, sortby);
+    }
 
-	return sortlist;
+    return sortlist;
 }
 
 /*
@@ -2567,205 +2442,191 @@ transformSortClause(ParseState *pstate,
  */
 List *
 transformWindowDefinitions(ParseState *pstate,
-						   List *windowdefs,
-						   List **targetlist)
-{
-	List	   *result = NIL;
-	Index		winref = 0;
-	ListCell   *lc;
+                           List *windowdefs,
+                           List **targetlist) {
+    List *result = NIL;
+    Index winref = 0;
+    ListCell *lc;
 
-	foreach(lc, windowdefs)
-	{
-		WindowDef  *windef = (WindowDef *) lfirst(lc);
-		WindowClause *refwc = NULL;
-		List	   *partitionClause;
-		List	   *orderClause;
-		Oid			rangeopfamily = InvalidOid;
-		Oid			rangeopcintype = InvalidOid;
-		WindowClause *wc;
+    foreach(lc, windowdefs) {
+        WindowDef *windef = (WindowDef *) lfirst(lc);
+        WindowClause *refwc = NULL;
+        List *partitionClause;
+        List *orderClause;
+        Oid rangeopfamily = InvalidOid;
+        Oid rangeopcintype = InvalidOid;
+        WindowClause *wc;
 
-		winref++;
+        winref++;
 
-		/*
-		 * Check for duplicate window names.
-		 */
-		if (windef->name &&
-			findWindowClause(result, windef->name) != NULL)
-			ereport(ERROR,
-					(errcode(ERRCODE_WINDOWING_ERROR),
-					 errmsg("window \"%s\" is already defined", windef->name),
-					 parser_errposition(pstate, windef->location)));
+        /*
+         * Check for duplicate window names.
+         */
+        if (windef->name &&
+            findWindowClause(result, windef->name) != NULL)
+            ereport(ERROR,
+                    (errcode(ERRCODE_WINDOWING_ERROR),
+                            errmsg("window \"%s\" is already defined", windef->name),
+                            parser_errposition(pstate, windef->location)));
 
-		/*
-		 * If it references a previous window, look that up.
-		 */
-		if (windef->refname)
-		{
-			refwc = findWindowClause(result, windef->refname);
-			if (refwc == NULL)
-				ereport(ERROR,
-						(errcode(ERRCODE_UNDEFINED_OBJECT),
-						 errmsg("window \"%s\" does not exist",
-								windef->refname),
-						 parser_errposition(pstate, windef->location)));
-		}
+        /*
+         * If it references a previous window, look that up.
+         */
+        if (windef->refname) {
+            refwc = findWindowClause(result, windef->refname);
+            if (refwc == NULL)
+                ereport(ERROR,
+                        (errcode(ERRCODE_UNDEFINED_OBJECT),
+                                errmsg("window \"%s\" does not exist",
+                                       windef->refname),
+                                parser_errposition(pstate, windef->location)));
+        }
 
-		/*
-		 * Transform PARTITION and ORDER specs, if any.  These are treated
-		 * almost exactly like top-level GROUP BY and ORDER BY clauses,
-		 * including the special handling of nondefault operator semantics.
-		 */
-		orderClause = transformSortClause(pstate,
-										  windef->orderClause,
-										  targetlist,
-										  EXPR_KIND_WINDOW_ORDER,
-										  true /* force SQL99 rules */ );
-		partitionClause = transformGroupClause(pstate,
-											   windef->partitionClause,
-											   NULL,
-											   targetlist,
-											   orderClause,
-											   EXPR_KIND_WINDOW_PARTITION,
-											   true /* force SQL99 rules */ );
+        /*
+         * Transform PARTITION and ORDER specs, if any.  These are treated
+         * almost exactly like top-level GROUP BY and ORDER BY clauses,
+         * including the special handling of nondefault operator semantics.
+         */
+        orderClause = transformSortClause(pstate,
+                                          windef->orderClause,
+                                          targetlist,
+                                          EXPR_KIND_WINDOW_ORDER,
+                                          true /* force SQL99 rules */ );
+        partitionClause = transformGroupClause(pstate,
+                                               windef->partitionClause,
+                                               NULL,
+                                               targetlist,
+                                               orderClause,
+                                               EXPR_KIND_WINDOW_PARTITION,
+                                               true /* force SQL99 rules */ );
 
-		/*
-		 * And prepare the new WindowClause.
-		 */
-		wc = makeNode(WindowClause);
-		wc->name = windef->name;
-		wc->refname = windef->refname;
+        /*
+         * And prepare the new WindowClause.
+         */
+        wc = makeNode(WindowClause);
+        wc->name = windef->name;
+        wc->refname = windef->refname;
 
-		/*
-		 * Per spec, a windowdef that references a previous one copies the
-		 * previous partition clause (and mustn't specify its own).  It can
-		 * specify its own ordering clause, but only if the previous one had
-		 * none.  It always specifies its own frame clause, and the previous
-		 * one must not have a frame clause.  Yeah, it's bizarre that each of
-		 * these cases works differently, but SQL:2008 says so; see 7.11
-		 * <window clause> syntax rule 10 and general rule 1.  The frame
-		 * clause rule is especially bizarre because it makes "OVER foo"
-		 * different from "OVER (foo)", and requires the latter to throw an
-		 * error if foo has a nondefault frame clause.  Well, ours not to
-		 * reason why, but we do go out of our way to throw a useful error
-		 * message for such cases.
-		 */
-		if (refwc)
-		{
-			if (partitionClause)
-				ereport(ERROR,
-						(errcode(ERRCODE_WINDOWING_ERROR),
-						 errmsg("cannot override PARTITION BY clause of window \"%s\"",
-								windef->refname),
-						 parser_errposition(pstate, windef->location)));
-			wc->partitionClause = copyObject(refwc->partitionClause);
-		}
-		else
-			wc->partitionClause = partitionClause;
-		if (refwc)
-		{
-			if (orderClause && refwc->orderClause)
-				ereport(ERROR,
-						(errcode(ERRCODE_WINDOWING_ERROR),
-						 errmsg("cannot override ORDER BY clause of window \"%s\"",
-								windef->refname),
-						 parser_errposition(pstate, windef->location)));
-			if (orderClause)
-			{
-				wc->orderClause = orderClause;
-				wc->copiedOrder = false;
-			}
-			else
-			{
-				wc->orderClause = copyObject(refwc->orderClause);
-				wc->copiedOrder = true;
-			}
-		}
-		else
-		{
-			wc->orderClause = orderClause;
-			wc->copiedOrder = false;
-		}
-		if (refwc && refwc->frameOptions != FRAMEOPTION_DEFAULTS)
-		{
-			/*
-			 * Use this message if this is a WINDOW clause, or if it's an OVER
-			 * clause that includes ORDER BY or framing clauses.  (We already
-			 * rejected PARTITION BY above, so no need to check that.)
-			 */
-			if (windef->name ||
-				orderClause || windef->frameOptions != FRAMEOPTION_DEFAULTS)
-				ereport(ERROR,
-						(errcode(ERRCODE_WINDOWING_ERROR),
-						 errmsg("cannot copy window \"%s\" because it has a frame clause",
-								windef->refname),
-						 parser_errposition(pstate, windef->location)));
-			/* Else this clause is just OVER (foo), so say this: */
-			ereport(ERROR,
-					(errcode(ERRCODE_WINDOWING_ERROR),
-					 errmsg("cannot copy window \"%s\" because it has a frame clause",
-							windef->refname),
-					 errhint("Omit the parentheses in this OVER clause."),
-					 parser_errposition(pstate, windef->location)));
-		}
-		wc->frameOptions = windef->frameOptions;
+        /*
+         * Per spec, a windowdef that references a previous one copies the
+         * previous partition clause (and mustn't specify its own).  It can
+         * specify its own ordering clause, but only if the previous one had
+         * none.  It always specifies its own frame clause, and the previous
+         * one must not have a frame clause.  Yeah, it's bizarre that each of
+         * these cases works differently, but SQL:2008 says so; see 7.11
+         * <window clause> syntax rule 10 and general rule 1.  The frame
+         * clause rule is especially bizarre because it makes "OVER foo"
+         * different from "OVER (foo)", and requires the latter to throw an
+         * error if foo has a nondefault frame clause.  Well, ours not to
+         * reason why, but we do go out of our way to throw a useful error
+         * message for such cases.
+         */
+        if (refwc) {
+            if (partitionClause)
+                ereport(ERROR,
+                        (errcode(ERRCODE_WINDOWING_ERROR),
+                                errmsg("cannot override PARTITION BY clause of window \"%s\"",
+                                       windef->refname),
+                                parser_errposition(pstate, windef->location)));
+            wc->partitionClause = copyObject(refwc->partitionClause);
+        } else
+            wc->partitionClause = partitionClause;
+        if (refwc) {
+            if (orderClause && refwc->orderClause)
+                ereport(ERROR,
+                        (errcode(ERRCODE_WINDOWING_ERROR),
+                                errmsg("cannot override ORDER BY clause of window \"%s\"",
+                                       windef->refname),
+                                parser_errposition(pstate, windef->location)));
+            if (orderClause) {
+                wc->orderClause = orderClause;
+                wc->copiedOrder = false;
+            } else {
+                wc->orderClause = copyObject(refwc->orderClause);
+                wc->copiedOrder = true;
+            }
+        } else {
+            wc->orderClause = orderClause;
+            wc->copiedOrder = false;
+        }
+        if (refwc && refwc->frameOptions != FRAMEOPTION_DEFAULTS) {
+            /*
+             * Use this message if this is a WINDOW clause, or if it's an OVER
+             * clause that includes ORDER BY or framing clauses.  (We already
+             * rejected PARTITION BY above, so no need to check that.)
+             */
+            if (windef->name ||
+                orderClause || windef->frameOptions != FRAMEOPTION_DEFAULTS)
+                ereport(ERROR,
+                        (errcode(ERRCODE_WINDOWING_ERROR),
+                                errmsg("cannot copy window \"%s\" because it has a frame clause",
+                                       windef->refname),
+                                parser_errposition(pstate, windef->location)));
+            /* Else this clause is just OVER (foo), so say this: */
+            ereport(ERROR,
+                    (errcode(ERRCODE_WINDOWING_ERROR),
+                            errmsg("cannot copy window \"%s\" because it has a frame clause",
+                                   windef->refname),
+                            errhint("Omit the parentheses in this OVER clause."),
+                            parser_errposition(pstate, windef->location)));
+        }
+        wc->frameOptions = windef->frameOptions;
 
-		/*
-		 * RANGE offset PRECEDING/FOLLOWING requires exactly one ORDER BY
-		 * column; check that and get its sort opfamily info.
-		 */
-		if ((wc->frameOptions & FRAMEOPTION_RANGE) &&
-			(wc->frameOptions & (FRAMEOPTION_START_OFFSET |
-								 FRAMEOPTION_END_OFFSET)))
-		{
-			SortGroupClause *sortcl;
-			Node	   *sortkey;
-			int16		rangestrategy;
+        /*
+         * RANGE offset PRECEDING/FOLLOWING requires exactly one ORDER BY
+         * column; check that and get its sort opfamily info.
+         */
+        if ((wc->frameOptions & FRAMEOPTION_RANGE) &&
+            (wc->frameOptions & (FRAMEOPTION_START_OFFSET |
+                                 FRAMEOPTION_END_OFFSET))) {
+            SortGroupClause *sortcl;
+            Node *sortkey;
+            int16 rangestrategy;
 
-			if (list_length(wc->orderClause) != 1)
-				ereport(ERROR,
-						(errcode(ERRCODE_WINDOWING_ERROR),
-						 errmsg("RANGE with offset PRECEDING/FOLLOWING requires exactly one ORDER BY column"),
-						 parser_errposition(pstate, windef->location)));
-			sortcl = castNode(SortGroupClause, linitial(wc->orderClause));
-			sortkey = get_sortgroupclause_expr(sortcl, *targetlist);
-			/* Find the sort operator in pg_amop */
-			if (!get_ordering_op_properties(sortcl->sortop,
-											&rangeopfamily,
-											&rangeopcintype,
-											&rangestrategy))
-				elog(ERROR, "operator %u is not a valid ordering operator",
-					 sortcl->sortop);
-			/* Record properties of sort ordering */
-			wc->inRangeColl = exprCollation(sortkey);
-			wc->inRangeAsc = (rangestrategy == BTLessStrategyNumber);
-			wc->inRangeNullsFirst = sortcl->nulls_first;
-		}
+            if (list_length(wc->orderClause) != 1)
+                ereport(ERROR,
+                        (errcode(ERRCODE_WINDOWING_ERROR),
+                                errmsg("RANGE with offset PRECEDING/FOLLOWING requires exactly one ORDER BY column"),
+                                parser_errposition(pstate, windef->location)));
+            sortcl = castNode(SortGroupClause, linitial(wc->orderClause));
+            sortkey = get_sortgroupclause_expr(sortcl, *targetlist);
+            /* Find the sort operator in pg_amop */
+            if (!get_ordering_op_properties(sortcl->sortop,
+                                            &rangeopfamily,
+                                            &rangeopcintype,
+                                            &rangestrategy))
+                elog(ERROR, "operator %u is not a valid ordering operator",
+                     sortcl->sortop);
+            /* Record properties of sort ordering */
+            wc->inRangeColl = exprCollation(sortkey);
+            wc->inRangeAsc = (rangestrategy == BTLessStrategyNumber);
+            wc->inRangeNullsFirst = sortcl->nulls_first;
+        }
 
-		/* Per spec, GROUPS mode requires an ORDER BY clause */
-		if (wc->frameOptions & FRAMEOPTION_GROUPS)
-		{
-			if (wc->orderClause == NIL)
-				ereport(ERROR,
-						(errcode(ERRCODE_WINDOWING_ERROR),
-						 errmsg("GROUPS mode requires an ORDER BY clause"),
-						 parser_errposition(pstate, windef->location)));
-		}
+        /* Per spec, GROUPS mode requires an ORDER BY clause */
+        if (wc->frameOptions & FRAMEOPTION_GROUPS) {
+            if (wc->orderClause == NIL)
+                ereport(ERROR,
+                        (errcode(ERRCODE_WINDOWING_ERROR),
+                                errmsg("GROUPS mode requires an ORDER BY clause"),
+                                parser_errposition(pstate, windef->location)));
+        }
 
-		/* Process frame offset expressions */
-		wc->startOffset = transformFrameOffset(pstate, wc->frameOptions,
-											   rangeopfamily, rangeopcintype,
-											   &wc->startInRangeFunc,
-											   windef->startOffset);
-		wc->endOffset = transformFrameOffset(pstate, wc->frameOptions,
-											 rangeopfamily, rangeopcintype,
-											 &wc->endInRangeFunc,
-											 windef->endOffset);
-		wc->winref = winref;
+        /* Process frame offset expressions */
+        wc->startOffset = transformFrameOffset(pstate, wc->frameOptions,
+                                               rangeopfamily, rangeopcintype,
+                                               &wc->startInRangeFunc,
+                                               windef->startOffset);
+        wc->endOffset = transformFrameOffset(pstate, wc->frameOptions,
+                                             rangeopfamily, rangeopcintype,
+                                             &wc->endInRangeFunc,
+                                             windef->endOffset);
+        wc->winref = winref;
 
-		result = lappend(result, wc);
-	}
+        result = lappend(result, wc);
+    }
 
-	return result;
+    return result;
 }
 
 /*
@@ -2787,73 +2648,70 @@ transformWindowDefinitions(ParseState *pstate,
  */
 List *
 transformDistinctClause(ParseState *pstate,
-						List **targetlist, List *sortClause, bool is_agg)
-{
-	List	   *result = NIL;
-	ListCell   *slitem;
-	ListCell   *tlitem;
+                        List **targetlist, List *sortClause, bool is_agg) {
+    List *result = NIL;
+    ListCell *slitem;
+    ListCell *tlitem;
 
-	/*
-	 * The distinctClause should consist of all ORDER BY items followed by all
-	 * other non-resjunk targetlist items.  There must not be any resjunk
-	 * ORDER BY items --- that would imply that we are sorting by a value that
-	 * isn't necessarily unique within a DISTINCT group, so the results
-	 * wouldn't be well-defined.  This construction ensures we follow the rule
-	 * that sortClause and distinctClause match; in fact the sortClause will
-	 * always be a prefix of distinctClause.
-	 *
-	 * Note a corner case: the same TLE could be in the ORDER BY list multiple
-	 * times with different sortops.  We have to include it in the
-	 * distinctClause the same way to preserve the prefix property. The net
-	 * effect will be that the TLE value will be made unique according to both
-	 * sortops.
-	 */
-	foreach(slitem, sortClause)
-	{
-		SortGroupClause *scl = (SortGroupClause *) lfirst(slitem);
-		TargetEntry *tle = get_sortgroupclause_tle(scl, *targetlist);
+    /*
+     * The distinctClause should consist of all ORDER BY items followed by all
+     * other non-resjunk targetlist items.  There must not be any resjunk
+     * ORDER BY items --- that would imply that we are sorting by a value that
+     * isn't necessarily unique within a DISTINCT group, so the results
+     * wouldn't be well-defined.  This construction ensures we follow the rule
+     * that sortClause and distinctClause match; in fact the sortClause will
+     * always be a prefix of distinctClause.
+     *
+     * Note a corner case: the same TLE could be in the ORDER BY list multiple
+     * times with different sortops.  We have to include it in the
+     * distinctClause the same way to preserve the prefix property. The net
+     * effect will be that the TLE value will be made unique according to both
+     * sortops.
+     */
+    foreach(slitem, sortClause) {
+        SortGroupClause *scl = (SortGroupClause *) lfirst(slitem);
+        TargetEntry *tle = get_sortgroupclause_tle(scl, *targetlist);
 
-		if (tle->resjunk)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
-					 is_agg ?
-					 errmsg("in an aggregate with DISTINCT, ORDER BY expressions must appear in argument list") :
-					 errmsg("for SELECT DISTINCT, ORDER BY expressions must appear in select list"),
-					 parser_errposition(pstate,
-										exprLocation((Node *) tle->expr))));
-		result = lappend(result, copyObject(scl));
-	}
+        if (tle->resjunk)
+            ereport(ERROR,
+                    (errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
+                            is_agg ?
+                            errmsg("in an aggregate with DISTINCT, ORDER BY expressions must appear in argument list") :
+                            errmsg("for SELECT DISTINCT, ORDER BY expressions must appear in select list"),
+                            parser_errposition(pstate,
+                                               exprLocation((Node *) tle->expr))));
+        result = lappend(result, copyObject(scl));
+    }
 
-	/*
-	 * Now add any remaining non-resjunk tlist items, using default sort/group
-	 * semantics for their data types.
-	 */
-	foreach(tlitem, *targetlist)
-	{
-		TargetEntry *tle = (TargetEntry *) lfirst(tlitem);
+    /*
+     * Now add any remaining non-resjunk tlist items, using default sort/group
+     * semantics for their data types.
+     */
+    foreach(tlitem, *targetlist) {
+        TargetEntry *tle = (TargetEntry *) lfirst(tlitem);
 
-		if (tle->resjunk)
-			continue;			/* ignore junk */
-		result = addTargetToGroupList(pstate, tle,
-									  result, *targetlist,
-									  exprLocation((Node *) tle->expr));
-	}
+        if (tle->resjunk)
+            continue;            /* ignore junk */
+        result = addTargetToGroupList(pstate, tle,
+                                      result, *targetlist,
+                                      exprLocation((Node *) tle->expr));
+    }
 
-	/*
-	 * Complain if we found nothing to make DISTINCT.  Returning an empty list
-	 * would cause the parsed Query to look like it didn't have DISTINCT, with
-	 * results that would probably surprise the user.  Note: this case is
-	 * presently impossible for aggregates because of grammar restrictions,
-	 * but we check anyway.
-	 */
-	if (result == NIL)
-		ereport(ERROR,
-				(errcode(ERRCODE_SYNTAX_ERROR),
-				 is_agg ?
-				 errmsg("an aggregate with DISTINCT must have at least one argument") :
-				 errmsg("SELECT DISTINCT must have at least one column")));
+    /*
+     * Complain if we found nothing to make DISTINCT.  Returning an empty list
+     * would cause the parsed Query to look like it didn't have DISTINCT, with
+     * results that would probably surprise the user.  Note: this case is
+     * presently impossible for aggregates because of grammar restrictions,
+     * but we check anyway.
+     */
+    if (result == NIL)
+        ereport(ERROR,
+                (errcode(ERRCODE_SYNTAX_ERROR),
+                        is_agg ?
+                        errmsg("an aggregate with DISTINCT must have at least one argument") :
+                        errmsg("SELECT DISTINCT must have at least one column")));
 
-	return result;
+    return result;
 }
 
 /*
@@ -2871,98 +2729,92 @@ transformDistinctClause(ParseState *pstate,
  */
 List *
 transformDistinctOnClause(ParseState *pstate, List *distinctlist,
-						  List **targetlist, List *sortClause)
-{
-	List	   *result = NIL;
-	List	   *sortgrouprefs = NIL;
-	bool		skipped_sortitem;
-	ListCell   *lc;
-	ListCell   *lc2;
+                          List **targetlist, List *sortClause) {
+    List *result = NIL;
+    List *sortgrouprefs = NIL;
+    bool skipped_sortitem;
+    ListCell *lc;
+    ListCell *lc2;
 
-	/*
-	 * Add all the DISTINCT ON expressions to the tlist (if not already
-	 * present, they are added as resjunk items).  Assign sortgroupref numbers
-	 * to them, and make a list of these numbers.  (NB: we rely below on the
-	 * sortgrouprefs list being one-for-one with the original distinctlist.
-	 * Also notice that we could have duplicate DISTINCT ON expressions and
-	 * hence duplicate entries in sortgrouprefs.)
-	 */
-	foreach(lc, distinctlist)
-	{
-		Node	   *dexpr = (Node *) lfirst(lc);
-		int			sortgroupref;
-		TargetEntry *tle;
+    /*
+     * Add all the DISTINCT ON expressions to the tlist (if not already
+     * present, they are added as resjunk items).  Assign sortgroupref numbers
+     * to them, and make a list of these numbers.  (NB: we rely below on the
+     * sortgrouprefs list being one-for-one with the original distinctlist.
+     * Also notice that we could have duplicate DISTINCT ON expressions and
+     * hence duplicate entries in sortgrouprefs.)
+     */
+    foreach(lc, distinctlist) {
+        Node *dexpr = (Node *) lfirst(lc);
+        int sortgroupref;
+        TargetEntry *tle;
 
-		tle = findTargetlistEntrySQL92(pstate, dexpr, targetlist,
-									   EXPR_KIND_DISTINCT_ON);
-		sortgroupref = assignSortGroupRef(tle, *targetlist);
-		sortgrouprefs = lappend_int(sortgrouprefs, sortgroupref);
-	}
+        tle = findTargetlistEntrySQL92(pstate, dexpr, targetlist,
+                                       EXPR_KIND_DISTINCT_ON);
+        sortgroupref = assignSortGroupRef(tle, *targetlist);
+        sortgrouprefs = lappend_int(sortgrouprefs, sortgroupref);
+    }
 
-	/*
-	 * If the user writes both DISTINCT ON and ORDER BY, adopt the sorting
-	 * semantics from ORDER BY items that match DISTINCT ON items, and also
-	 * adopt their column sort order.  We insist that the distinctClause and
-	 * sortClause match, so throw error if we find the need to add any more
-	 * distinctClause items after we've skipped an ORDER BY item that wasn't
-	 * in DISTINCT ON.
-	 */
-	skipped_sortitem = false;
-	foreach(lc, sortClause)
-	{
-		SortGroupClause *scl = (SortGroupClause *) lfirst(lc);
+    /*
+     * If the user writes both DISTINCT ON and ORDER BY, adopt the sorting
+     * semantics from ORDER BY items that match DISTINCT ON items, and also
+     * adopt their column sort order.  We insist that the distinctClause and
+     * sortClause match, so throw error if we find the need to add any more
+     * distinctClause items after we've skipped an ORDER BY item that wasn't
+     * in DISTINCT ON.
+     */
+    skipped_sortitem = false;
+    foreach(lc, sortClause) {
+        SortGroupClause *scl = (SortGroupClause *) lfirst(lc);
 
-		if (list_member_int(sortgrouprefs, scl->tleSortGroupRef))
-		{
-			if (skipped_sortitem)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
-						 errmsg("SELECT DISTINCT ON expressions must match initial ORDER BY expressions"),
-						 parser_errposition(pstate,
-											get_matching_location(scl->tleSortGroupRef,
-																  sortgrouprefs,
-																  distinctlist))));
-			else
-				result = lappend(result, copyObject(scl));
-		}
-		else
-			skipped_sortitem = true;
-	}
+        if (list_member_int(sortgrouprefs, scl->tleSortGroupRef)) {
+            if (skipped_sortitem)
+                ereport(ERROR,
+                        (errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
+                                errmsg("SELECT DISTINCT ON expressions must match initial ORDER BY expressions"),
+                                parser_errposition(pstate,
+                                                   get_matching_location(scl->tleSortGroupRef,
+                                                                         sortgrouprefs,
+                                                                         distinctlist))));
+            else
+                result = lappend(result, copyObject(scl));
+        } else
+            skipped_sortitem = true;
+    }
 
-	/*
-	 * Now add any remaining DISTINCT ON items, using default sort/group
-	 * semantics for their data types.  (Note: this is pretty questionable; if
-	 * the ORDER BY list doesn't include all the DISTINCT ON items and more
-	 * besides, you certainly aren't using DISTINCT ON in the intended way,
-	 * and you probably aren't going to get consistent results.  It might be
-	 * better to throw an error or warning here.  But historically we've
-	 * allowed it, so keep doing so.)
-	 */
-	forboth(lc, distinctlist, lc2, sortgrouprefs)
-	{
-		Node	   *dexpr = (Node *) lfirst(lc);
-		int			sortgroupref = lfirst_int(lc2);
-		TargetEntry *tle = get_sortgroupref_tle(sortgroupref, *targetlist);
+    /*
+     * Now add any remaining DISTINCT ON items, using default sort/group
+     * semantics for their data types.  (Note: this is pretty questionable; if
+     * the ORDER BY list doesn't include all the DISTINCT ON items and more
+     * besides, you certainly aren't using DISTINCT ON in the intended way,
+     * and you probably aren't going to get consistent results.  It might be
+     * better to throw an error or warning here.  But historically we've
+     * allowed it, so keep doing so.)
+     */
+    forboth(lc, distinctlist, lc2, sortgrouprefs) {
+        Node *dexpr = (Node *) lfirst(lc);
+        int sortgroupref = lfirst_int(lc2);
+        TargetEntry *tle = get_sortgroupref_tle(sortgroupref, *targetlist);
 
-		if (targetIsInSortList(tle, InvalidOid, result))
-			continue;			/* already in list (with some semantics) */
-		if (skipped_sortitem)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
-					 errmsg("SELECT DISTINCT ON expressions must match initial ORDER BY expressions"),
-					 parser_errposition(pstate, exprLocation(dexpr))));
-		result = addTargetToGroupList(pstate, tle,
-									  result, *targetlist,
-									  exprLocation(dexpr));
-	}
+        if (targetIsInSortList(tle, InvalidOid, result))
+            continue;            /* already in list (with some semantics) */
+        if (skipped_sortitem)
+            ereport(ERROR,
+                    (errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
+                            errmsg("SELECT DISTINCT ON expressions must match initial ORDER BY expressions"),
+                            parser_errposition(pstate, exprLocation(dexpr))));
+        result = addTargetToGroupList(pstate, tle,
+                                      result, *targetlist,
+                                      exprLocation(dexpr));
+    }
 
-	/*
-	 * An empty result list is impossible here because of grammar
-	 * restrictions.
-	 */
-	Assert(result != NIL);
+    /*
+     * An empty result list is impossible here because of grammar
+     * restrictions.
+     */
+    Assert(result != NIL);
 
-	return result;
+    return result;
 }
 
 /*
@@ -2977,19 +2829,17 @@ transformDistinctOnClause(ParseState *pstate, List *distinctlist,
  * or ORDER BY list.)
  */
 static int
-get_matching_location(int sortgroupref, List *sortgrouprefs, List *exprs)
-{
-	ListCell   *lcs;
-	ListCell   *lce;
+get_matching_location(int sortgroupref, List *sortgrouprefs, List *exprs) {
+    ListCell *lcs;
+    ListCell *lce;
 
-	forboth(lcs, sortgrouprefs, lce, exprs)
-	{
-		if (lfirst_int(lcs) == sortgroupref)
-			return exprLocation((Node *) lfirst(lce));
-	}
-	/* if no match, caller blew it */
-	elog(ERROR, "get_matching_location: no matching sortgroupref");
-	return -1;					/* keep compiler quiet */
+    forboth(lcs, sortgrouprefs, lce, exprs) {
+        if (lfirst_int(lcs) == sortgroupref)
+            return exprLocation((Node *) lfirst(lce));
+    }
+    /* if no match, caller blew it */
+    elog(ERROR, "get_matching_location: no matching sortgroupref");
+    return -1;                    /* keep compiler quiet */
 }
 
 /*
@@ -3003,90 +2853,85 @@ get_matching_location(int sortgroupref, List *sortgrouprefs, List *exprs)
  */
 static List *
 resolve_unique_index_expr(ParseState *pstate, InferClause *infer,
-						  Relation heapRel)
-{
-	List	   *result = NIL;
-	ListCell   *l;
+                          Relation heapRel) {
+    List *result = NIL;
+    ListCell *l;
 
-	foreach(l, infer->indexElems)
-	{
-		IndexElem  *ielem = (IndexElem *) lfirst(l);
-		InferenceElem *pInfer = makeNode(InferenceElem);
-		Node	   *parse;
+    foreach(l, infer->indexElems) {
+        IndexElem *ielem = (IndexElem *) lfirst(l);
+        InferenceElem *pInfer = makeNode(InferenceElem);
+        Node *parse;
 
-		/*
-		 * Raw grammar re-uses CREATE INDEX infrastructure for unique index
-		 * inference clause, and so will accept opclasses by name and so on.
-		 *
-		 * Make no attempt to match ASC or DESC ordering or NULLS FIRST/NULLS
-		 * LAST ordering, since those are not significant for inference
-		 * purposes (any unique index matching the inference specification in
-		 * other regards is accepted indifferently).  Actively reject this as
-		 * wrong-headed.
-		 */
-		if (ielem->ordering != SORTBY_DEFAULT)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
-					 errmsg("ASC/DESC is not allowed in ON CONFLICT clause"),
-					 parser_errposition(pstate,
-										exprLocation((Node *) infer))));
-		if (ielem->nulls_ordering != SORTBY_NULLS_DEFAULT)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
-					 errmsg("NULLS FIRST/LAST is not allowed in ON CONFLICT clause"),
-					 parser_errposition(pstate,
-										exprLocation((Node *) infer))));
+        /*
+         * Raw grammar re-uses CREATE INDEX infrastructure for unique index
+         * inference clause, and so will accept opclasses by name and so on.
+         *
+         * Make no attempt to match ASC or DESC ordering or NULLS FIRST/NULLS
+         * LAST ordering, since those are not significant for inference
+         * purposes (any unique index matching the inference specification in
+         * other regards is accepted indifferently).  Actively reject this as
+         * wrong-headed.
+         */
+        if (ielem->ordering != SORTBY_DEFAULT)
+            ereport(ERROR,
+                    (errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
+                            errmsg("ASC/DESC is not allowed in ON CONFLICT clause"),
+                            parser_errposition(pstate,
+                                               exprLocation((Node *) infer))));
+        if (ielem->nulls_ordering != SORTBY_NULLS_DEFAULT)
+            ereport(ERROR,
+                    (errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
+                            errmsg("NULLS FIRST/LAST is not allowed in ON CONFLICT clause"),
+                            parser_errposition(pstate,
+                                               exprLocation((Node *) infer))));
 
-		if (!ielem->expr)
-		{
-			/* Simple index attribute */
-			ColumnRef  *n;
+        if (!ielem->expr) {
+            /* Simple index attribute */
+            ColumnRef *n;
 
-			/*
-			 * Grammar won't have built raw expression for us in event of
-			 * plain column reference.  Create one directly, and perform
-			 * expression transformation.  Planner expects this, and performs
-			 * its own normalization for the purposes of matching against
-			 * pg_index.
-			 */
-			n = makeNode(ColumnRef);
-			n->fields = list_make1(makeString(ielem->name));
-			/* Location is approximately that of inference specification */
-			n->location = infer->location;
-			parse = (Node *) n;
-		}
-		else
-		{
-			/* Do parse transformation of the raw expression */
-			parse = (Node *) ielem->expr;
-		}
+            /*
+             * Grammar won't have built raw expression for us in event of
+             * plain column reference.  Create one directly, and perform
+             * expression transformation.  Planner expects this, and performs
+             * its own normalization for the purposes of matching against
+             * pg_index.
+             */
+            n = makeNode(ColumnRef);
+            n->fields = list_make1(makeString(ielem->name));
+            /* Location is approximately that of inference specification */
+            n->location = infer->location;
+            parse = (Node *) n;
+        } else {
+            /* Do parse transformation of the raw expression */
+            parse = (Node *) ielem->expr;
+        }
 
-		/*
-		 * transformExpr() will reject subqueries, aggregates, window
-		 * functions, and SRFs, based on being passed
-		 * EXPR_KIND_INDEX_EXPRESSION.  So we needn't worry about those
-		 * further ... not that they would match any available index
-		 * expression anyway.
-		 */
-		pInfer->expr = transformExpr(pstate, parse, EXPR_KIND_INDEX_EXPRESSION);
+        /*
+         * transformExpr() will reject subqueries, aggregates, window
+         * functions, and SRFs, based on being passed
+         * EXPR_KIND_INDEX_EXPRESSION.  So we needn't worry about those
+         * further ... not that they would match any available index
+         * expression anyway.
+         */
+        pInfer->expr = transformExpr(pstate, parse, EXPR_KIND_INDEX_EXPRESSION);
 
-		/* Perform lookup of collation and operator class as required */
-		if (!ielem->collation)
-			pInfer->infercollid = InvalidOid;
-		else
-			pInfer->infercollid = LookupCollation(pstate, ielem->collation,
-												  exprLocation(pInfer->expr));
+        /* Perform lookup of collation and operator class as required */
+        if (!ielem->collation)
+            pInfer->infercollid = InvalidOid;
+        else
+            pInfer->infercollid = LookupCollation(pstate, ielem->collation,
+                                                  exprLocation(pInfer->expr));
 
-		if (!ielem->opclass)
-			pInfer->inferopclass = InvalidOid;
-		else
-			pInfer->inferopclass = get_opclass_oid(BTREE_AM_OID,
-												   ielem->opclass, false);
+        if (!ielem->opclass)
+            pInfer->inferopclass = InvalidOid;
+        else
+            pInfer->inferopclass = get_opclass_oid(BTREE_AM_OID,
+                                                   ielem->opclass, false);
 
-		result = lappend(result, pInfer);
-	}
+        result = lappend(result, pInfer);
+    }
 
-	return result;
+    return result;
 }
 
 /*
@@ -3099,102 +2944,99 @@ resolve_unique_index_expr(ParseState *pstate, InferClause *infer,
  */
 void
 transformOnConflictArbiter(ParseState *pstate,
-						   OnConflictClause *onConflictClause,
-						   List **arbiterExpr, Node **arbiterWhere,
-						   Oid *constraint)
-{
-	InferClause *infer = onConflictClause->infer;
+                           OnConflictClause *onConflictClause,
+                           List **arbiterExpr, Node **arbiterWhere,
+                           Oid *constraint) {
+    InferClause *infer = onConflictClause->infer;
 
-	*arbiterExpr = NIL;
-	*arbiterWhere = NULL;
-	*constraint = InvalidOid;
+    *arbiterExpr = NIL;
+    *arbiterWhere = NULL;
+    *constraint = InvalidOid;
 
-	if (onConflictClause->action == ONCONFLICT_UPDATE && !infer)
-		ereport(ERROR,
-				(errcode(ERRCODE_SYNTAX_ERROR),
-				 errmsg("ON CONFLICT DO UPDATE requires inference specification or constraint name"),
-				 errhint("For example, ON CONFLICT (column_name)."),
-				 parser_errposition(pstate,
-									exprLocation((Node *) onConflictClause))));
+    if (onConflictClause->action == ONCONFLICT_UPDATE && !infer)
+        ereport(ERROR,
+                (errcode(ERRCODE_SYNTAX_ERROR),
+                        errmsg("ON CONFLICT DO UPDATE requires inference specification or constraint name"),
+                        errhint("For example, ON CONFLICT (column_name)."),
+                        parser_errposition(pstate,
+                                           exprLocation((Node *) onConflictClause))));
 
-	/*
-	 * To simplify certain aspects of its design, speculative insertion into
-	 * system catalogs is disallowed
-	 */
-	if (IsCatalogRelation(pstate->p_target_relation))
-		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("ON CONFLICT is not supported with system catalog tables"),
-				 parser_errposition(pstate,
-									exprLocation((Node *) onConflictClause))));
+    /*
+     * To simplify certain aspects of its design, speculative insertion into
+     * system catalogs is disallowed
+     */
+    if (IsCatalogRelation(pstate->p_target_relation))
+        ereport(ERROR,
+                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                        errmsg("ON CONFLICT is not supported with system catalog tables"),
+                        parser_errposition(pstate,
+                                           exprLocation((Node *) onConflictClause))));
 
-	/* Same applies to table used by logical decoding as catalog table */
-	if (RelationIsUsedAsCatalogTable(pstate->p_target_relation))
-		ereport(ERROR,
-				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-				 errmsg("ON CONFLICT is not supported on table \"%s\" used as a catalog table",
-						RelationGetRelationName(pstate->p_target_relation)),
-				 parser_errposition(pstate,
-									exprLocation((Node *) onConflictClause))));
+    /* Same applies to table used by logical decoding as catalog table */
+    if (RelationIsUsedAsCatalogTable(pstate->p_target_relation))
+        ereport(ERROR,
+                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                        errmsg("ON CONFLICT is not supported on table \"%s\" used as a catalog table",
+                               RelationGetRelationName(pstate->p_target_relation)),
+                        parser_errposition(pstate,
+                                           exprLocation((Node *) onConflictClause))));
 
-	/* ON CONFLICT DO NOTHING does not require an inference clause */
-	if (infer)
-	{
-		List	   *save_namespace;
+    /* ON CONFLICT DO NOTHING does not require an inference clause */
+    if (infer) {
+        List *save_namespace;
 
-		/*
-		 * While we process the arbiter expressions, accept only non-qualified
-		 * references to the target table. Hide any other relations.
-		 */
-		save_namespace = pstate->p_namespace;
-		pstate->p_namespace = NIL;
-		addRTEtoQuery(pstate, pstate->p_target_rangetblentry,
-					  false, false, true);
+        /*
+         * While we process the arbiter expressions, accept only non-qualified
+         * references to the target table. Hide any other relations.
+         */
+        save_namespace = pstate->p_namespace;
+        pstate->p_namespace = NIL;
+        addRTEtoQuery(pstate, pstate->p_target_rangetblentry,
+                      false, false, true);
 
-		if (infer->indexElems)
-			*arbiterExpr = resolve_unique_index_expr(pstate, infer,
-													 pstate->p_target_relation);
+        if (infer->indexElems)
+            *arbiterExpr = resolve_unique_index_expr(pstate, infer,
+                                                     pstate->p_target_relation);
 
-		/*
-		 * Handling inference WHERE clause (for partial unique index
-		 * inference)
-		 */
-		if (infer->whereClause)
-			*arbiterWhere = transformExpr(pstate, infer->whereClause,
-										  EXPR_KIND_INDEX_PREDICATE);
+        /*
+         * Handling inference WHERE clause (for partial unique index
+         * inference)
+         */
+        if (infer->whereClause)
+            *arbiterWhere = transformExpr(pstate, infer->whereClause,
+                                          EXPR_KIND_INDEX_PREDICATE);
 
-		pstate->p_namespace = save_namespace;
+        pstate->p_namespace = save_namespace;
 
-		/*
-		 * If the arbiter is specified by constraint name, get the constraint
-		 * OID and mark the constrained columns as requiring SELECT privilege,
-		 * in the same way as would have happened if the arbiter had been
-		 * specified by explicit reference to the constraint's index columns.
-		 */
-		if (infer->conname)
-		{
-			Oid			relid = RelationGetRelid(pstate->p_target_relation);
-			RangeTblEntry *rte = pstate->p_target_rangetblentry;
-			Bitmapset  *conattnos;
+        /*
+         * If the arbiter is specified by constraint name, get the constraint
+         * OID and mark the constrained columns as requiring SELECT privilege,
+         * in the same way as would have happened if the arbiter had been
+         * specified by explicit reference to the constraint's index columns.
+         */
+        if (infer->conname) {
+            Oid relid = RelationGetRelid(pstate->p_target_relation);
+            RangeTblEntry *rte = pstate->p_target_rangetblentry;
+            Bitmapset *conattnos;
 
-			conattnos = get_relation_constraint_attnos(relid, infer->conname,
-													   false, constraint);
+            conattnos = get_relation_constraint_attnos(relid, infer->conname,
+                                                       false, constraint);
 
-			/* Make sure the rel as a whole is marked for SELECT access */
-			rte->requiredPerms |= ACL_SELECT;
-			/* Mark the constrained columns as requiring SELECT access */
-			rte->selectedCols = bms_add_members(rte->selectedCols, conattnos);
-		}
-	}
+            /* Make sure the rel as a whole is marked for SELECT access */
+            rte->requiredPerms |= ACL_SELECT;
+            /* Mark the constrained columns as requiring SELECT access */
+            rte->selectedCols = bms_add_members(rte->selectedCols, conattnos);
+        }
+    }
 
-	/*
-	 * It's convenient to form a list of expressions based on the
-	 * representation used by CREATE INDEX, since the same restrictions are
-	 * appropriate (e.g. on subqueries).  However, from here on, a dedicated
-	 * primnode representation is used for inference elements, and so
-	 * assign_query_collations() can be trusted to do the right thing with the
-	 * post parse analysis query tree inference clause representation.
-	 */
+    /*
+     * It's convenient to form a list of expressions based on the
+     * representation used by CREATE INDEX, since the same restrictions are
+     * appropriate (e.g. on subqueries).  However, from here on, a dedicated
+     * primnode representation is used for inference elements, and so
+     * assign_query_collations() can be trusted to do the right thing with the
+     * post parse analysis query tree inference clause representation.
+     */
 }
 
 /*
@@ -3207,127 +3049,122 @@ transformOnConflictArbiter(ParseState *pstate,
  */
 List *
 addTargetToSortList(ParseState *pstate, TargetEntry *tle,
-					List *sortlist, List *targetlist, SortBy *sortby)
-{
-	Oid			restype = exprType((Node *) tle->expr);
-	Oid			sortop;
-	Oid			eqop;
-	bool		hashable;
-	bool		reverse;
-	int			location;
-	ParseCallbackState pcbstate;
+                    List *sortlist, List *targetlist, SortBy *sortby) {
+    Oid restype = exprType((Node *) tle->expr);
+    Oid sortop;
+    Oid eqop;
+    bool hashable;
+    bool reverse;
+    int location;
+    ParseCallbackState pcbstate;
 
-	/* if tlist item is an UNKNOWN literal, change it to TEXT */
-	if (restype == UNKNOWNOID)
-	{
-		tle->expr = (Expr *) coerce_type(pstate, (Node *) tle->expr,
-										 restype, TEXTOID, -1,
-										 COERCION_IMPLICIT,
-										 COERCE_IMPLICIT_CAST,
-										 -1);
-		restype = TEXTOID;
-	}
+    /* if tlist item is an UNKNOWN literal, change it to TEXT */
+    if (restype == UNKNOWNOID) {
+        tle->expr = (Expr *) coerce_type(pstate, (Node *) tle->expr,
+                                         restype, TEXTOID, -1,
+                                         COERCION_IMPLICIT,
+                                         COERCE_IMPLICIT_CAST,
+                                         -1);
+        restype = TEXTOID;
+    }
 
-	/*
-	 * Rather than clutter the API of get_sort_group_operators and the other
-	 * functions we're about to use, make use of error context callback to
-	 * mark any error reports with a parse position.  We point to the operator
-	 * location if present, else to the expression being sorted.  (NB: use the
-	 * original untransformed expression here; the TLE entry might well point
-	 * at a duplicate expression in the regular SELECT list.)
-	 */
-	location = sortby->location;
-	if (location < 0)
-		location = exprLocation(sortby->node);
-	setup_parser_errposition_callback(&pcbstate, pstate, location);
+    /*
+     * Rather than clutter the API of get_sort_group_operators and the other
+     * functions we're about to use, make use of error context callback to
+     * mark any error reports with a parse position.  We point to the operator
+     * location if present, else to the expression being sorted.  (NB: use the
+     * original untransformed expression here; the TLE entry might well point
+     * at a duplicate expression in the regular SELECT list.)
+     */
+    location = sortby->location;
+    if (location < 0)
+        location = exprLocation(sortby->node);
+    setup_parser_errposition_callback(&pcbstate, pstate, location);
 
-	/* determine the sortop, eqop, and directionality */
-	switch (sortby->sortby_dir)
-	{
-		case SORTBY_DEFAULT:
-		case SORTBY_ASC:
-			get_sort_group_operators(restype,
-									 true, true, false,
-									 &sortop, &eqop, NULL,
-									 &hashable);
-			reverse = false;
-			break;
-		case SORTBY_DESC:
-			get_sort_group_operators(restype,
-									 false, true, true,
-									 NULL, &eqop, &sortop,
-									 &hashable);
-			reverse = true;
-			break;
-		case SORTBY_USING:
-			Assert(sortby->useOp != NIL);
-			sortop = compatible_oper_opid(sortby->useOp,
-										  restype,
-										  restype,
-										  false);
+    /* determine the sortop, eqop, and directionality */
+    switch (sortby->sortby_dir) {
+        case SORTBY_DEFAULT:
+        case SORTBY_ASC:
+            get_sort_group_operators(restype,
+                                     true, true, false,
+                                     &sortop, &eqop, NULL,
+                                     &hashable);
+            reverse = false;
+            break;
+        case SORTBY_DESC:
+            get_sort_group_operators(restype,
+                                     false, true, true,
+                                     NULL, &eqop, &sortop,
+                                     &hashable);
+            reverse = true;
+            break;
+        case SORTBY_USING:
+            Assert(sortby->useOp != NIL);
+            sortop = compatible_oper_opid(sortby->useOp,
+                                          restype,
+                                          restype,
+                                          false);
 
-			/*
-			 * Verify it's a valid ordering operator, fetch the corresponding
-			 * equality operator, and determine whether to consider it like
-			 * ASC or DESC.
-			 */
-			eqop = get_equality_op_for_ordering_op(sortop, &reverse);
-			if (!OidIsValid(eqop))
-				ereport(ERROR,
-						(errcode(ERRCODE_WRONG_OBJECT_TYPE),
-						 errmsg("operator %s is not a valid ordering operator",
-								strVal(llast(sortby->useOp))),
-						 errhint("Ordering operators must be \"<\" or \">\" members of btree operator families.")));
+            /*
+             * Verify it's a valid ordering operator, fetch the corresponding
+             * equality operator, and determine whether to consider it like
+             * ASC or DESC.
+             */
+            eqop = get_equality_op_for_ordering_op(sortop, &reverse);
+            if (!OidIsValid(eqop))
+                ereport(ERROR,
+                        (errcode(ERRCODE_WRONG_OBJECT_TYPE),
+                                errmsg("operator %s is not a valid ordering operator",
+                                       strVal(llast(sortby->useOp))),
+                                errhint("Ordering operators must be \"<\" or \">\" members of btree operator families.")));
 
-			/*
-			 * Also see if the equality operator is hashable.
-			 */
-			hashable = op_hashjoinable(eqop, restype);
-			break;
-		default:
-			elog(ERROR, "unrecognized sortby_dir: %d", sortby->sortby_dir);
-			sortop = InvalidOid;	/* keep compiler quiet */
-			eqop = InvalidOid;
-			hashable = false;
-			reverse = false;
-			break;
-	}
+            /*
+             * Also see if the equality operator is hashable.
+             */
+            hashable = op_hashjoinable(eqop, restype);
+            break;
+        default:
+            elog(ERROR, "unrecognized sortby_dir: %d", sortby->sortby_dir);
+            sortop = InvalidOid;    /* keep compiler quiet */
+            eqop = InvalidOid;
+            hashable = false;
+            reverse = false;
+            break;
+    }
 
-	cancel_parser_errposition_callback(&pcbstate);
+    cancel_parser_errposition_callback(&pcbstate);
 
-	/* avoid making duplicate sortlist entries */
-	if (!targetIsInSortList(tle, sortop, sortlist))
-	{
-		SortGroupClause *sortcl = makeNode(SortGroupClause);
+    /* avoid making duplicate sortlist entries */
+    if (!targetIsInSortList(tle, sortop, sortlist)) {
+        SortGroupClause *sortcl = makeNode(SortGroupClause);
 
-		sortcl->tleSortGroupRef = assignSortGroupRef(tle, targetlist);
+        sortcl->tleSortGroupRef = assignSortGroupRef(tle, targetlist);
 
-		sortcl->eqop = eqop;
-		sortcl->sortop = sortop;
-		sortcl->hashable = hashable;
+        sortcl->eqop = eqop;
+        sortcl->sortop = sortop;
+        sortcl->hashable = hashable;
 
-		switch (sortby->sortby_nulls)
-		{
-			case SORTBY_NULLS_DEFAULT:
-				/* NULLS FIRST is default for DESC; other way for ASC */
-				sortcl->nulls_first = reverse;
-				break;
-			case SORTBY_NULLS_FIRST:
-				sortcl->nulls_first = true;
-				break;
-			case SORTBY_NULLS_LAST:
-				sortcl->nulls_first = false;
-				break;
-			default:
-				elog(ERROR, "unrecognized sortby_nulls: %d",
-					 sortby->sortby_nulls);
-				break;
-		}
+        switch (sortby->sortby_nulls) {
+            case SORTBY_NULLS_DEFAULT:
+                /* NULLS FIRST is default for DESC; other way for ASC */
+                sortcl->nulls_first = reverse;
+                break;
+            case SORTBY_NULLS_FIRST:
+                sortcl->nulls_first = true;
+                break;
+            case SORTBY_NULLS_LAST:
+                sortcl->nulls_first = false;
+                break;
+            default:
+                elog(ERROR, "unrecognized sortby_nulls: %d",
+                     sortby->sortby_nulls);
+                break;
+        }
 
-		sortlist = lappend(sortlist, sortcl);
-	}
+        sortlist = lappend(sortlist, sortcl);
+    }
 
-	return sortlist;
+    return sortlist;
 }
 
 /*
@@ -3350,50 +3187,47 @@ addTargetToSortList(ParseState *pstate, TargetEntry *tle,
  */
 static List *
 addTargetToGroupList(ParseState *pstate, TargetEntry *tle,
-					 List *grouplist, List *targetlist, int location)
-{
-	Oid			restype = exprType((Node *) tle->expr);
+                     List *grouplist, List *targetlist, int location) {
+    Oid restype = exprType((Node *) tle->expr);
 
-	/* if tlist item is an UNKNOWN literal, change it to TEXT */
-	if (restype == UNKNOWNOID)
-	{
-		tle->expr = (Expr *) coerce_type(pstate, (Node *) tle->expr,
-										 restype, TEXTOID, -1,
-										 COERCION_IMPLICIT,
-										 COERCE_IMPLICIT_CAST,
-										 -1);
-		restype = TEXTOID;
-	}
+    /* if tlist item is an UNKNOWN literal, change it to TEXT */
+    if (restype == UNKNOWNOID) {
+        tle->expr = (Expr *) coerce_type(pstate, (Node *) tle->expr,
+                                         restype, TEXTOID, -1,
+                                         COERCION_IMPLICIT,
+                                         COERCE_IMPLICIT_CAST,
+                                         -1);
+        restype = TEXTOID;
+    }
 
-	/* avoid making duplicate grouplist entries */
-	if (!targetIsInSortList(tle, InvalidOid, grouplist))
-	{
-		SortGroupClause *grpcl = makeNode(SortGroupClause);
-		Oid			sortop;
-		Oid			eqop;
-		bool		hashable;
-		ParseCallbackState pcbstate;
+    /* avoid making duplicate grouplist entries */
+    if (!targetIsInSortList(tle, InvalidOid, grouplist)) {
+        SortGroupClause *grpcl = makeNode(SortGroupClause);
+        Oid sortop;
+        Oid eqop;
+        bool hashable;
+        ParseCallbackState pcbstate;
 
-		setup_parser_errposition_callback(&pcbstate, pstate, location);
+        setup_parser_errposition_callback(&pcbstate, pstate, location);
 
-		/* determine the eqop and optional sortop */
-		get_sort_group_operators(restype,
-								 false, true, false,
-								 &sortop, &eqop, NULL,
-								 &hashable);
+        /* determine the eqop and optional sortop */
+        get_sort_group_operators(restype,
+                                 false, true, false,
+                                 &sortop, &eqop, NULL,
+                                 &hashable);
 
-		cancel_parser_errposition_callback(&pcbstate);
+        cancel_parser_errposition_callback(&pcbstate);
 
-		grpcl->tleSortGroupRef = assignSortGroupRef(tle, targetlist);
-		grpcl->eqop = eqop;
-		grpcl->sortop = sortop;
-		grpcl->nulls_first = false; /* OK with or without sortop */
-		grpcl->hashable = hashable;
+        grpcl->tleSortGroupRef = assignSortGroupRef(tle, targetlist);
+        grpcl->eqop = eqop;
+        grpcl->sortop = sortop;
+        grpcl->nulls_first = false; /* OK with or without sortop */
+        grpcl->hashable = hashable;
 
-		grouplist = lappend(grouplist, grpcl);
-	}
+        grouplist = lappend(grouplist, grpcl);
+    }
 
-	return grouplist;
+    return grouplist;
 }
 
 /*
@@ -3404,25 +3238,23 @@ addTargetToGroupList(ParseState *pstate, TargetEntry *tle,
  * 'tlist' is the targetlist containing (or to contain) the given targetentry.
  */
 Index
-assignSortGroupRef(TargetEntry *tle, List *tlist)
-{
-	Index		maxRef;
-	ListCell   *l;
+assignSortGroupRef(TargetEntry *tle, List *tlist) {
+    Index maxRef;
+    ListCell *l;
 
-	if (tle->ressortgroupref)	/* already has one? */
-		return tle->ressortgroupref;
+    if (tle->ressortgroupref)    /* already has one? */
+        return tle->ressortgroupref;
 
-	/* easiest way to pick an unused refnumber: max used + 1 */
-	maxRef = 0;
-	foreach(l, tlist)
-	{
-		Index		ref = ((TargetEntry *) lfirst(l))->ressortgroupref;
+    /* easiest way to pick an unused refnumber: max used + 1 */
+    maxRef = 0;
+    foreach(l, tlist) {
+        Index ref = ((TargetEntry *) lfirst(l))->ressortgroupref;
 
-		if (ref > maxRef)
-			maxRef = ref;
-	}
-	tle->ressortgroupref = maxRef + 1;
-	return tle->ressortgroupref;
+        if (ref > maxRef)
+            maxRef = ref;
+    }
+    tle->ressortgroupref = maxRef + 1;
+    return tle->ressortgroupref;
 }
 
 /*
@@ -3445,26 +3277,24 @@ assignSortGroupRef(TargetEntry *tle, List *tlist)
  * is that a TLE might be in only one of the lists.
  */
 bool
-targetIsInSortList(TargetEntry *tle, Oid sortop, List *sortList)
-{
-	Index		ref = tle->ressortgroupref;
-	ListCell   *l;
+targetIsInSortList(TargetEntry *tle, Oid sortop, List *sortList) {
+    Index ref = tle->ressortgroupref;
+    ListCell *l;
 
-	/* no need to scan list if tle has no marker */
-	if (ref == 0)
-		return false;
+    /* no need to scan list if tle has no marker */
+    if (ref == 0)
+        return false;
 
-	foreach(l, sortList)
-	{
-		SortGroupClause *scl = (SortGroupClause *) lfirst(l);
+    foreach(l, sortList) {
+        SortGroupClause *scl = (SortGroupClause *) lfirst(l);
 
-		if (scl->tleSortGroupRef == ref &&
-			(sortop == InvalidOid ||
-			 sortop == scl->sortop ||
-			 sortop == get_commutator(scl->sortop)))
-			return true;
-	}
-	return false;
+        if (scl->tleSortGroupRef == ref &&
+            (sortop == InvalidOid ||
+             sortop == scl->sortop ||
+             sortop == get_commutator(scl->sortop)))
+            return true;
+    }
+    return false;
 }
 
 /*
@@ -3472,19 +3302,17 @@ targetIsInSortList(TargetEntry *tle, Oid sortop, List *sortList)
  *		Find the named WindowClause in the list, or return NULL if not there
  */
 static WindowClause *
-findWindowClause(List *wclist, const char *name)
-{
-	ListCell   *l;
+findWindowClause(List *wclist, const char *name) {
+    ListCell *l;
 
-	foreach(l, wclist)
-	{
-		WindowClause *wc = (WindowClause *) lfirst(l);
+    foreach(l, wclist) {
+        WindowClause *wc = (WindowClause *) lfirst(l);
 
-		if (wc->name && strcmp(wc->name, name) == 0)
-			return wc;
-	}
+        if (wc->name && strcmp(wc->name, name) == 0)
+            return wc;
+    }
 
-	return NULL;
+    return NULL;
 }
 
 /*
@@ -3500,139 +3328,129 @@ findWindowClause(List *wclist, const char *name)
  */
 static Node *
 transformFrameOffset(ParseState *pstate, int frameOptions,
-					 Oid rangeopfamily, Oid rangeopcintype, Oid *inRangeFunc,
-					 Node *clause)
-{
-	const char *constructName = NULL;
-	Node	   *node;
+                     Oid rangeopfamily, Oid rangeopcintype, Oid *inRangeFunc,
+                     Node *clause) {
+    const char *constructName = NULL;
+    Node *node;
 
-	*inRangeFunc = InvalidOid;	/* default result */
+    *inRangeFunc = InvalidOid;    /* default result */
 
-	/* Quick exit if no offset expression */
-	if (clause == NULL)
-		return NULL;
+    /* Quick exit if no offset expression */
+    if (clause == NULL)
+        return NULL;
 
-	if (frameOptions & FRAMEOPTION_ROWS)
-	{
-		/* Transform the raw expression tree */
-		node = transformExpr(pstate, clause, EXPR_KIND_WINDOW_FRAME_ROWS);
+    if (frameOptions & FRAMEOPTION_ROWS) {
+        /* Transform the raw expression tree */
+        node = transformExpr(pstate, clause, EXPR_KIND_WINDOW_FRAME_ROWS);
 
-		/*
-		 * Like LIMIT clause, simply coerce to int8
-		 */
-		constructName = "ROWS";
-		node = coerce_to_specific_type(pstate, node, INT8OID, constructName);
-	}
-	else if (frameOptions & FRAMEOPTION_RANGE)
-	{
-		/*
-		 * We must look up the in_range support function that's to be used,
-		 * possibly choosing one of several, and coerce the "offset" value to
-		 * the appropriate input type.
-		 */
-		Oid			nodeType;
-		Oid			preferredType;
-		int			nfuncs = 0;
-		int			nmatches = 0;
-		Oid			selectedType = InvalidOid;
-		Oid			selectedFunc = InvalidOid;
-		CatCList   *proclist;
-		int			i;
+        /*
+         * Like LIMIT clause, simply coerce to int8
+         */
+        constructName = "ROWS";
+        node = coerce_to_specific_type(pstate, node, INT8OID, constructName);
+    } else if (frameOptions & FRAMEOPTION_RANGE) {
+        /*
+         * We must look up the in_range support function that's to be used,
+         * possibly choosing one of several, and coerce the "offset" value to
+         * the appropriate input type.
+         */
+        Oid nodeType;
+        Oid preferredType;
+        int nfuncs = 0;
+        int nmatches = 0;
+        Oid selectedType = InvalidOid;
+        Oid selectedFunc = InvalidOid;
+        CatCList *proclist;
+        int i;
 
-		/* Transform the raw expression tree */
-		node = transformExpr(pstate, clause, EXPR_KIND_WINDOW_FRAME_RANGE);
-		nodeType = exprType(node);
+        /* Transform the raw expression tree */
+        node = transformExpr(pstate, clause, EXPR_KIND_WINDOW_FRAME_RANGE);
+        nodeType = exprType(node);
 
-		/*
-		 * If there are multiple candidates, we'll prefer the one that exactly
-		 * matches nodeType; or if nodeType is as yet unknown, prefer the one
-		 * that exactly matches the sort column type.  (The second rule is
-		 * like what we do for "known_type operator unknown".)
-		 */
-		preferredType = (nodeType != UNKNOWNOID) ? nodeType : rangeopcintype;
+        /*
+         * If there are multiple candidates, we'll prefer the one that exactly
+         * matches nodeType; or if nodeType is as yet unknown, prefer the one
+         * that exactly matches the sort column type.  (The second rule is
+         * like what we do for "known_type operator unknown".)
+         */
+        preferredType = (nodeType != UNKNOWNOID) ? nodeType : rangeopcintype;
 
-		/* Find the in_range support functions applicable to this case */
-		proclist = SearchSysCacheList2(AMPROCNUM,
-									   ObjectIdGetDatum(rangeopfamily),
-									   ObjectIdGetDatum(rangeopcintype));
-		for (i = 0; i < proclist->n_members; i++)
-		{
-			HeapTuple	proctup = &proclist->members[i]->tuple;
-			Form_pg_amproc procform = (Form_pg_amproc) GETSTRUCT(proctup);
+        /* Find the in_range support functions applicable to this case */
+        proclist = SearchSysCacheList2(AMPROCNUM,
+                                       ObjectIdGetDatum(rangeopfamily),
+                                       ObjectIdGetDatum(rangeopcintype));
+        for (i = 0; i < proclist->n_members; i++) {
+            HeapTuple proctup = &proclist->members[i]->tuple;
+            Form_pg_amproc procform = (Form_pg_amproc) GETSTRUCT(proctup);
 
-			/* The search will find all support proc types; ignore others */
-			if (procform->amprocnum != BTINRANGE_PROC)
-				continue;
-			nfuncs++;
+            /* The search will find all support proc types; ignore others */
+            if (procform->amprocnum != BTINRANGE_PROC)
+                continue;
+            nfuncs++;
 
-			/* Ignore function if given value can't be coerced to that type */
-			if (!can_coerce_type(1, &nodeType, &procform->amprocrighttype,
-								 COERCION_IMPLICIT))
-				continue;
-			nmatches++;
+            /* Ignore function if given value can't be coerced to that type */
+            if (!can_coerce_type(1, &nodeType, &procform->amprocrighttype,
+                                 COERCION_IMPLICIT))
+                continue;
+            nmatches++;
 
-			/* Remember preferred match, or any match if didn't find that */
-			if (selectedType != preferredType)
-			{
-				selectedType = procform->amprocrighttype;
-				selectedFunc = procform->amproc;
-			}
-		}
-		ReleaseCatCacheList(proclist);
+            /* Remember preferred match, or any match if didn't find that */
+            if (selectedType != preferredType) {
+                selectedType = procform->amprocrighttype;
+                selectedFunc = procform->amproc;
+            }
+        }
+        ReleaseCatCacheList(proclist);
 
-		/*
-		 * Throw error if needed.  It seems worth taking the trouble to
-		 * distinguish "no support at all" from "you didn't match any
-		 * available offset type".
-		 */
-		if (nfuncs == 0)
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("RANGE with offset PRECEDING/FOLLOWING is not supported for column type %s",
-							format_type_be(rangeopcintype)),
-					 parser_errposition(pstate, exprLocation(node))));
-		if (nmatches == 0)
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("RANGE with offset PRECEDING/FOLLOWING is not supported for column type %s and offset type %s",
-							format_type_be(rangeopcintype),
-							format_type_be(nodeType)),
-					 errhint("Cast the offset value to an appropriate type."),
-					 parser_errposition(pstate, exprLocation(node))));
-		if (nmatches != 1 && selectedType != preferredType)
-			ereport(ERROR,
-					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("RANGE with offset PRECEDING/FOLLOWING has multiple interpretations for column type %s and offset type %s",
-							format_type_be(rangeopcintype),
-							format_type_be(nodeType)),
-					 errhint("Cast the offset value to the exact intended type."),
-					 parser_errposition(pstate, exprLocation(node))));
+        /*
+         * Throw error if needed.  It seems worth taking the trouble to
+         * distinguish "no support at all" from "you didn't match any
+         * available offset type".
+         */
+        if (nfuncs == 0)
+            ereport(ERROR,
+                    (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                            errmsg("RANGE with offset PRECEDING/FOLLOWING is not supported for column type %s",
+                                   format_type_be(rangeopcintype)),
+                            parser_errposition(pstate, exprLocation(node))));
+        if (nmatches == 0)
+            ereport(ERROR,
+                    (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                            errmsg("RANGE with offset PRECEDING/FOLLOWING is not supported for column type %s and offset type %s",
+                                   format_type_be(rangeopcintype),
+                                   format_type_be(nodeType)),
+                            errhint("Cast the offset value to an appropriate type."),
+                            parser_errposition(pstate, exprLocation(node))));
+        if (nmatches != 1 && selectedType != preferredType)
+            ereport(ERROR,
+                    (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                            errmsg("RANGE with offset PRECEDING/FOLLOWING has multiple interpretations for column type %s and offset type %s",
+                                   format_type_be(rangeopcintype),
+                                   format_type_be(nodeType)),
+                            errhint("Cast the offset value to the exact intended type."),
+                            parser_errposition(pstate, exprLocation(node))));
 
-		/* OK, coerce the offset to the right type */
-		constructName = "RANGE";
-		node = coerce_to_specific_type(pstate, node,
-									   selectedType, constructName);
-		*inRangeFunc = selectedFunc;
-	}
-	else if (frameOptions & FRAMEOPTION_GROUPS)
-	{
-		/* Transform the raw expression tree */
-		node = transformExpr(pstate, clause, EXPR_KIND_WINDOW_FRAME_GROUPS);
+        /* OK, coerce the offset to the right type */
+        constructName = "RANGE";
+        node = coerce_to_specific_type(pstate, node,
+                                       selectedType, constructName);
+        *inRangeFunc = selectedFunc;
+    } else if (frameOptions & FRAMEOPTION_GROUPS) {
+        /* Transform the raw expression tree */
+        node = transformExpr(pstate, clause, EXPR_KIND_WINDOW_FRAME_GROUPS);
 
-		/*
-		 * Like LIMIT clause, simply coerce to int8
-		 */
-		constructName = "GROUPS";
-		node = coerce_to_specific_type(pstate, node, INT8OID, constructName);
-	}
-	else
-	{
-		Assert(false);
-		node = NULL;
-	}
+        /*
+         * Like LIMIT clause, simply coerce to int8
+         */
+        constructName = "GROUPS";
+        node = coerce_to_specific_type(pstate, node, INT8OID, constructName);
+    } else {
+        Assert(false);
+        node = NULL;
+    }
 
-	/* Disallow variables in frame offsets */
-	checkExprIsVarFree(pstate, node, constructName);
+    /* Disallow variables in frame offsets */
+    checkExprIsVarFree(pstate, node, constructName);
 
-	return node;
+    return node;
 }

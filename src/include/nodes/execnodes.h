@@ -912,7 +912,7 @@ typedef struct DomainConstraintState {
  * if no more tuples are available.
  * ----------------
  */
-typedef TupleTableSlot *(*ExecProcNodeMtd)(struct PlanState *pstate);
+typedef TupleTableSlot *(*ExecProcNodeMtd)(struct PlanState *planState);
 
 /* ----------------
  *		PlanState node
@@ -926,13 +926,11 @@ typedef struct PlanState {
 
     Plan *plan;            /* associated Plan node */
 
-    EState *state;            /* at execution time, states of individual
-								 * nodes point to one EState for the whole
-								 * top-level plan */
+    /* at execution time, states of individual nodes point to one EState for the whole top-level plan */
+    EState *state;
 
     ExecProcNodeMtd ExecProcNode;    /* function to return next tuple */
-    ExecProcNodeMtd ExecProcNodeReal;    /* actual function, if above is a
-										 * wrapper */
+    ExecProcNodeMtd ExecProcNodeReal;    /* actual function, if above is a wrapper */
 
     Instrumentation *instrument;    /* Optional runtime stats for this node */
     WorkerInstrumentation *worker_instrument;    /* per-worker instrumentation */
@@ -1622,6 +1620,7 @@ typedef struct SubqueryScanState {
  */
 struct FunctionScanPerFuncState;
 
+// FunctionScanState -> ScanState -> PlanState
 typedef struct FunctionScanState {
     ScanState ss;                /* its first field is NodeTag */
     int eflags;

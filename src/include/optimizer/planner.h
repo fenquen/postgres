@@ -39,12 +39,12 @@ typedef void (*create_upper_paths_hook_type) (PlannerInfo *root,
 extern PGDLLIMPORT create_upper_paths_hook_type create_upper_paths_hook;
 
 
-extern PlannedStmt *standard_planner(Query *parse, int cursorOptions,
-									 ParamListInfo boundParams);
+extern PlannedStmt *standard_planner(Query *query, int cursorOptions,
+                                     ParamListInfo boundParams);
 
-extern PlannerInfo *subquery_planner(PlannerGlobal *glob, Query *parse,
-									 PlannerInfo *parent_root,
-									 bool hasRecursion, double tuple_fraction);
+extern PlannerInfo *subquery_planner(PlannerGlobal *plannerGlobal, Query *query,
+                                     PlannerInfo *parentRoot,
+                                     bool hasRecursion, double tuple_fraction);
 
 extern RowMarkType select_rowmark_type(RangeTblEntry *rte,
 									   LockClauseStrength strength);
@@ -53,7 +53,7 @@ extern bool limit_needed(Query *parse);
 
 extern void mark_partial_aggref(Aggref *agg, AggSplit aggsplit);
 
-extern Path *get_cheapest_fractional_path(RelOptInfo *rel,
+extern Path *get_cheapest_fractional_path(RelOptInfo *relOptInfo,
 										  double tuple_fraction);
 
 extern Expr *preprocess_phv_expression(PlannerInfo *root, Expr *expr);

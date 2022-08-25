@@ -31,67 +31,66 @@
 #include "utils/hsearch.h"
 
 
-typedef struct JoinHashEntry
-{
-	Relids		join_relids;	/* hash key --- MUST BE FIRST */
-	RelOptInfo *join_rel;
+typedef struct JoinHashEntry {
+    Relids join_relids;    /* hash key --- MUST BE FIRST */
+    RelOptInfo *join_rel;
 } JoinHashEntry;
 
 static void build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
-								RelOptInfo *input_rel);
+                                RelOptInfo *input_rel);
+
 static List *build_joinrel_restrictlist(PlannerInfo *root,
-										RelOptInfo *joinrel,
-										RelOptInfo *outer_rel,
-										RelOptInfo *inner_rel);
+                                        RelOptInfo *joinrel,
+                                        RelOptInfo *outer_rel,
+                                        RelOptInfo *inner_rel);
+
 static void build_joinrel_joinlist(RelOptInfo *joinrel,
-								   RelOptInfo *outer_rel,
-								   RelOptInfo *inner_rel);
+                                   RelOptInfo *outer_rel,
+                                   RelOptInfo *inner_rel);
+
 static List *subbuild_joinrel_restrictlist(RelOptInfo *joinrel,
-										   List *joininfo_list,
-										   List *new_restrictlist);
+                                           List *joininfo_list,
+                                           List *new_restrictlist);
+
 static List *subbuild_joinrel_joinlist(RelOptInfo *joinrel,
-									   List *joininfo_list,
-									   List *new_joininfo);
+                                       List *joininfo_list,
+                                       List *new_joininfo);
+
 static void set_foreign_rel_properties(RelOptInfo *joinrel,
-									   RelOptInfo *outer_rel, RelOptInfo *inner_rel);
+                                       RelOptInfo *outer_rel, RelOptInfo *inner_rel);
+
 static void add_join_rel(PlannerInfo *root, RelOptInfo *joinrel);
+
 static void build_joinrel_partition_info(RelOptInfo *joinrel,
-										 RelOptInfo *outer_rel, RelOptInfo *inner_rel,
-										 List *restrictlist, JoinType jointype);
+                                         RelOptInfo *outer_rel, RelOptInfo *inner_rel,
+                                         List *restrictlist, JoinType jointype);
+
 static void build_child_join_reltarget(PlannerInfo *root,
-									   RelOptInfo *parentrel,
-									   RelOptInfo *childrel,
-									   int nappinfos,
-									   AppendRelInfo **appinfos);
+                                       RelOptInfo *parentrel,
+                                       RelOptInfo *childrel,
+                                       int nappinfos,
+                                       AppendRelInfo **appinfos);
 
 
 /*
  * setup_simple_rel_arrays
  *	  Prepare the arrays we use for quickly accessing base relations.
  */
-void
-setup_simple_rel_arrays(PlannerInfo *root)
-{
-	Index		rti;
-	ListCell   *lc;
+void setup_simple_rel_arrays(PlannerInfo *root) {
+    // Arrays are accessed using RT indexes (1..N)
+    root->simple_rel_array_size = list_length(root->parse->rtable) + 1;
 
-	/* Arrays are accessed using RT indexes (1..N) */
-	root->simple_rel_array_size = list_length(root->parse->rtable) + 1;
+    // simple_rel_array is initialized to all NULLs
+    root->simple_rel_array = (RelOptInfo **) palloc0(root->simple_rel_array_size * sizeof(RelOptInfo *));
 
-	/* simple_rel_array is initialized to all NULLs */
-	root->simple_rel_array = (RelOptInfo **)
-		palloc0(root->simple_rel_array_size * sizeof(RelOptInfo *));
+    // simple_rte_array is an array equivalent of the rtable list
+    root->simple_rte_array = (RangeTblEntry **) palloc0(root->simple_rel_array_size * sizeof(RangeTblEntry *));
 
-	/* simple_rte_array is an array equivalent of the rtable list */
-	root->simple_rte_array = (RangeTblEntry **)
-		palloc0(root->simple_rel_array_size * sizeof(RangeTblEntry *));
-	rti = 1;
-	foreach(lc, root->parse->rtable)
-	{
-		RangeTblEntry *rte = (RangeTblEntry *) lfirst(lc);
-
-		root->simple_rte_array[rti++] = rte;
-	}
+    Index rti = 1;
+    ListCell *lc;
+    foreach(lc, root->parse->rtable) {
+        root->simple_rte_array[rti++] = (RangeTblEntry *) lfirst(lc);
+    }
 }
 
 /*
@@ -101,34 +100,29 @@ setup_simple_rel_arrays(PlannerInfo *root)
  *
  * The array remains unallocated if there are no AppendRelInfos.
  */
-void
-setup_append_rel_array(PlannerInfo *root)
-{
-	ListCell   *lc;
-	int			size = list_length(root->parse->rtable) + 1;
+void setup_append_rel_array(PlannerInfo *root) {
+    ListCell *lc;
+    int size = list_length(root->parse->rtable) + 1;
 
-	if (root->append_rel_list == NIL)
-	{
-		root->append_rel_array = NULL;
-		return;
-	}
+    if (root->append_rel_list == NIL) {
+        root->append_rel_array = NULL;
+        return;
+    }
 
-	root->append_rel_array = (AppendRelInfo **)
-		palloc0(size * sizeof(AppendRelInfo *));
+    root->append_rel_array = (AppendRelInfo **) palloc0(size * sizeof(AppendRelInfo *));
 
-	foreach(lc, root->append_rel_list)
-	{
-		AppendRelInfo *appinfo = lfirst_node(AppendRelInfo, lc);
-		int			child_relid = appinfo->child_relid;
+    foreach(lc, root->append_rel_list) {
+        AppendRelInfo *appinfo = lfirst_node(AppendRelInfo, lc);
+        int child_relid = appinfo->child_relid;
 
-		/* Sanity check */
-		Assert(child_relid < size);
+        Assert(child_relid < size);
 
-		if (root->append_rel_array[child_relid])
-			elog(ERROR, "child relation already exists");
+        if (root->append_rel_array[child_relid]) {
+            elog(ERROR, "child relation already exist");
+        }
 
-		root->append_rel_array[child_relid] = appinfo;
-	}
+        root->append_rel_array[child_relid] = appinfo;
+    }
 }
 
 /*
@@ -136,242 +130,210 @@ setup_append_rel_array(PlannerInfo *root)
  *		Expand the PlannerInfo's per-RTE arrays by add_size members
  *		and initialize the newly added entries to NULLs
  */
-void
-expand_planner_arrays(PlannerInfo *root, int add_size)
-{
-	int			new_size;
+void expand_planner_arrays(PlannerInfo *root, int add_size) {
+    int new_size;
 
-	Assert(add_size > 0);
+    Assert(add_size > 0);
 
-	new_size = root->simple_rel_array_size + add_size;
+    new_size = root->simple_rel_array_size + add_size;
 
-	root->simple_rte_array = (RangeTblEntry **)
-		repalloc(root->simple_rte_array,
-				 sizeof(RangeTblEntry *) * new_size);
-	MemSet(root->simple_rte_array + root->simple_rel_array_size,
-		   0, sizeof(RangeTblEntry *) * add_size);
+    root->simple_rte_array = (RangeTblEntry **)
+            repalloc(root->simple_rte_array,
+                     sizeof(RangeTblEntry *) * new_size);
+    MemSet(root->simple_rte_array + root->simple_rel_array_size,
+           0, sizeof(RangeTblEntry *) * add_size);
 
-	root->simple_rel_array = (RelOptInfo **)
-		repalloc(root->simple_rel_array,
-				 sizeof(RelOptInfo *) * new_size);
-	MemSet(root->simple_rel_array + root->simple_rel_array_size,
-		   0, sizeof(RelOptInfo *) * add_size);
+    root->simple_rel_array = (RelOptInfo **)
+            repalloc(root->simple_rel_array,
+                     sizeof(RelOptInfo *) * new_size);
+    MemSet(root->simple_rel_array + root->simple_rel_array_size,
+           0, sizeof(RelOptInfo *) * add_size);
 
-	if (root->append_rel_array)
-	{
-		root->append_rel_array = (AppendRelInfo **)
-			repalloc(root->append_rel_array,
-					 sizeof(AppendRelInfo *) * new_size);
-		MemSet(root->append_rel_array + root->simple_rel_array_size,
-			   0, sizeof(AppendRelInfo *) * add_size);
-	}
-	else
-	{
-		root->append_rel_array = (AppendRelInfo **)
-			palloc0(sizeof(AppendRelInfo *) * new_size);
-	}
+    if (root->append_rel_array) {
+        root->append_rel_array = (AppendRelInfo **)
+                repalloc(root->append_rel_array,
+                         sizeof(AppendRelInfo *) * new_size);
+        MemSet(root->append_rel_array + root->simple_rel_array_size,
+               0, sizeof(AppendRelInfo *) * add_size);
+    } else {
+        root->append_rel_array = (AppendRelInfo **)
+                palloc0(sizeof(AppendRelInfo *) * new_size);
+    }
 
-	root->simple_rel_array_size = new_size;
+    root->simple_rel_array_size = new_size;
 }
 
 /*
- * build_simple_rel
  *	  Construct a new RelOptInfo for a base relation or 'other' relation.
  */
-RelOptInfo *
-build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
-{
-	RelOptInfo *rel;
-	RangeTblEntry *rte;
+RelOptInfo *build_simple_rel(PlannerInfo *root,
+                             int relid, // 和 relOptInfo的relid意思相同
+                             RelOptInfo *parentRelOptInfo) {
+    /* Rel should not exist already */
+    Assert(relid > 0 && relid < root->simple_rel_array_size);
 
-	/* Rel should not exist already */
-	Assert(relid > 0 && relid < root->simple_rel_array_size);
-	if (root->simple_rel_array[relid] != NULL)
-		elog(ERROR, "rel %d already exists", relid);
+    if (root->simple_rel_array[relid] != NULL) {
+        elog(ERROR, "root->simple_rel_array[%d] != NULL", relid);
+    }
 
-	/* Fetch RTE for relation */
-	rte = root->simple_rte_array[relid];
-	Assert(rte != NULL);
+    // fetch RTE for relation
+    RangeTblEntry *rangeTblEntry = root->simple_rte_array[relid];
+    Assert(rangeTblEntry != NULL);
 
-	rel = makeNode(RelOptInfo);
-	rel->reloptkind = parent ? RELOPT_OTHER_MEMBER_REL : RELOPT_BASEREL;
-	rel->relids = bms_make_singleton(relid);
-	rel->rows = 0;
-	/* cheap startup cost is interesting iff not all tuples to be retrieved */
-	rel->consider_startup = (root->tuple_fraction > 0);
-	rel->consider_param_startup = false;	/* might get changed later */
-	rel->consider_parallel = false; /* might get changed later */
-	rel->reltarget = create_empty_pathtarget();
-	rel->pathlist = NIL;
-	rel->ppilist = NIL;
-	rel->partial_pathlist = NIL;
-	rel->cheapest_startup_path = NULL;
-	rel->cheapest_total_path = NULL;
-	rel->cheapest_unique_path = NULL;
-	rel->cheapest_parameterized_paths = NIL;
-	rel->relid = relid;
-	rel->rtekind = rte->rtekind;
-	/* min_attr, max_attr, attr_needed, attr_widths are set below */
-	rel->lateral_vars = NIL;
-	rel->indexlist = NIL;
-	rel->statlist = NIL;
-	rel->pages = 0;
-	rel->tuples = 0;
-	rel->allvisfrac = 0;
-	rel->subroot = NULL;
-	rel->subplan_params = NIL;
-	rel->rel_parallel_workers = -1; /* set up in get_relation_info */
-	rel->serverid = InvalidOid;
-	rel->userid = rte->checkAsUser;
-	rel->useridiscurrent = false;
-	rel->fdwroutine = NULL;
-	rel->fdw_private = NULL;
-	rel->unique_for_rels = NIL;
-	rel->non_unique_for_rels = NIL;
-	rel->baserestrictinfo = NIL;
-	rel->baserestrictcost.startup = 0;
-	rel->baserestrictcost.per_tuple = 0;
-	rel->baserestrict_min_security = UINT_MAX;
-	rel->joininfo = NIL;
-	rel->has_eclass_joins = false;
-	rel->consider_partitionwise_join = false;	/* might get changed later */
-	rel->part_scheme = NULL;
-	rel->nparts = 0;
-	rel->boundinfo = NULL;
-	rel->partition_qual = NIL;
-	rel->part_rels = NULL;
-	rel->partexprs = NULL;
-	rel->nullable_partexprs = NULL;
-	rel->partitioned_child_rels = NIL;
+    RelOptInfo *relOptInfo = makeNode(RelOptInfo);
+    relOptInfo->reloptkind = parentRelOptInfo ? RELOPT_OTHER_MEMBER_REL : RELOPT_BASEREL;
+    relOptInfo->relids = bms_make_singleton(relid);
+    relOptInfo->rows = 0;
+    /* cheap startup cost is interesting iff not all tuples to be retrieved */
+    relOptInfo->consider_startup = (root->tuple_fraction > 0);
+    relOptInfo->consider_param_startup = false;    /* might get changed later */
+    relOptInfo->consider_parallel = false; /* might get changed later */
+    relOptInfo->reltarget = create_empty_pathtarget();
+    relOptInfo->pathlist = NIL;
+    relOptInfo->ppilist = NIL;
+    relOptInfo->partial_pathlist = NIL;
+    relOptInfo->cheapest_startup_path = NULL;
+    relOptInfo->cheapest_total_path = NULL;
+    relOptInfo->cheapest_unique_path = NULL;
+    relOptInfo->cheapest_parameterized_paths = NIL;
+    relOptInfo->relid = relid;
+    relOptInfo->rtekind = rangeTblEntry->rtekind;
+    /* min_attr, max_attr, attr_needed, attr_widths are set below */
+    relOptInfo->lateral_vars = NIL;
+    relOptInfo->indexlist = NIL;
+    relOptInfo->statlist = NIL;
+    relOptInfo->pages = 0;
+    relOptInfo->tuples = 0;
+    relOptInfo->allvisfrac = 0;
+    relOptInfo->subroot = NULL;
+    relOptInfo->subplan_params = NIL;
+    relOptInfo->rel_parallel_workers = -1; /* set up in get_relation_info */
+    relOptInfo->serverid = InvalidOid;
+    relOptInfo->userid = rangeTblEntry->checkAsUser;
+    relOptInfo->useridiscurrent = false;
+    relOptInfo->fdwroutine = NULL;
+    relOptInfo->fdw_private = NULL;
+    relOptInfo->unique_for_rels = NIL;
+    relOptInfo->non_unique_for_rels = NIL;
+    relOptInfo->baserestrictinfo = NIL;
+    relOptInfo->baserestrictcost.startup = 0;
+    relOptInfo->baserestrictcost.per_tuple = 0;
+    relOptInfo->baserestrict_min_security = UINT_MAX;
+    relOptInfo->joininfo = NIL;
+    relOptInfo->has_eclass_joins = false;
+    relOptInfo->consider_partitionwise_join = false;    /* might get changed later */
+    relOptInfo->part_scheme = NULL;
+    relOptInfo->nparts = 0;
+    relOptInfo->boundinfo = NULL;
+    relOptInfo->partition_qual = NIL;
+    relOptInfo->part_rels = NULL;
+    relOptInfo->partexprs = NULL;
+    relOptInfo->nullable_partexprs = NULL;
+    relOptInfo->partitioned_child_rels = NIL;
 
-	/*
-	 * Pass assorted information down the inheritance hierarchy.
-	 */
-	if (parent)
-	{
-		/*
-		 * Each direct or indirect child wants to know the relids of its
-		 * topmost parent.
-		 */
-		if (parent->top_parent_relids)
-			rel->top_parent_relids = parent->top_parent_relids;
-		else
-			rel->top_parent_relids = bms_copy(parent->relids);
+    // Pass assorted information down the inheritance hierarchy.
+    if (parentRelOptInfo != NULL) {
+        // each direct or indirect child wants to know the relids of its topmost parent.
+        if (parentRelOptInfo->top_parent_relids)
+            relOptInfo->top_parent_relids = parentRelOptInfo->top_parent_relids;
+        else
+            relOptInfo->top_parent_relids = bms_copy(parentRelOptInfo->relids);
 
-		/*
-		 * Also propagate lateral-reference information from appendrel parent
-		 * rels to their child rels.  We intentionally give each child rel the
-		 * same minimum parameterization, even though it's quite possible that
-		 * some don't reference all the lateral rels.  This is because any
-		 * append path for the parent will have to have the same
-		 * parameterization for every child anyway, and there's no value in
-		 * forcing extra reparameterize_path() calls.  Similarly, a lateral
-		 * reference to the parent prevents use of otherwise-movable join rels
-		 * for each child.
-		 *
-		 * It's possible for child rels to have their own children, in which
-		 * case the topmost parent's lateral info propagates all the way down.
-		 */
-		rel->direct_lateral_relids = parent->direct_lateral_relids;
-		rel->lateral_relids = parent->lateral_relids;
-		rel->lateral_referencers = parent->lateral_referencers;
-	}
-	else
-	{
-		rel->top_parent_relids = NULL;
-		rel->direct_lateral_relids = NULL;
-		rel->lateral_relids = NULL;
-		rel->lateral_referencers = NULL;
-	}
+        /*
+         * Also propagate lateral-reference information from appendrel parent
+         * rels to their child rels.  We intentionally give each child rel the
+         * same minimum parameterization, even though it's quite possible that
+         * some don't reference all the lateral rels.  This is because any
+         * append path for the parent will have to have the same
+         * parameterization for every child anyway, and there's no value in
+         * forcing extra reparameterize_path() calls.  Similarly, a lateral
+         * reference to the parent prevents use of otherwise-movable join rels
+         * for each child.
+         *
+         * It's possible for child rels to have their own children, in which
+         * case the topmost parent's lateral info propagates all the way down.
+         */
+        relOptInfo->direct_lateral_relids = parentRelOptInfo->direct_lateral_relids;
+        relOptInfo->lateral_relids = parentRelOptInfo->lateral_relids;
+        relOptInfo->lateral_referencers = parentRelOptInfo->lateral_referencers;
+    } else {
+        relOptInfo->top_parent_relids = NULL;
+        relOptInfo->direct_lateral_relids = NULL;
+        relOptInfo->lateral_relids = NULL;
+        relOptInfo->lateral_referencers = NULL;
+    }
 
-	/* Check type of rtable entry */
-	switch (rte->rtekind)
-	{
-		case RTE_RELATION:
-			/* Table --- retrieve statistics from the system catalogs */
-			get_relation_info(root, rte->relid, rte->inh, rel);
-			break;
-		case RTE_SUBQUERY:
-		case RTE_FUNCTION:
-		case RTE_TABLEFUNC:
-		case RTE_VALUES:
-		case RTE_CTE:
-		case RTE_NAMEDTUPLESTORE:
+    // check type of rangeTblEntry
+    switch (rangeTblEntry->rtekind) {
+        case RTE_RELATION:// Table --- retrieve statistics from the system catalogs
+            get_relation_info(root, rangeTblEntry->relid, rangeTblEntry->inh, relOptInfo);
+            break;
+        case RTE_SUBQUERY:
+        case RTE_FUNCTION:
+        case RTE_TABLEFUNC:
+        case RTE_VALUES:
+        case RTE_CTE:
+        case RTE_NAMEDTUPLESTORE:
+            // subquery, function, tablefunc, values list, CTE, or ENR --- set up attr range and arrays
+            // Note: 0 is included in range to support whole-row Vars
+            relOptInfo->min_attr = 0;
+            relOptInfo->max_attr = list_length(rangeTblEntry->eref->colnames);
+            relOptInfo->attr_needed = (Relids *) palloc0(
+                    (relOptInfo->max_attr - relOptInfo->min_attr + 1) * sizeof(Relids));
+            relOptInfo->attr_widths = (int32 *)
+                    palloc0((relOptInfo->max_attr - relOptInfo->min_attr + 1) * sizeof(int32));
+            break;
+        case RTE_RESULT:
+            /* RTE_RESULT has no columns, nor could it have whole-row Var */
+            relOptInfo->min_attr = 0;
+            relOptInfo->max_attr = -1;
+            relOptInfo->attr_needed = NULL;
+            relOptInfo->attr_widths = NULL;
+            break;
+        default:
+            elog(ERROR, "unrecognized RTE kind: %d", (int) rangeTblEntry->rtekind);
+            break;
+    }
 
-			/*
-			 * Subquery, function, tablefunc, values list, CTE, or ENR --- set
-			 * up attr range and arrays
-			 *
-			 * Note: 0 is included in range to support whole-row Vars
-			 */
-			rel->min_attr = 0;
-			rel->max_attr = list_length(rte->eref->colnames);
-			rel->attr_needed = (Relids *)
-				palloc0((rel->max_attr - rel->min_attr + 1) * sizeof(Relids));
-			rel->attr_widths = (int32 *)
-				palloc0((rel->max_attr - rel->min_attr + 1) * sizeof(int32));
-			break;
-		case RTE_RESULT:
-			/* RTE_RESULT has no columns, nor could it have whole-row Var */
-			rel->min_attr = 0;
-			rel->max_attr = -1;
-			rel->attr_needed = NULL;
-			rel->attr_widths = NULL;
-			break;
-		default:
-			elog(ERROR, "unrecognized RTE kind: %d",
-				 (int) rte->rtekind);
-			break;
-	}
+    /*
+     * Copy the parent's quals to the child, with appropriate substitution of
+     * variables.  If any constant false or NULL clauses turn up, we can mark
+     * the child as dummy right away.  (We must do this immediately so that
+     * pruning works correctly when recursing in expand_partitioned_rtentry.)
+     */
+    if (parentRelOptInfo != NULL) {
+        AppendRelInfo *appinfo = root->append_rel_array[relid];
 
-	/*
-	 * Copy the parent's quals to the child, with appropriate substitution of
-	 * variables.  If any constant false or NULL clauses turn up, we can mark
-	 * the child as dummy right away.  (We must do this immediately so that
-	 * pruning works correctly when recursing in expand_partitioned_rtentry.)
-	 */
-	if (parent)
-	{
-		AppendRelInfo *appinfo = root->append_rel_array[relid];
+        Assert(appinfo != NULL);
+        if (!apply_child_basequals(root, parentRelOptInfo, relOptInfo, rangeTblEntry, appinfo)) {
+            /*
+             * Some restriction clause reduced to constant FALSE or NULL after
+             * substitution, so this child need not be scanned.
+             */
+            mark_dummy_rel(relOptInfo);
+        }
+    }
 
-		Assert(appinfo != NULL);
-		if (!apply_child_basequals(root, parent, rel, rte, appinfo))
-		{
-			/*
-			 * Some restriction clause reduced to constant FALSE or NULL after
-			 * substitution, so this child need not be scanned.
-			 */
-			mark_dummy_rel(rel);
-		}
-	}
+    /* Save the finished struct in the query's simple_rel_array */
+    root->simple_rel_array[relid] = relOptInfo;
 
-	/* Save the finished struct in the query's simple_rel_array */
-	root->simple_rel_array[relid] = rel;
-
-	return rel;
+    return relOptInfo;
 }
 
-/*
- * find_base_rel
- *	  Find a base or other relation entry, which must already exist.
- */
-RelOptInfo *
-find_base_rel(PlannerInfo *root, int relid)
-{
-	RelOptInfo *rel;
+// 到 root 的 simple_rel_array 得到对应的
+RelOptInfo *find_base_rel(PlannerInfo *root, int relid) {
+    Assert(relid > 0);
 
-	Assert(relid > 0);
+    if (relid < root->simple_rel_array_size) {
+        RelOptInfo *relOptInfo = root->simple_rel_array[relid];
+        if (relOptInfo) {
+            return relOptInfo;
+        }
+    }
 
-	if (relid < root->simple_rel_array_size)
-	{
-		rel = root->simple_rel_array[relid];
-		if (rel)
-			return rel;
-	}
+    elog(ERROR, "no relation entry for relid %d", relid);
 
-	elog(ERROR, "no relation entry for relid %d", relid);
-
-	return NULL;				/* keep compiler quiet */
+    return NULL;
 }
 
 /*
@@ -379,40 +341,38 @@ find_base_rel(PlannerInfo *root, int relid)
  *	  Construct the auxiliary hash table for join relations.
  */
 static void
-build_join_rel_hash(PlannerInfo *root)
-{
-	HTAB	   *hashtab;
-	HASHCTL		hash_ctl;
-	ListCell   *l;
+build_join_rel_hash(PlannerInfo *root) {
+    HTAB *hashtab;
+    HASHCTL hash_ctl;
+    ListCell *l;
 
-	/* Create the hash table */
-	MemSet(&hash_ctl, 0, sizeof(hash_ctl));
-	hash_ctl.keysize = sizeof(Relids);
-	hash_ctl.entrysize = sizeof(JoinHashEntry);
-	hash_ctl.hash = bitmap_hash;
-	hash_ctl.match = bitmap_match;
-	hash_ctl.hcxt = CurrentMemoryContext;
-	hashtab = hash_create("JoinRelHashTable",
-						  256L,
-						  &hash_ctl,
-						  HASH_ELEM | HASH_FUNCTION | HASH_COMPARE | HASH_CONTEXT);
+    /* Create the hash table */
+    MemSet(&hash_ctl, 0, sizeof(hash_ctl));
+    hash_ctl.keysize = sizeof(Relids);
+    hash_ctl.entrysize = sizeof(JoinHashEntry);
+    hash_ctl.hash = bitmap_hash;
+    hash_ctl.match = bitmap_match;
+    hash_ctl.hcxt = CurrentMemoryContext;
+    hashtab = hash_create("JoinRelHashTable",
+                          256L,
+                          &hash_ctl,
+                          HASH_ELEM | HASH_FUNCTION | HASH_COMPARE | HASH_CONTEXT);
 
-	/* Insert all the already-existing joinrels */
-	foreach(l, root->join_rel_list)
-	{
-		RelOptInfo *rel = (RelOptInfo *) lfirst(l);
-		JoinHashEntry *hentry;
-		bool		found;
+    /* Insert all the already-existing joinrels */
+    foreach(l, root->join_rel_list) {
+        RelOptInfo *rel = (RelOptInfo *) lfirst(l);
+        JoinHashEntry *hentry;
+        bool found;
 
-		hentry = (JoinHashEntry *) hash_search(hashtab,
-											   &(rel->relids),
-											   HASH_ENTER,
-											   &found);
-		Assert(!found);
-		hentry->join_rel = rel;
-	}
+        hentry = (JoinHashEntry *) hash_search(hashtab,
+                                               &(rel->relids),
+                                               HASH_ENTER,
+                                               &found);
+        Assert(!found);
+        hentry->join_rel = rel;
+    }
 
-	root->join_rel_hash = hashtab;
+    root->join_rel_hash = hashtab;
 }
 
 /*
@@ -421,49 +381,44 @@ build_join_rel_hash(PlannerInfo *root)
  *	  or NULL if none exists.  This is for join relations.
  */
 RelOptInfo *
-find_join_rel(PlannerInfo *root, Relids relids)
-{
-	/*
-	 * Switch to using hash lookup when list grows "too long".  The threshold
-	 * is arbitrary and is known only here.
-	 */
-	if (!root->join_rel_hash && list_length(root->join_rel_list) > 32)
-		build_join_rel_hash(root);
+find_join_rel(PlannerInfo *root, Relids relids) {
+    /*
+     * Switch to using hash lookup when list grows "too long".  The threshold
+     * is arbitrary and is known only here.
+     */
+    if (!root->join_rel_hash && list_length(root->join_rel_list) > 32)
+        build_join_rel_hash(root);
 
-	/*
-	 * Use either hashtable lookup or linear search, as appropriate.
-	 *
-	 * Note: the seemingly redundant hashkey variable is used to avoid taking
-	 * the address of relids; unless the compiler is exceedingly smart, doing
-	 * so would force relids out of a register and thus probably slow down the
-	 * list-search case.
-	 */
-	if (root->join_rel_hash)
-	{
-		Relids		hashkey = relids;
-		JoinHashEntry *hentry;
+    /*
+     * Use either hashtable lookup or linear search, as appropriate.
+     *
+     * Note: the seemingly redundant hashkey variable is used to avoid taking
+     * the address of relids; unless the compiler is exceedingly smart, doing
+     * so would force relids out of a register and thus probably slow down the
+     * list-search case.
+     */
+    if (root->join_rel_hash) {
+        Relids hashkey = relids;
+        JoinHashEntry *hentry;
 
-		hentry = (JoinHashEntry *) hash_search(root->join_rel_hash,
-											   &hashkey,
-											   HASH_FIND,
-											   NULL);
-		if (hentry)
-			return hentry->join_rel;
-	}
-	else
-	{
-		ListCell   *l;
+        hentry = (JoinHashEntry *) hash_search(root->join_rel_hash,
+                                               &hashkey,
+                                               HASH_FIND,
+                                               NULL);
+        if (hentry)
+            return hentry->join_rel;
+    } else {
+        ListCell *l;
 
-		foreach(l, root->join_rel_list)
-		{
-			RelOptInfo *rel = (RelOptInfo *) lfirst(l);
+        foreach(l, root->join_rel_list) {
+            RelOptInfo *rel = (RelOptInfo *) lfirst(l);
 
-			if (bms_equal(rel->relids, relids))
-				return rel;
-		}
-	}
+            if (bms_equal(rel->relids, relids))
+                return rel;
+        }
+    }
 
-	return NULL;
+    return NULL;
 }
 
 /*
@@ -485,35 +440,28 @@ find_join_rel(PlannerInfo *root, Relids relids)
  */
 static void
 set_foreign_rel_properties(RelOptInfo *joinrel, RelOptInfo *outer_rel,
-						   RelOptInfo *inner_rel)
-{
-	if (OidIsValid(outer_rel->serverid) &&
-		inner_rel->serverid == outer_rel->serverid)
-	{
-		if (inner_rel->userid == outer_rel->userid)
-		{
-			joinrel->serverid = outer_rel->serverid;
-			joinrel->userid = outer_rel->userid;
-			joinrel->useridiscurrent = outer_rel->useridiscurrent || inner_rel->useridiscurrent;
-			joinrel->fdwroutine = outer_rel->fdwroutine;
-		}
-		else if (!OidIsValid(inner_rel->userid) &&
-				 outer_rel->userid == GetUserId())
-		{
-			joinrel->serverid = outer_rel->serverid;
-			joinrel->userid = outer_rel->userid;
-			joinrel->useridiscurrent = true;
-			joinrel->fdwroutine = outer_rel->fdwroutine;
-		}
-		else if (!OidIsValid(outer_rel->userid) &&
-				 inner_rel->userid == GetUserId())
-		{
-			joinrel->serverid = outer_rel->serverid;
-			joinrel->userid = inner_rel->userid;
-			joinrel->useridiscurrent = true;
-			joinrel->fdwroutine = outer_rel->fdwroutine;
-		}
-	}
+                           RelOptInfo *inner_rel) {
+    if (OidIsValid(outer_rel->serverid) &&
+        inner_rel->serverid == outer_rel->serverid) {
+        if (inner_rel->userid == outer_rel->userid) {
+            joinrel->serverid = outer_rel->serverid;
+            joinrel->userid = outer_rel->userid;
+            joinrel->useridiscurrent = outer_rel->useridiscurrent || inner_rel->useridiscurrent;
+            joinrel->fdwroutine = outer_rel->fdwroutine;
+        } else if (!OidIsValid(inner_rel->userid) &&
+                   outer_rel->userid == GetUserId()) {
+            joinrel->serverid = outer_rel->serverid;
+            joinrel->userid = outer_rel->userid;
+            joinrel->useridiscurrent = true;
+            joinrel->fdwroutine = outer_rel->fdwroutine;
+        } else if (!OidIsValid(outer_rel->userid) &&
+                   inner_rel->userid == GetUserId()) {
+            joinrel->serverid = outer_rel->serverid;
+            joinrel->userid = inner_rel->userid;
+            joinrel->useridiscurrent = true;
+            joinrel->fdwroutine = outer_rel->fdwroutine;
+        }
+    }
 }
 
 /*
@@ -522,24 +470,22 @@ set_foreign_rel_properties(RelOptInfo *joinrel, RelOptInfo *outer_rel,
  *		PlannerInfo. Also add it to the auxiliary hashtable if there is one.
  */
 static void
-add_join_rel(PlannerInfo *root, RelOptInfo *joinrel)
-{
-	/* GEQO requires us to append the new joinrel to the end of the list! */
-	root->join_rel_list = lappend(root->join_rel_list, joinrel);
+add_join_rel(PlannerInfo *root, RelOptInfo *joinrel) {
+    /* GEQO requires us to append the new joinrel to the end of the list! */
+    root->join_rel_list = lappend(root->join_rel_list, joinrel);
 
-	/* store it into the auxiliary hashtable if there is one. */
-	if (root->join_rel_hash)
-	{
-		JoinHashEntry *hentry;
-		bool		found;
+    /* store it into the auxiliary hashtable if there is one. */
+    if (root->join_rel_hash) {
+        JoinHashEntry *hentry;
+        bool found;
 
-		hentry = (JoinHashEntry *) hash_search(root->join_rel_hash,
-											   &(joinrel->relids),
-											   HASH_ENTER,
-											   &found);
-		Assert(!found);
-		hentry->join_rel = joinrel;
-	}
+        hentry = (JoinHashEntry *) hash_search(root->join_rel_hash,
+                                               &(joinrel->relids),
+                                               HASH_ENTER,
+                                               &found);
+        Assert(!found);
+        hentry->join_rel = joinrel;
+    }
 }
 
 /*
@@ -560,193 +506,190 @@ add_join_rel(PlannerInfo *root, RelOptInfo *joinrel)
  */
 RelOptInfo *
 build_join_rel(PlannerInfo *root,
-			   Relids joinrelids,
-			   RelOptInfo *outer_rel,
-			   RelOptInfo *inner_rel,
-			   SpecialJoinInfo *sjinfo,
-			   List **restrictlist_ptr)
-{
-	RelOptInfo *joinrel;
-	List	   *restrictlist;
+               Relids joinrelids,
+               RelOptInfo *outer_rel,
+               RelOptInfo *inner_rel,
+               SpecialJoinInfo *sjinfo,
+               List **restrictlist_ptr) {
+    RelOptInfo *joinrel;
+    List *restrictlist;
 
-	/* This function should be used only for join between parents. */
-	Assert(!IS_OTHER_REL(outer_rel) && !IS_OTHER_REL(inner_rel));
+    /* This function should be used only for join between parents. */
+    Assert(!IS_OTHER_REL(outer_rel) && !IS_OTHER_REL(inner_rel));
 
-	/*
-	 * See if we already have a joinrel for this set of base rels.
-	 */
-	joinrel = find_join_rel(root, joinrelids);
+    /*
+     * See if we already have a joinrel for this set of base rels.
+     */
+    joinrel = find_join_rel(root, joinrelids);
 
-	if (joinrel)
-	{
-		/*
-		 * Yes, so we only need to figure the restrictlist for this particular
-		 * pair of component relations.
-		 */
-		if (restrictlist_ptr)
-			*restrictlist_ptr = build_joinrel_restrictlist(root,
-														   joinrel,
-														   outer_rel,
-														   inner_rel);
-		return joinrel;
-	}
+    if (joinrel) {
+        /*
+         * Yes, so we only need to figure the restrictlist for this particular
+         * pair of component relations.
+         */
+        if (restrictlist_ptr)
+            *restrictlist_ptr = build_joinrel_restrictlist(root,
+                                                           joinrel,
+                                                           outer_rel,
+                                                           inner_rel);
+        return joinrel;
+    }
 
-	/*
-	 * Nope, so make one.
-	 */
-	joinrel = makeNode(RelOptInfo);
-	joinrel->reloptkind = RELOPT_JOINREL;
-	joinrel->relids = bms_copy(joinrelids);
-	joinrel->rows = 0;
-	/* cheap startup cost is interesting iff not all tuples to be retrieved */
-	joinrel->consider_startup = (root->tuple_fraction > 0);
-	joinrel->consider_param_startup = false;
-	joinrel->consider_parallel = false;
-	joinrel->reltarget = create_empty_pathtarget();
-	joinrel->pathlist = NIL;
-	joinrel->ppilist = NIL;
-	joinrel->partial_pathlist = NIL;
-	joinrel->cheapest_startup_path = NULL;
-	joinrel->cheapest_total_path = NULL;
-	joinrel->cheapest_unique_path = NULL;
-	joinrel->cheapest_parameterized_paths = NIL;
-	/* init direct_lateral_relids from children; we'll finish it up below */
-	joinrel->direct_lateral_relids =
-		bms_union(outer_rel->direct_lateral_relids,
-				  inner_rel->direct_lateral_relids);
-	joinrel->lateral_relids = min_join_parameterization(root, joinrel->relids,
-														outer_rel, inner_rel);
-	joinrel->relid = 0;			/* indicates not a baserel */
-	joinrel->rtekind = RTE_JOIN;
-	joinrel->min_attr = 0;
-	joinrel->max_attr = 0;
-	joinrel->attr_needed = NULL;
-	joinrel->attr_widths = NULL;
-	joinrel->lateral_vars = NIL;
-	joinrel->lateral_referencers = NULL;
-	joinrel->indexlist = NIL;
-	joinrel->statlist = NIL;
-	joinrel->pages = 0;
-	joinrel->tuples = 0;
-	joinrel->allvisfrac = 0;
-	joinrel->subroot = NULL;
-	joinrel->subplan_params = NIL;
-	joinrel->rel_parallel_workers = -1;
-	joinrel->serverid = InvalidOid;
-	joinrel->userid = InvalidOid;
-	joinrel->useridiscurrent = false;
-	joinrel->fdwroutine = NULL;
-	joinrel->fdw_private = NULL;
-	joinrel->unique_for_rels = NIL;
-	joinrel->non_unique_for_rels = NIL;
-	joinrel->baserestrictinfo = NIL;
-	joinrel->baserestrictcost.startup = 0;
-	joinrel->baserestrictcost.per_tuple = 0;
-	joinrel->baserestrict_min_security = UINT_MAX;
-	joinrel->joininfo = NIL;
-	joinrel->has_eclass_joins = false;
-	joinrel->consider_partitionwise_join = false;	/* might get changed later */
-	joinrel->top_parent_relids = NULL;
-	joinrel->part_scheme = NULL;
-	joinrel->nparts = 0;
-	joinrel->boundinfo = NULL;
-	joinrel->partition_qual = NIL;
-	joinrel->part_rels = NULL;
-	joinrel->partexprs = NULL;
-	joinrel->nullable_partexprs = NULL;
-	joinrel->partitioned_child_rels = NIL;
+    /*
+     * Nope, so make one.
+     */
+    joinrel = makeNode(RelOptInfo);
+    joinrel->reloptkind = RELOPT_JOINREL;
+    joinrel->relids = bms_copy(joinrelids);
+    joinrel->rows = 0;
+    /* cheap startup cost is interesting iff not all tuples to be retrieved */
+    joinrel->consider_startup = (root->tuple_fraction > 0);
+    joinrel->consider_param_startup = false;
+    joinrel->consider_parallel = false;
+    joinrel->reltarget = create_empty_pathtarget();
+    joinrel->pathlist = NIL;
+    joinrel->ppilist = NIL;
+    joinrel->partial_pathlist = NIL;
+    joinrel->cheapest_startup_path = NULL;
+    joinrel->cheapest_total_path = NULL;
+    joinrel->cheapest_unique_path = NULL;
+    joinrel->cheapest_parameterized_paths = NIL;
+    /* init direct_lateral_relids from children; we'll finish it up below */
+    joinrel->direct_lateral_relids =
+            bms_union(outer_rel->direct_lateral_relids,
+                      inner_rel->direct_lateral_relids);
+    joinrel->lateral_relids = min_join_parameterization(root, joinrel->relids,
+                                                        outer_rel, inner_rel);
+    joinrel->relid = 0;            /* indicates not a baserel */
+    joinrel->rtekind = RTE_JOIN;
+    joinrel->min_attr = 0;
+    joinrel->max_attr = 0;
+    joinrel->attr_needed = NULL;
+    joinrel->attr_widths = NULL;
+    joinrel->lateral_vars = NIL;
+    joinrel->lateral_referencers = NULL;
+    joinrel->indexlist = NIL;
+    joinrel->statlist = NIL;
+    joinrel->pages = 0;
+    joinrel->tuples = 0;
+    joinrel->allvisfrac = 0;
+    joinrel->subroot = NULL;
+    joinrel->subplan_params = NIL;
+    joinrel->rel_parallel_workers = -1;
+    joinrel->serverid = InvalidOid;
+    joinrel->userid = InvalidOid;
+    joinrel->useridiscurrent = false;
+    joinrel->fdwroutine = NULL;
+    joinrel->fdw_private = NULL;
+    joinrel->unique_for_rels = NIL;
+    joinrel->non_unique_for_rels = NIL;
+    joinrel->baserestrictinfo = NIL;
+    joinrel->baserestrictcost.startup = 0;
+    joinrel->baserestrictcost.per_tuple = 0;
+    joinrel->baserestrict_min_security = UINT_MAX;
+    joinrel->joininfo = NIL;
+    joinrel->has_eclass_joins = false;
+    joinrel->consider_partitionwise_join = false;    /* might get changed later */
+    joinrel->top_parent_relids = NULL;
+    joinrel->part_scheme = NULL;
+    joinrel->nparts = 0;
+    joinrel->boundinfo = NULL;
+    joinrel->partition_qual = NIL;
+    joinrel->part_rels = NULL;
+    joinrel->partexprs = NULL;
+    joinrel->nullable_partexprs = NULL;
+    joinrel->partitioned_child_rels = NIL;
 
-	/* Compute information relevant to the foreign relations. */
-	set_foreign_rel_properties(joinrel, outer_rel, inner_rel);
+    /* Compute information relevant to the foreign relations. */
+    set_foreign_rel_properties(joinrel, outer_rel, inner_rel);
 
-	/*
-	 * Create a new tlist containing just the vars that need to be output from
-	 * this join (ie, are needed for higher joinclauses or final output).
-	 *
-	 * NOTE: the tlist order for a join rel will depend on which pair of outer
-	 * and inner rels we first try to build it from.  But the contents should
-	 * be the same regardless.
-	 */
-	build_joinrel_tlist(root, joinrel, outer_rel);
-	build_joinrel_tlist(root, joinrel, inner_rel);
-	add_placeholders_to_joinrel(root, joinrel, outer_rel, inner_rel);
+    /*
+     * Create a new tlist containing just the vars that need to be output from
+     * this join (ie, are needed for higher joinclauses or final output).
+     *
+     * NOTE: the tlist order for a join rel will depend on which pair of outer
+     * and inner rels we first try to build it from.  But the contents should
+     * be the same regardless.
+     */
+    build_joinrel_tlist(root, joinrel, outer_rel);
+    build_joinrel_tlist(root, joinrel, inner_rel);
+    add_placeholders_to_joinrel(root, joinrel, outer_rel, inner_rel);
 
-	/*
-	 * add_placeholders_to_joinrel also took care of adding the ph_lateral
-	 * sets of any PlaceHolderVars computed here to direct_lateral_relids, so
-	 * now we can finish computing that.  This is much like the computation of
-	 * the transitively-closed lateral_relids in min_join_parameterization,
-	 * except that here we *do* have to consider the added PHVs.
-	 */
-	joinrel->direct_lateral_relids =
-		bms_del_members(joinrel->direct_lateral_relids, joinrel->relids);
-	if (bms_is_empty(joinrel->direct_lateral_relids))
-		joinrel->direct_lateral_relids = NULL;
+    /*
+     * add_placeholders_to_joinrel also took care of adding the ph_lateral
+     * sets of any PlaceHolderVars computed here to direct_lateral_relids, so
+     * now we can finish computing that.  This is much like the computation of
+     * the transitively-closed lateral_relids in min_join_parameterization,
+     * except that here we *do* have to consider the added PHVs.
+     */
+    joinrel->direct_lateral_relids =
+            bms_del_members(joinrel->direct_lateral_relids, joinrel->relids);
+    if (bms_is_empty(joinrel->direct_lateral_relids))
+        joinrel->direct_lateral_relids = NULL;
 
-	/*
-	 * Construct restrict and join clause lists for the new joinrel. (The
-	 * caller might or might not need the restrictlist, but I need it anyway
-	 * for set_joinrel_size_estimates().)
-	 */
-	restrictlist = build_joinrel_restrictlist(root, joinrel,
-											  outer_rel, inner_rel);
-	if (restrictlist_ptr)
-		*restrictlist_ptr = restrictlist;
-	build_joinrel_joinlist(joinrel, outer_rel, inner_rel);
+    /*
+     * Construct restrict and join clause lists for the new joinrel. (The
+     * caller might or might not need the restrictlist, but I need it anyway
+     * for set_joinrel_size_estimates().)
+     */
+    restrictlist = build_joinrel_restrictlist(root, joinrel,
+                                              outer_rel, inner_rel);
+    if (restrictlist_ptr)
+        *restrictlist_ptr = restrictlist;
+    build_joinrel_joinlist(joinrel, outer_rel, inner_rel);
 
-	/*
-	 * This is also the right place to check whether the joinrel has any
-	 * pending EquivalenceClass joins.
-	 */
-	joinrel->has_eclass_joins = has_relevant_eclass_joinclause(root, joinrel);
+    /*
+     * This is also the right place to check whether the joinrel has any
+     * pending EquivalenceClass joins.
+     */
+    joinrel->has_eclass_joins = has_relevant_eclass_joinclause(root, joinrel);
 
-	/* Store the partition information. */
-	build_joinrel_partition_info(joinrel, outer_rel, inner_rel, restrictlist,
-								 sjinfo->jointype);
+    /* Store the partition information. */
+    build_joinrel_partition_info(joinrel, outer_rel, inner_rel, restrictlist,
+                                 sjinfo->jointype);
 
-	/*
-	 * Set estimates of the joinrel's size.
-	 */
-	set_joinrel_size_estimates(root, joinrel, outer_rel, inner_rel,
-							   sjinfo, restrictlist);
+    /*
+     * Set estimates of the joinrel's size.
+     */
+    set_joinrel_size_estimates(root, joinrel, outer_rel, inner_rel,
+                               sjinfo, restrictlist);
 
-	/*
-	 * Set the consider_parallel flag if this joinrel could potentially be
-	 * scanned within a parallel worker.  If this flag is false for either
-	 * inner_rel or outer_rel, then it must be false for the joinrel also.
-	 * Even if both are true, there might be parallel-restricted expressions
-	 * in the targetlist or quals.
-	 *
-	 * Note that if there are more than two rels in this relation, they could
-	 * be divided between inner_rel and outer_rel in any arbitrary way.  We
-	 * assume this doesn't matter, because we should hit all the same baserels
-	 * and joinclauses while building up to this joinrel no matter which we
-	 * take; therefore, we should make the same decision here however we get
-	 * here.
-	 */
-	if (inner_rel->consider_parallel && outer_rel->consider_parallel &&
-		is_parallel_safe(root, (Node *) restrictlist) &&
-		is_parallel_safe(root, (Node *) joinrel->reltarget->exprs))
-		joinrel->consider_parallel = true;
+    /*
+     * Set the consider_parallel flag if this joinrel could potentially be
+     * scanned within a parallel worker.  If this flag is false for either
+     * inner_rel or outer_rel, then it must be false for the joinrel also.
+     * Even if both are true, there might be parallel-restricted expressions
+     * in the targetlist or quals.
+     *
+     * Note that if there are more than two rels in this relation, they could
+     * be divided between inner_rel and outer_rel in any arbitrary way.  We
+     * assume this doesn't matter, because we should hit all the same baserels
+     * and joinclauses while building up to this joinrel no matter which we
+     * take; therefore, we should make the same decision here however we get
+     * here.
+     */
+    if (inner_rel->consider_parallel && outer_rel->consider_parallel &&
+        is_parallel_safe(root, (Node *) restrictlist) &&
+        is_parallel_safe(root, (Node *) joinrel->reltarget->exprs))
+        joinrel->consider_parallel = true;
 
-	/* Add the joinrel to the PlannerInfo. */
-	add_join_rel(root, joinrel);
+    /* Add the joinrel to the PlannerInfo. */
+    add_join_rel(root, joinrel);
 
-	/*
-	 * Also, if dynamic-programming join search is active, add the new joinrel
-	 * to the appropriate sublist.  Note: you might think the Assert on number
-	 * of members should be for equality, but some of the level 1 rels might
-	 * have been joinrels already, so we can only assert <=.
-	 */
-	if (root->join_rel_level)
-	{
-		Assert(root->join_cur_level > 0);
-		Assert(root->join_cur_level <= bms_num_members(joinrel->relids));
-		root->join_rel_level[root->join_cur_level] =
-			lappend(root->join_rel_level[root->join_cur_level], joinrel);
-	}
+    /*
+     * Also, if dynamic-programming join search is active, add the new joinrel
+     * to the appropriate sublist.  Note: you might think the Assert on number
+     * of members should be for equality, but some of the level 1 rels might
+     * have been joinrels already, so we can only assert <=.
+     */
+    if (root->join_rel_level) {
+        Assert(root->join_cur_level > 0);
+        Assert(root->join_cur_level <= bms_num_members(joinrel->relids));
+        root->join_rel_level[root->join_cur_level] =
+                lappend(root->join_rel_level[root->join_cur_level], joinrel);
+    }
 
-	return joinrel;
+    return joinrel;
 }
 
 /*
@@ -765,138 +708,137 @@ build_join_rel(PlannerInfo *root,
  */
 RelOptInfo *
 build_child_join_rel(PlannerInfo *root, RelOptInfo *outer_rel,
-					 RelOptInfo *inner_rel, RelOptInfo *parent_joinrel,
-					 List *restrictlist, SpecialJoinInfo *sjinfo,
-					 JoinType jointype)
-{
-	RelOptInfo *joinrel = makeNode(RelOptInfo);
-	AppendRelInfo **appinfos;
-	int			nappinfos;
+                     RelOptInfo *inner_rel, RelOptInfo *parent_joinrel,
+                     List *restrictlist, SpecialJoinInfo *sjinfo,
+                     JoinType jointype) {
+    RelOptInfo *joinrel = makeNode(RelOptInfo);
+    AppendRelInfo **appinfos;
+    int nappinfos;
 
-	/* Only joins between "other" relations land here. */
-	Assert(IS_OTHER_REL(outer_rel) && IS_OTHER_REL(inner_rel));
+    /* Only joins between "other" relations land here. */
+    Assert(IS_OTHER_REL(outer_rel) && IS_OTHER_REL(inner_rel));
 
-	/* The parent joinrel should have consider_partitionwise_join set. */
-	Assert(parent_joinrel->consider_partitionwise_join);
+    /* The parent joinrel should have consider_partitionwise_join set. */
+    Assert(parent_joinrel->consider_partitionwise_join);
 
-	joinrel->reloptkind = RELOPT_OTHER_JOINREL;
-	joinrel->relids = bms_union(outer_rel->relids, inner_rel->relids);
-	joinrel->rows = 0;
-	/* cheap startup cost is interesting iff not all tuples to be retrieved */
-	joinrel->consider_startup = (root->tuple_fraction > 0);
-	joinrel->consider_param_startup = false;
-	joinrel->consider_parallel = false;
-	joinrel->reltarget = create_empty_pathtarget();
-	joinrel->pathlist = NIL;
-	joinrel->ppilist = NIL;
-	joinrel->partial_pathlist = NIL;
-	joinrel->cheapest_startup_path = NULL;
-	joinrel->cheapest_total_path = NULL;
-	joinrel->cheapest_unique_path = NULL;
-	joinrel->cheapest_parameterized_paths = NIL;
-	joinrel->direct_lateral_relids = NULL;
-	joinrel->lateral_relids = NULL;
-	joinrel->relid = 0;			/* indicates not a baserel */
-	joinrel->rtekind = RTE_JOIN;
-	joinrel->min_attr = 0;
-	joinrel->max_attr = 0;
-	joinrel->attr_needed = NULL;
-	joinrel->attr_widths = NULL;
-	joinrel->lateral_vars = NIL;
-	joinrel->lateral_referencers = NULL;
-	joinrel->indexlist = NIL;
-	joinrel->pages = 0;
-	joinrel->tuples = 0;
-	joinrel->allvisfrac = 0;
-	joinrel->subroot = NULL;
-	joinrel->subplan_params = NIL;
-	joinrel->serverid = InvalidOid;
-	joinrel->userid = InvalidOid;
-	joinrel->useridiscurrent = false;
-	joinrel->fdwroutine = NULL;
-	joinrel->fdw_private = NULL;
-	joinrel->baserestrictinfo = NIL;
-	joinrel->baserestrictcost.startup = 0;
-	joinrel->baserestrictcost.per_tuple = 0;
-	joinrel->joininfo = NIL;
-	joinrel->has_eclass_joins = false;
-	joinrel->consider_partitionwise_join = false;	/* might get changed later */
-	joinrel->top_parent_relids = NULL;
-	joinrel->part_scheme = NULL;
-	joinrel->nparts = 0;
-	joinrel->boundinfo = NULL;
-	joinrel->partition_qual = NIL;
-	joinrel->part_rels = NULL;
-	joinrel->partexprs = NULL;
-	joinrel->nullable_partexprs = NULL;
-	joinrel->partitioned_child_rels = NIL;
+    joinrel->reloptkind = RELOPT_OTHER_JOINREL;
+    joinrel->relids = bms_union(outer_rel->relids, inner_rel->relids);
+    joinrel->rows = 0;
+    /* cheap startup cost is interesting iff not all tuples to be retrieved */
+    joinrel->consider_startup = (root->tuple_fraction > 0);
+    joinrel->consider_param_startup = false;
+    joinrel->consider_parallel = false;
+    joinrel->reltarget = create_empty_pathtarget();
+    joinrel->pathlist = NIL;
+    joinrel->ppilist = NIL;
+    joinrel->partial_pathlist = NIL;
+    joinrel->cheapest_startup_path = NULL;
+    joinrel->cheapest_total_path = NULL;
+    joinrel->cheapest_unique_path = NULL;
+    joinrel->cheapest_parameterized_paths = NIL;
+    joinrel->direct_lateral_relids = NULL;
+    joinrel->lateral_relids = NULL;
+    joinrel->relid = 0;            /* indicates not a baserel */
+    joinrel->rtekind = RTE_JOIN;
+    joinrel->min_attr = 0;
+    joinrel->max_attr = 0;
+    joinrel->attr_needed = NULL;
+    joinrel->attr_widths = NULL;
+    joinrel->lateral_vars = NIL;
+    joinrel->lateral_referencers = NULL;
+    joinrel->indexlist = NIL;
+    joinrel->pages = 0;
+    joinrel->tuples = 0;
+    joinrel->allvisfrac = 0;
+    joinrel->subroot = NULL;
+    joinrel->subplan_params = NIL;
+    joinrel->serverid = InvalidOid;
+    joinrel->userid = InvalidOid;
+    joinrel->useridiscurrent = false;
+    joinrel->fdwroutine = NULL;
+    joinrel->fdw_private = NULL;
+    joinrel->baserestrictinfo = NIL;
+    joinrel->baserestrictcost.startup = 0;
+    joinrel->baserestrictcost.per_tuple = 0;
+    joinrel->joininfo = NIL;
+    joinrel->has_eclass_joins = false;
+    joinrel->consider_partitionwise_join = false;    /* might get changed later */
+    joinrel->top_parent_relids = NULL;
+    joinrel->part_scheme = NULL;
+    joinrel->nparts = 0;
+    joinrel->boundinfo = NULL;
+    joinrel->partition_qual = NIL;
+    joinrel->part_rels = NULL;
+    joinrel->partexprs = NULL;
+    joinrel->nullable_partexprs = NULL;
+    joinrel->partitioned_child_rels = NIL;
 
-	joinrel->top_parent_relids = bms_union(outer_rel->top_parent_relids,
-										   inner_rel->top_parent_relids);
+    joinrel->top_parent_relids = bms_union(outer_rel->top_parent_relids,
+                                           inner_rel->top_parent_relids);
 
-	/* Compute information relevant to foreign relations. */
-	set_foreign_rel_properties(joinrel, outer_rel, inner_rel);
+    /* Compute information relevant to foreign relations. */
+    set_foreign_rel_properties(joinrel, outer_rel, inner_rel);
 
-	/* Compute information needed for mapping Vars to the child rel */
-	appinfos = find_appinfos_by_relids(root, joinrel->relids, &nappinfos);
+    /* Compute information needed for mapping Vars to the child rel */
+    appinfos = find_appinfos_by_relids(root, joinrel->relids, &nappinfos);
 
-	/* Set up reltarget struct */
-	build_child_join_reltarget(root, parent_joinrel, joinrel,
-							   nappinfos, appinfos);
+    /* Set up reltarget struct */
+    build_child_join_reltarget(root, parent_joinrel, joinrel,
+                               nappinfos, appinfos);
 
-	/* Construct joininfo list. */
-	joinrel->joininfo = (List *) adjust_appendrel_attrs(root,
-														(Node *) parent_joinrel->joininfo,
-														nappinfos,
-														appinfos);
+    /* Construct joininfo list. */
+    joinrel->joininfo = (List *) adjust_appendrel_attrs(root,
+                                                        (Node *) parent_joinrel->joininfo,
+                                                        nappinfos,
+                                                        appinfos);
 
-	/*
-	 * Lateral relids referred in child join will be same as that referred in
-	 * the parent relation. Throw any partial result computed while building
-	 * the targetlist.
-	 */
-	bms_free(joinrel->direct_lateral_relids);
-	bms_free(joinrel->lateral_relids);
-	joinrel->direct_lateral_relids = (Relids) bms_copy(parent_joinrel->direct_lateral_relids);
-	joinrel->lateral_relids = (Relids) bms_copy(parent_joinrel->lateral_relids);
+    /*
+     * Lateral relids referred in child join will be same as that referred in
+     * the parent relation. Throw any partial result computed while building
+     * the targetlist.
+     */
+    bms_free(joinrel->direct_lateral_relids);
+    bms_free(joinrel->lateral_relids);
+    joinrel->direct_lateral_relids = (Relids) bms_copy(parent_joinrel->direct_lateral_relids);
+    joinrel->lateral_relids = (Relids) bms_copy(parent_joinrel->lateral_relids);
 
-	/*
-	 * If the parent joinrel has pending equivalence classes, so does the
-	 * child.
-	 */
-	joinrel->has_eclass_joins = parent_joinrel->has_eclass_joins;
+    /*
+     * If the parent joinrel has pending equivalence classes, so does the
+     * child.
+     */
+    joinrel->has_eclass_joins = parent_joinrel->has_eclass_joins;
 
-	/* Is the join between partitions itself partitioned? */
-	build_joinrel_partition_info(joinrel, outer_rel, inner_rel, restrictlist,
-								 jointype);
+    /* Is the join between partitions itself partitioned? */
+    build_joinrel_partition_info(joinrel, outer_rel, inner_rel, restrictlist,
+                                 jointype);
 
-	/* Child joinrel is parallel safe if parent is parallel safe. */
-	joinrel->consider_parallel = parent_joinrel->consider_parallel;
+    /* Child joinrel is parallel safe if parent is parallel safe. */
+    joinrel->consider_parallel = parent_joinrel->consider_parallel;
 
-	/* Set estimates of the child-joinrel's size. */
-	set_joinrel_size_estimates(root, joinrel, outer_rel, inner_rel,
-							   sjinfo, restrictlist);
+    /* Set estimates of the child-joinrel's size. */
+    set_joinrel_size_estimates(root, joinrel, outer_rel, inner_rel,
+                               sjinfo, restrictlist);
 
-	/* We build the join only once. */
-	Assert(!find_join_rel(root, joinrel->relids));
+    /* We build the join only once. */
+    Assert(!find_join_rel(root, joinrel->relids));
 
-	/* Add the relation to the PlannerInfo. */
-	add_join_rel(root, joinrel);
+    /* Add the relation to the PlannerInfo. */
+    add_join_rel(root, joinrel);
 
-	/*
-	 * We might need EquivalenceClass members corresponding to the child join,
-	 * so that we can represent sort pathkeys for it.  As with children of
-	 * baserels, we shouldn't need this unless there are relevant eclass joins
-	 * (implying that a merge join might be possible) or pathkeys to sort by.
-	 */
-	if (joinrel->has_eclass_joins || has_useful_pathkeys(root, parent_joinrel))
-		add_child_join_rel_equivalences(root,
-										nappinfos, appinfos,
-										parent_joinrel, joinrel);
+    /*
+     * We might need EquivalenceClass members corresponding to the child join,
+     * so that we can represent sort pathkeys for it.  As with children of
+     * baserels, we shouldn't need this unless there are relevant eclass joins
+     * (implying that a merge join might be possible) or pathkeys to sort by.
+     */
+    if (joinrel->has_eclass_joins || has_useful_pathkeys(root, parent_joinrel))
+        add_child_join_rel_equivalences(root,
+                                        nappinfos, appinfos,
+                                        parent_joinrel, joinrel);
 
-	pfree(appinfos);
+    pfree(appinfos);
 
-	return joinrel;
+    return joinrel;
 }
 
 /*
@@ -909,33 +851,32 @@ build_child_join_rel(PlannerInfo *root, RelOptInfo *outer_rel,
  */
 Relids
 min_join_parameterization(PlannerInfo *root,
-						  Relids joinrelids,
-						  RelOptInfo *outer_rel,
-						  RelOptInfo *inner_rel)
-{
-	Relids		result;
+                          Relids joinrelids,
+                          RelOptInfo *outer_rel,
+                          RelOptInfo *inner_rel) {
+    Relids result;
 
-	/*
-	 * Basically we just need the union of the inputs' lateral_relids, less
-	 * whatever is already in the join.
-	 *
-	 * It's not immediately obvious that this is a valid way to compute the
-	 * result, because it might seem that we're ignoring possible lateral refs
-	 * of PlaceHolderVars that are due to be computed at the join but not in
-	 * either input.  However, because create_lateral_join_info() already
-	 * charged all such PHV refs to each member baserel of the join, they'll
-	 * be accounted for already in the inputs' lateral_relids.  Likewise, we
-	 * do not need to worry about doing transitive closure here, because that
-	 * was already accounted for in the original baserel lateral_relids.
-	 */
-	result = bms_union(outer_rel->lateral_relids, inner_rel->lateral_relids);
-	result = bms_del_members(result, joinrelids);
+    /*
+     * Basically we just need the union of the inputs' lateral_relids, less
+     * whatever is already in the join.
+     *
+     * It's not immediately obvious that this is a valid way to compute the
+     * result, because it might seem that we're ignoring possible lateral refs
+     * of PlaceHolderVars that are due to be computed at the join but not in
+     * either input.  However, because create_lateral_join_info() already
+     * charged all such PHV refs to each member baserel of the join, they'll
+     * be accounted for already in the inputs' lateral_relids.  Likewise, we
+     * do not need to worry about doing transitive closure here, because that
+     * was already accounted for in the original baserel lateral_relids.
+     */
+    result = bms_union(outer_rel->lateral_relids, inner_rel->lateral_relids);
+    result = bms_del_members(result, joinrelids);
 
-	/* Maintain invariant that result is exactly NULL if empty */
-	if (bms_is_empty(result))
-		result = NULL;
+    /* Maintain invariant that result is exactly NULL if empty */
+    if (bms_is_empty(result))
+        result = NULL;
 
-	return result;
+    return result;
 }
 
 /*
@@ -952,46 +893,43 @@ min_join_parameterization(PlannerInfo *root,
  */
 static void
 build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
-					RelOptInfo *input_rel)
-{
-	Relids		relids = joinrel->relids;
-	ListCell   *vars;
+                    RelOptInfo *input_rel) {
+    Relids relids = joinrel->relids;
+    ListCell *vars;
 
-	foreach(vars, input_rel->reltarget->exprs)
-	{
-		Var		   *var = (Var *) lfirst(vars);
-		RelOptInfo *baserel;
-		int			ndx;
+    foreach(vars, input_rel->reltarget->exprs) {
+        Var *var = (Var *) lfirst(vars);
+        RelOptInfo *baserel;
+        int ndx;
 
-		/*
-		 * Ignore PlaceHolderVars in the input tlists; we'll make our own
-		 * decisions about whether to copy them.
-		 */
-		if (IsA(var, PlaceHolderVar))
-			continue;
+        /*
+         * Ignore PlaceHolderVars in the input tlists; we'll make our own
+         * decisions about whether to copy them.
+         */
+        if (IsA(var, PlaceHolderVar))
+            continue;
 
-		/*
-		 * Otherwise, anything in a baserel or joinrel targetlist ought to be
-		 * a Var.  (More general cases can only appear in appendrel child
-		 * rels, which will never be seen here.)
-		 */
-		if (!IsA(var, Var))
-			elog(ERROR, "unexpected node type in rel targetlist: %d",
-				 (int) nodeTag(var));
+        /*
+         * Otherwise, anything in a baserel or joinrel targetlist ought to be
+         * a Var.  (More general cases can only appear in appendrel child
+         * rels, which will never be seen here.)
+         */
+        if (!IsA(var, Var))
+            elog(ERROR, "unexpected node type in rel targetlist: %d",
+                 (int) nodeTag(var));
 
-		/* Get the Var's original base rel */
-		baserel = find_base_rel(root, var->varno);
+        /* Get the Var's original base rel */
+        baserel = find_base_rel(root, var->varno);
 
-		/* Is it still needed above this joinrel? */
-		ndx = var->varattno - baserel->min_attr;
-		if (bms_nonempty_difference(baserel->attr_needed[ndx], relids))
-		{
-			/* Yup, add it to the output */
-			joinrel->reltarget->exprs = lappend(joinrel->reltarget->exprs, var);
-			/* Vars have cost zero, so no need to adjust reltarget->cost */
-			joinrel->reltarget->width += baserel->attr_widths[ndx];
-		}
-	}
+        /* Is it still needed above this joinrel? */
+        ndx = var->varattno - baserel->min_attr;
+        if (bms_nonempty_difference(baserel->attr_needed[ndx], relids)) {
+            /* Yup, add it to the output */
+            joinrel->reltarget->exprs = lappend(joinrel->reltarget->exprs, var);
+            /* Vars have cost zero, so no need to adjust reltarget->cost */
+            joinrel->reltarget->width += baserel->attr_widths[ndx];
+        }
+    }
 }
 
 /*
@@ -1038,178 +976,159 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
  */
 static List *
 build_joinrel_restrictlist(PlannerInfo *root,
-						   RelOptInfo *joinrel,
-						   RelOptInfo *outer_rel,
-						   RelOptInfo *inner_rel)
-{
-	List	   *result;
+                           RelOptInfo *joinrel,
+                           RelOptInfo *outer_rel,
+                           RelOptInfo *inner_rel) {
+    List *result;
 
-	/*
-	 * Collect all the clauses that syntactically belong at this level,
-	 * eliminating any duplicates (important since we will see many of the
-	 * same clauses arriving from both input relations).
-	 */
-	result = subbuild_joinrel_restrictlist(joinrel, outer_rel->joininfo, NIL);
-	result = subbuild_joinrel_restrictlist(joinrel, inner_rel->joininfo, result);
+    /*
+     * Collect all the clauses that syntactically belong at this level,
+     * eliminating any duplicates (important since we will see many of the
+     * same clauses arriving from both input relations).
+     */
+    result = subbuild_joinrel_restrictlist(joinrel, outer_rel->joininfo, NIL);
+    result = subbuild_joinrel_restrictlist(joinrel, inner_rel->joininfo, result);
 
-	/*
-	 * Add on any clauses derived from EquivalenceClasses.  These cannot be
-	 * redundant with the clauses in the joininfo lists, so don't bother
-	 * checking.
-	 */
-	result = list_concat(result,
-						 generate_join_implied_equalities(root,
-														  joinrel->relids,
-														  outer_rel->relids,
-														  inner_rel));
+    /*
+     * Add on any clauses derived from EquivalenceClasses.  These cannot be
+     * redundant with the clauses in the joininfo lists, so don't bother
+     * checking.
+     */
+    result = list_concat(result,
+                         generate_join_implied_equalities(root,
+                                                          joinrel->relids,
+                                                          outer_rel->relids,
+                                                          inner_rel));
 
-	return result;
+    return result;
 }
 
 static void
 build_joinrel_joinlist(RelOptInfo *joinrel,
-					   RelOptInfo *outer_rel,
-					   RelOptInfo *inner_rel)
-{
-	List	   *result;
+                       RelOptInfo *outer_rel,
+                       RelOptInfo *inner_rel) {
+    List *result;
 
-	/*
-	 * Collect all the clauses that syntactically belong above this level,
-	 * eliminating any duplicates (important since we will see many of the
-	 * same clauses arriving from both input relations).
-	 */
-	result = subbuild_joinrel_joinlist(joinrel, outer_rel->joininfo, NIL);
-	result = subbuild_joinrel_joinlist(joinrel, inner_rel->joininfo, result);
+    /*
+     * Collect all the clauses that syntactically belong above this level,
+     * eliminating any duplicates (important since we will see many of the
+     * same clauses arriving from both input relations).
+     */
+    result = subbuild_joinrel_joinlist(joinrel, outer_rel->joininfo, NIL);
+    result = subbuild_joinrel_joinlist(joinrel, inner_rel->joininfo, result);
 
-	joinrel->joininfo = result;
+    joinrel->joininfo = result;
 }
 
 static List *
 subbuild_joinrel_restrictlist(RelOptInfo *joinrel,
-							  List *joininfo_list,
-							  List *new_restrictlist)
-{
-	ListCell   *l;
+                              List *joininfo_list,
+                              List *new_restrictlist) {
+    ListCell *l;
 
-	foreach(l, joininfo_list)
-	{
-		RestrictInfo *rinfo = (RestrictInfo *) lfirst(l);
+    foreach(l, joininfo_list) {
+        RestrictInfo *rinfo = (RestrictInfo *) lfirst(l);
 
-		if (bms_is_subset(rinfo->required_relids, joinrel->relids))
-		{
-			/*
-			 * This clause becomes a restriction clause for the joinrel, since
-			 * it refers to no outside rels.  Add it to the list, being
-			 * careful to eliminate duplicates. (Since RestrictInfo nodes in
-			 * different joinlists will have been multiply-linked rather than
-			 * copied, pointer equality should be a sufficient test.)
-			 */
-			new_restrictlist = list_append_unique_ptr(new_restrictlist, rinfo);
-		}
-		else
-		{
-			/*
-			 * This clause is still a join clause at this level, so we ignore
-			 * it in this routine.
-			 */
-		}
-	}
+        if (bms_is_subset(rinfo->required_relids, joinrel->relids)) {
+            /*
+             * This clause becomes a restriction clause for the joinrel, since
+             * it refers to no outside rels.  Add it to the list, being
+             * careful to eliminate duplicates. (Since RestrictInfo nodes in
+             * different joinlists will have been multiply-linked rather than
+             * copied, pointer equality should be a sufficient test.)
+             */
+            new_restrictlist = list_append_unique_ptr(new_restrictlist, rinfo);
+        } else {
+            /*
+             * This clause is still a join clause at this level, so we ignore
+             * it in this routine.
+             */
+        }
+    }
 
-	return new_restrictlist;
+    return new_restrictlist;
 }
 
-static List *
-subbuild_joinrel_joinlist(RelOptInfo *joinrel,
-						  List *joininfo_list,
-						  List *new_joininfo)
-{
-	ListCell   *l;
+static List *subbuild_joinrel_joinlist(RelOptInfo *joinrel,
+                                       List *joininfo_list,
+                                       List *new_joininfo) {
+    ListCell *l;
 
-	/* Expected to be called only for join between parent relations. */
-	Assert(joinrel->reloptkind == RELOPT_JOINREL);
+    /* Expected to be called only for join between parent relations. */
+    Assert(joinrel->reloptkind == RELOPT_JOINREL);
 
-	foreach(l, joininfo_list)
-	{
-		RestrictInfo *rinfo = (RestrictInfo *) lfirst(l);
+    foreach(l, joininfo_list) {
+        RestrictInfo *rinfo = (RestrictInfo *) lfirst(l);
 
-		if (bms_is_subset(rinfo->required_relids, joinrel->relids))
-		{
-			/*
-			 * This clause becomes a restriction clause for the joinrel, since
-			 * it refers to no outside rels.  So we can ignore it in this
-			 * routine.
-			 */
-		}
-		else
-		{
-			/*
-			 * This clause is still a join clause at this level, so add it to
-			 * the new joininfo list, being careful to eliminate duplicates.
-			 * (Since RestrictInfo nodes in different joinlists will have been
-			 * multiply-linked rather than copied, pointer equality should be
-			 * a sufficient test.)
-			 */
-			new_joininfo = list_append_unique_ptr(new_joininfo, rinfo);
-		}
-	}
+        if (bms_is_subset(rinfo->required_relids, joinrel->relids)) {
+            /*
+             * This clause becomes a restriction clause for the joinrel, since
+             * it refers to no outside rels.  So we can ignore it in this routine.
+             */
+        } else {
+            /*
+             * This clause is still a join clause at this level, so add it to
+             * the new joininfo list, being careful to eliminate duplicates.
+             * (Since RestrictInfo nodes in different joinlists will have been
+             * multiply-linked rather than copied, pointer equality should be a sufficient test.)
+             */
+            new_joininfo = list_append_unique_ptr(new_joininfo, rinfo);
+        }
+    }
 
-	return new_joininfo;
+    return new_joininfo;
 }
-
 
 /*
- * fetch_upper_rel
- *		Build a RelOptInfo describing some post-scan/join query processing,
- *		or return a pre-existing one if somebody already built it.
+ *	Build a RelOptInfo describing some post-scan/join query processing,
+ *	or return a pre-existing one if somebody already built it.
  *
  * An "upper" relation is identified by an UpperRelationKind and a Relids set.
  * The meaning of the Relids set is not specified here, and very likely will
  * vary for different relation kinds.
  *
- * Most of the fields in an upper-level RelOptInfo are not used and are not
+ * Most of the fields in upper-level RelOptInfo are not used and are not
  * set here (though makeNode should ensure they're zeroes).  We basically only
  * care about fields that are of interest to add_path() and set_cheapest().
  */
-RelOptInfo *
-fetch_upper_rel(PlannerInfo *root, UpperRelationKind kind, Relids relids)
-{
-	RelOptInfo *upperrel;
-	ListCell   *lc;
+RelOptInfo *fetch_upper_rel(PlannerInfo *root, UpperRelationKind upperRelationKind, Relids relids) {
+    RelOptInfo *upperrel;
 
-	/*
-	 * For the moment, our indexing data structure is just a List for each
-	 * relation kind.  If we ever get so many of one kind that this stops
-	 * working well, we can improve it.  No code outside this function should
-	 * assume anything about how to find a particular upperrel.
-	 */
+    /*
+     * For the moment, our indexing data structure is just a List for each
+     * relation kind.  If we ever get so many of one kind that this stops
+     * working well, we can improve it.  No code outside this function should
+     * assume anything about how to find a particular upperrel.
+     */
 
-	/* If we already made this upperrel for the query, return it */
-	foreach(lc, root->upper_rels[kind])
-	{
-		upperrel = (RelOptInfo *) lfirst(lc);
+    // If we already made this upperrel for the query, return it
+    ListCell *lc;
+    foreach(lc, root->upper_rels[upperRelationKind]) {
+        upperrel = (RelOptInfo *) lfirst(lc);
 
-		if (bms_equal(upperrel->relids, relids))
-			return upperrel;
-	}
+        if (bms_equal(upperrel->relids, relids)) {
+            return upperrel;
+        }
+    }
 
-	upperrel = makeNode(RelOptInfo);
-	upperrel->reloptkind = RELOPT_UPPER_REL;
-	upperrel->relids = bms_copy(relids);
+    upperrel = makeNode(RelOptInfo);
+    upperrel->reloptkind = RELOPT_UPPER_REL;
+    upperrel->relids = bms_copy(relids);
 
-	/* cheap startup cost is interesting iff not all tuples to be retrieved */
-	upperrel->consider_startup = (root->tuple_fraction > 0);
-	upperrel->consider_param_startup = false;
-	upperrel->consider_parallel = false;	/* might get changed later */
-	upperrel->reltarget = create_empty_pathtarget();
-	upperrel->pathlist = NIL;
-	upperrel->cheapest_startup_path = NULL;
-	upperrel->cheapest_total_path = NULL;
-	upperrel->cheapest_unique_path = NULL;
-	upperrel->cheapest_parameterized_paths = NIL;
+    /* cheap startup cost is interesting if not all tuples to be retrieved */
+    upperrel->consider_startup = (root->tuple_fraction > 0);
+    upperrel->consider_param_startup = false;
+    upperrel->consider_parallel = false;    /* might get changed later */
+    upperrel->reltarget = create_empty_pathtarget();
+    upperrel->pathlist = NIL;
+    upperrel->cheapest_startup_path = NULL;
+    upperrel->cheapest_total_path = NULL;
+    upperrel->cheapest_unique_path = NULL;
+    upperrel->cheapest_parameterized_paths = NIL;
 
-	root->upper_rels[kind] = lappend(root->upper_rels[kind], upperrel);
+    root->upper_rels[upperRelationKind] = lappend(root->upper_rels[upperRelationKind], upperrel);
 
-	return upperrel;
+    return upperrel;
 }
 
 
@@ -1222,27 +1141,25 @@ fetch_upper_rel(PlannerInfo *root, UpperRelationKind kind, Relids relids)
  * parent relation IDs.
  */
 Relids
-find_childrel_parents(PlannerInfo *root, RelOptInfo *rel)
-{
-	Relids		result = NULL;
+find_childrel_parents(PlannerInfo *root, RelOptInfo *rel) {
+    Relids result = NULL;
 
-	Assert(rel->reloptkind == RELOPT_OTHER_MEMBER_REL);
-	Assert(rel->relid > 0 && rel->relid < root->simple_rel_array_size);
+    Assert(rel->reloptkind == RELOPT_OTHER_MEMBER_REL);
+    Assert(rel->relid > 0 && rel->relid < root->simple_rel_array_size);
 
-	do
-	{
-		AppendRelInfo *appinfo = root->append_rel_array[rel->relid];
-		Index		prelid = appinfo->parent_relid;
+    do {
+        AppendRelInfo *appinfo = root->append_rel_array[rel->relid];
+        Index prelid = appinfo->parent_relid;
 
-		result = bms_add_member(result, prelid);
+        result = bms_add_member(result, prelid);
 
-		/* traverse up to the parent rel, loop if it's also a child rel */
-		rel = find_base_rel(root, prelid);
-	} while (rel->reloptkind == RELOPT_OTHER_MEMBER_REL);
+        /* traverse up to the parent rel, loop if it's also a child rel */
+        rel = find_base_rel(root, prelid);
+    } while (rel->reloptkind == RELOPT_OTHER_MEMBER_REL);
 
-	Assert(rel->reloptkind == RELOPT_BASEREL);
+    Assert(rel->reloptkind == RELOPT_BASEREL);
 
-	return result;
+    return result;
 }
 
 
@@ -1259,64 +1176,62 @@ find_childrel_parents(PlannerInfo *root, RelOptInfo *rel)
  */
 ParamPathInfo *
 get_baserel_parampathinfo(PlannerInfo *root, RelOptInfo *baserel,
-						  Relids required_outer)
-{
-	ParamPathInfo *ppi;
-	Relids		joinrelids;
-	List	   *pclauses;
-	double		rows;
-	ListCell   *lc;
+                          Relids required_outer) {
+    ParamPathInfo *ppi;
+    Relids joinrelids;
+    List *pclauses;
+    double rows;
+    ListCell *lc;
 
-	/* If rel has LATERAL refs, every path for it should account for them */
-	Assert(bms_is_subset(baserel->lateral_relids, required_outer));
+    /* If rel has LATERAL refs, every path for it should account for them */
+    Assert(bms_is_subset(baserel->lateral_relids, required_outer));
 
-	/* Unparameterized paths have no ParamPathInfo */
-	if (bms_is_empty(required_outer))
-		return NULL;
+    /* Unparameterized paths have no ParamPathInfo */
+    if (bms_is_empty(required_outer))
+        return NULL;
 
-	Assert(!bms_overlap(baserel->relids, required_outer));
+    Assert(!bms_overlap(baserel->relids, required_outer));
 
-	/* If we already have a PPI for this parameterization, just return it */
-	if ((ppi = find_param_path_info(baserel, required_outer)))
-		return ppi;
+    /* If we already have a PPI for this parameterization, just return it */
+    if ((ppi = find_param_path_info(baserel, required_outer)))
+        return ppi;
 
-	/*
-	 * Identify all joinclauses that are movable to this base rel given this
-	 * parameterization.
-	 */
-	joinrelids = bms_union(baserel->relids, required_outer);
-	pclauses = NIL;
-	foreach(lc, baserel->joininfo)
-	{
-		RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
+    /*
+     * Identify all joinclauses that are movable to this base rel given this
+     * parameterization.
+     */
+    joinrelids = bms_union(baserel->relids, required_outer);
+    pclauses = NIL;
+    foreach(lc, baserel->joininfo) {
+        RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
 
-		if (join_clause_is_movable_into(rinfo,
-										baserel->relids,
-										joinrelids))
-			pclauses = lappend(pclauses, rinfo);
-	}
+        if (join_clause_is_movable_into(rinfo,
+                                        baserel->relids,
+                                        joinrelids))
+            pclauses = lappend(pclauses, rinfo);
+    }
 
-	/*
-	 * Add in joinclauses generated by EquivalenceClasses, too.  (These
-	 * necessarily satisfy join_clause_is_movable_into.)
-	 */
-	pclauses = list_concat(pclauses,
-						   generate_join_implied_equalities(root,
-															joinrelids,
-															required_outer,
-															baserel));
+    /*
+     * Add in joinclauses generated by EquivalenceClasses, too.  (These
+     * necessarily satisfy join_clause_is_movable_into.)
+     */
+    pclauses = list_concat(pclauses,
+                           generate_join_implied_equalities(root,
+                                                            joinrelids,
+                                                            required_outer,
+                                                            baserel));
 
-	/* Estimate the number of rows returned by the parameterized scan */
-	rows = get_parameterized_baserel_size(root, baserel, pclauses);
+    /* Estimate the number of rows returned by the parameterized scan */
+    rows = get_parameterized_baserel_size(root, baserel, pclauses);
 
-	/* And now we can build the ParamPathInfo */
-	ppi = makeNode(ParamPathInfo);
-	ppi->ppi_req_outer = required_outer;
-	ppi->ppi_rows = rows;
-	ppi->ppi_clauses = pclauses;
-	baserel->ppilist = lappend(baserel->ppilist, ppi);
+    /* And now we can build the ParamPathInfo */
+    ppi = makeNode(ParamPathInfo);
+    ppi->ppi_req_outer = required_outer;
+    ppi->ppi_rows = rows;
+    ppi->ppi_clauses = pclauses;
+    baserel->ppilist = lappend(baserel->ppilist, ppi);
 
-	return ppi;
+    return ppi;
 }
 
 /*
@@ -1349,199 +1264,193 @@ get_baserel_parampathinfo(PlannerInfo *root, RelOptInfo *baserel,
  */
 ParamPathInfo *
 get_joinrel_parampathinfo(PlannerInfo *root, RelOptInfo *joinrel,
-						  Path *outer_path,
-						  Path *inner_path,
-						  SpecialJoinInfo *sjinfo,
-						  Relids required_outer,
-						  List **restrict_clauses)
-{
-	ParamPathInfo *ppi;
-	Relids		join_and_req;
-	Relids		outer_and_req;
-	Relids		inner_and_req;
-	List	   *pclauses;
-	List	   *eclauses;
-	List	   *dropped_ecs;
-	double		rows;
-	ListCell   *lc;
+                          Path *outer_path,
+                          Path *inner_path,
+                          SpecialJoinInfo *sjinfo,
+                          Relids required_outer,
+                          List **restrict_clauses) {
+    ParamPathInfo *ppi;
+    Relids join_and_req;
+    Relids outer_and_req;
+    Relids inner_and_req;
+    List *pclauses;
+    List *eclauses;
+    List *dropped_ecs;
+    double rows;
+    ListCell *lc;
 
-	/* If rel has LATERAL refs, every path for it should account for them */
-	Assert(bms_is_subset(joinrel->lateral_relids, required_outer));
+    /* If rel has LATERAL refs, every path for it should account for them */
+    Assert(bms_is_subset(joinrel->lateral_relids, required_outer));
 
-	/* Unparameterized paths have no ParamPathInfo or extra join clauses */
-	if (bms_is_empty(required_outer))
-		return NULL;
+    /* Unparameterized paths have no ParamPathInfo or extra join clauses */
+    if (bms_is_empty(required_outer))
+        return NULL;
 
-	Assert(!bms_overlap(joinrel->relids, required_outer));
+    Assert(!bms_overlap(joinrel->relids, required_outer));
 
-	/*
-	 * Identify all joinclauses that are movable to this join rel given this
-	 * parameterization.  These are the clauses that are movable into this
-	 * join, but not movable into either input path.  Treat an unparameterized
-	 * input path as not accepting parameterized clauses (because it won't,
-	 * per the shortcut exit above), even though the joinclause movement rules
-	 * might allow the same clauses to be moved into a parameterized path for
-	 * that rel.
-	 */
-	join_and_req = bms_union(joinrel->relids, required_outer);
-	if (outer_path->param_info)
-		outer_and_req = bms_union(outer_path->parent->relids,
-								  PATH_REQ_OUTER(outer_path));
-	else
-		outer_and_req = NULL;	/* outer path does not accept parameters */
-	if (inner_path->param_info)
-		inner_and_req = bms_union(inner_path->parent->relids,
-								  PATH_REQ_OUTER(inner_path));
-	else
-		inner_and_req = NULL;	/* inner path does not accept parameters */
+    /*
+     * Identify all joinclauses that are movable to this join rel given this
+     * parameterization.  These are the clauses that are movable into this
+     * join, but not movable into either input path.  Treat an unparameterized
+     * input path as not accepting parameterized clauses (because it won't,
+     * per the shortcut exit above), even though the joinclause movement rules
+     * might allow the same clauses to be moved into a parameterized path for
+     * that rel.
+     */
+    join_and_req = bms_union(joinrel->relids, required_outer);
+    if (outer_path->param_info)
+        outer_and_req = bms_union(outer_path->parent->relids,
+                                  PATH_REQ_OUTER(outer_path));
+    else
+        outer_and_req = NULL;    /* outer path does not accept parameters */
+    if (inner_path->param_info)
+        inner_and_req = bms_union(inner_path->parent->relids,
+                                  PATH_REQ_OUTER(inner_path));
+    else
+        inner_and_req = NULL;    /* inner path does not accept parameters */
 
-	pclauses = NIL;
-	foreach(lc, joinrel->joininfo)
-	{
-		RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
+    pclauses = NIL;
+    foreach(lc, joinrel->joininfo) {
+        RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
 
-		if (join_clause_is_movable_into(rinfo,
-										joinrel->relids,
-										join_and_req) &&
-			!join_clause_is_movable_into(rinfo,
-										 outer_path->parent->relids,
-										 outer_and_req) &&
-			!join_clause_is_movable_into(rinfo,
-										 inner_path->parent->relids,
-										 inner_and_req))
-			pclauses = lappend(pclauses, rinfo);
-	}
+        if (join_clause_is_movable_into(rinfo,
+                                        joinrel->relids,
+                                        join_and_req) &&
+            !join_clause_is_movable_into(rinfo,
+                                         outer_path->parent->relids,
+                                         outer_and_req) &&
+            !join_clause_is_movable_into(rinfo,
+                                         inner_path->parent->relids,
+                                         inner_and_req))
+            pclauses = lappend(pclauses, rinfo);
+    }
 
-	/* Consider joinclauses generated by EquivalenceClasses, too */
-	eclauses = generate_join_implied_equalities(root,
-												join_and_req,
-												required_outer,
-												joinrel);
-	/* We only want ones that aren't movable to lower levels */
-	dropped_ecs = NIL;
-	foreach(lc, eclauses)
-	{
-		RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
+    /* Consider joinclauses generated by EquivalenceClasses, too */
+    eclauses = generate_join_implied_equalities(root,
+                                                join_and_req,
+                                                required_outer,
+                                                joinrel);
+    /* We only want ones that aren't movable to lower levels */
+    dropped_ecs = NIL;
+    foreach(lc, eclauses) {
+        RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
 
-		/*
-		 * In principle, join_clause_is_movable_into() should accept anything
-		 * returned by generate_join_implied_equalities(); but because its
-		 * analysis is only approximate, sometimes it doesn't.  So we
-		 * currently cannot use this Assert; instead just assume it's okay to
-		 * apply the joinclause at this level.
-		 */
+        /*
+         * In principle, join_clause_is_movable_into() should accept anything
+         * returned by generate_join_implied_equalities(); but because its
+         * analysis is only approximate, sometimes it doesn't.  So we
+         * currently cannot use this Assert; instead just assume it's okay to
+         * apply the joinclause at this level.
+         */
 #ifdef NOT_USED
-		Assert(join_clause_is_movable_into(rinfo,
-										   joinrel->relids,
-										   join_and_req));
+        Assert(join_clause_is_movable_into(rinfo,
+                                           joinrel->relids,
+                                           join_and_req));
 #endif
-		if (join_clause_is_movable_into(rinfo,
-										outer_path->parent->relids,
-										outer_and_req))
-			continue;			/* drop if movable into LHS */
-		if (join_clause_is_movable_into(rinfo,
-										inner_path->parent->relids,
-										inner_and_req))
-		{
-			/* drop if movable into RHS, but remember EC for use below */
-			Assert(rinfo->left_ec == rinfo->right_ec);
-			dropped_ecs = lappend(dropped_ecs, rinfo->left_ec);
-			continue;
-		}
-		pclauses = lappend(pclauses, rinfo);
-	}
+        if (join_clause_is_movable_into(rinfo,
+                                        outer_path->parent->relids,
+                                        outer_and_req))
+            continue;            /* drop if movable into LHS */
+        if (join_clause_is_movable_into(rinfo,
+                                        inner_path->parent->relids,
+                                        inner_and_req)) {
+            /* drop if movable into RHS, but remember EC for use below */
+            Assert(rinfo->left_ec == rinfo->right_ec);
+            dropped_ecs = lappend(dropped_ecs, rinfo->left_ec);
+            continue;
+        }
+        pclauses = lappend(pclauses, rinfo);
+    }
 
-	/*
-	 * EquivalenceClasses are harder to deal with than we could wish, because
-	 * of the fact that a given EC can generate different clauses depending on
-	 * context.  Suppose we have an EC {X.X, Y.Y, Z.Z} where X and Y are the
-	 * LHS and RHS of the current join and Z is in required_outer, and further
-	 * suppose that the inner_path is parameterized by both X and Z.  The code
-	 * above will have produced either Z.Z = X.X or Z.Z = Y.Y from that EC,
-	 * and in the latter case will have discarded it as being movable into the
-	 * RHS.  However, the EC machinery might have produced either Y.Y = X.X or
-	 * Y.Y = Z.Z as the EC enforcement clause within the inner_path; it will
-	 * not have produced both, and we can't readily tell from here which one
-	 * it did pick.  If we add no clause to this join, we'll end up with
-	 * insufficient enforcement of the EC; either Z.Z or X.X will fail to be
-	 * constrained to be equal to the other members of the EC.  (When we come
-	 * to join Z to this X/Y path, we will certainly drop whichever EC clause
-	 * is generated at that join, so this omission won't get fixed later.)
-	 *
-	 * To handle this, for each EC we discarded such a clause from, try to
-	 * generate a clause connecting the required_outer rels to the join's LHS
-	 * ("Z.Z = X.X" in the terms of the above example).  If successful, and if
-	 * the clause can't be moved to the LHS, add it to the current join's
-	 * restriction clauses.  (If an EC cannot generate such a clause then it
-	 * has nothing that needs to be enforced here, while if the clause can be
-	 * moved into the LHS then it should have been enforced within that path.)
-	 *
-	 * Note that we don't need similar processing for ECs whose clause was
-	 * considered to be movable into the LHS, because the LHS can't refer to
-	 * the RHS so there is no comparable ambiguity about what it might
-	 * actually be enforcing internally.
-	 */
-	if (dropped_ecs)
-	{
-		Relids		real_outer_and_req;
+    /*
+     * EquivalenceClasses are harder to deal with than we could wish, because
+     * of the fact that a given EC can generate different clauses depending on
+     * context.  Suppose we have an EC {X.X, Y.Y, Z.Z} where X and Y are the
+     * LHS and RHS of the current join and Z is in required_outer, and further
+     * suppose that the inner_path is parameterized by both X and Z.  The code
+     * above will have produced either Z.Z = X.X or Z.Z = Y.Y from that EC,
+     * and in the latter case will have discarded it as being movable into the
+     * RHS.  However, the EC machinery might have produced either Y.Y = X.X or
+     * Y.Y = Z.Z as the EC enforcement clause within the inner_path; it will
+     * not have produced both, and we can't readily tell from here which one
+     * it did pick.  If we add no clause to this join, we'll end up with
+     * insufficient enforcement of the EC; either Z.Z or X.X will fail to be
+     * constrained to be equal to the other members of the EC.  (When we come
+     * to join Z to this X/Y path, we will certainly drop whichever EC clause
+     * is generated at that join, so this omission won't get fixed later.)
+     *
+     * To handle this, for each EC we discarded such a clause from, try to
+     * generate a clause connecting the required_outer rels to the join's LHS
+     * ("Z.Z = X.X" in the terms of the above example).  If successful, and if
+     * the clause can't be moved to the LHS, add it to the current join's
+     * restriction clauses.  (If an EC cannot generate such a clause then it
+     * has nothing that needs to be enforced here, while if the clause can be
+     * moved into the LHS then it should have been enforced within that path.)
+     *
+     * Note that we don't need similar processing for ECs whose clause was
+     * considered to be movable into the LHS, because the LHS can't refer to
+     * the RHS so there is no comparable ambiguity about what it might
+     * actually be enforcing internally.
+     */
+    if (dropped_ecs) {
+        Relids real_outer_and_req;
 
-		real_outer_and_req = bms_union(outer_path->parent->relids,
-									   required_outer);
-		eclauses =
-			generate_join_implied_equalities_for_ecs(root,
-													 dropped_ecs,
-													 real_outer_and_req,
-													 required_outer,
-													 outer_path->parent);
-		foreach(lc, eclauses)
-		{
-			RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
+        real_outer_and_req = bms_union(outer_path->parent->relids,
+                                       required_outer);
+        eclauses =
+                generate_join_implied_equalities_for_ecs(root,
+                                                         dropped_ecs,
+                                                         real_outer_and_req,
+                                                         required_outer,
+                                                         outer_path->parent);
+        foreach(lc, eclauses) {
+            RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
 
-			/* As above, can't quite assert this here */
+            /* As above, can't quite assert this here */
 #ifdef NOT_USED
-			Assert(join_clause_is_movable_into(rinfo,
-											   outer_path->parent->relids,
-											   real_outer_and_req));
+            Assert(join_clause_is_movable_into(rinfo,
+                                               outer_path->parent->relids,
+                                               real_outer_and_req));
 #endif
-			if (!join_clause_is_movable_into(rinfo,
-											 outer_path->parent->relids,
-											 outer_and_req))
-				pclauses = lappend(pclauses, rinfo);
-		}
-	}
+            if (!join_clause_is_movable_into(rinfo,
+                                             outer_path->parent->relids,
+                                             outer_and_req))
+                pclauses = lappend(pclauses, rinfo);
+        }
+    }
 
-	/*
-	 * Now, attach the identified moved-down clauses to the caller's
-	 * restrict_clauses list.  By using list_concat in this order, we leave
-	 * the original list structure of restrict_clauses undamaged.
-	 */
-	*restrict_clauses = list_concat(pclauses, *restrict_clauses);
+    /*
+     * Now, attach the identified moved-down clauses to the caller's
+     * restrict_clauses list.  By using list_concat in this order, we leave
+     * the original list structure of restrict_clauses undamaged.
+     */
+    *restrict_clauses = list_concat(pclauses, *restrict_clauses);
 
-	/* If we already have a PPI for this parameterization, just return it */
-	if ((ppi = find_param_path_info(joinrel, required_outer)))
-		return ppi;
+    /* If we already have a PPI for this parameterization, just return it */
+    if ((ppi = find_param_path_info(joinrel, required_outer)))
+        return ppi;
 
-	/* Estimate the number of rows returned by the parameterized join */
-	rows = get_parameterized_joinrel_size(root, joinrel,
-										  outer_path,
-										  inner_path,
-										  sjinfo,
-										  *restrict_clauses);
+    /* Estimate the number of rows returned by the parameterized join */
+    rows = get_parameterized_joinrel_size(root, joinrel,
+                                          outer_path,
+                                          inner_path,
+                                          sjinfo,
+                                          *restrict_clauses);
 
-	/*
-	 * And now we can build the ParamPathInfo.  No point in saving the
-	 * input-pair-dependent clause list, though.
-	 *
-	 * Note: in GEQO mode, we'll be called in a temporary memory context, but
-	 * the joinrel structure is there too, so no problem.
-	 */
-	ppi = makeNode(ParamPathInfo);
-	ppi->ppi_req_outer = required_outer;
-	ppi->ppi_rows = rows;
-	ppi->ppi_clauses = NIL;
-	joinrel->ppilist = lappend(joinrel->ppilist, ppi);
+    /*
+     * And now we can build the ParamPathInfo.  No point in saving the
+     * input-pair-dependent clause list, though.
+     *
+     * Note: in GEQO mode, we'll be called in a temporary memory context, but
+     * the joinrel structure is there too, so no problem.
+     */
+    ppi = makeNode(ParamPathInfo);
+    ppi->ppi_req_outer = required_outer;
+    ppi->ppi_rows = rows;
+    ppi->ppi_clauses = NIL;
+    joinrel->ppilist = lappend(joinrel->ppilist, ppi);
 
-	return ppi;
+    return ppi;
 }
 
 /*
@@ -1555,31 +1464,30 @@ get_joinrel_parampathinfo(PlannerInfo *root, RelOptInfo *joinrel,
  * the Append node isn't responsible for checking quals).
  */
 ParamPathInfo *
-get_appendrel_parampathinfo(RelOptInfo *appendrel, Relids required_outer)
-{
-	ParamPathInfo *ppi;
+get_appendrel_parampathinfo(RelOptInfo *appendrel, Relids required_outer) {
+    ParamPathInfo *ppi;
 
-	/* If rel has LATERAL refs, every path for it should account for them */
-	Assert(bms_is_subset(appendrel->lateral_relids, required_outer));
+    /* If rel has LATERAL refs, every path for it should account for them */
+    Assert(bms_is_subset(appendrel->lateral_relids, required_outer));
 
-	/* Unparameterized paths have no ParamPathInfo */
-	if (bms_is_empty(required_outer))
-		return NULL;
+    /* Unparameterized paths have no ParamPathInfo */
+    if (bms_is_empty(required_outer))
+        return NULL;
 
-	Assert(!bms_overlap(appendrel->relids, required_outer));
+    Assert(!bms_overlap(appendrel->relids, required_outer));
 
-	/* If we already have a PPI for this parameterization, just return it */
-	if ((ppi = find_param_path_info(appendrel, required_outer)))
-		return ppi;
+    /* If we already have a PPI for this parameterization, just return it */
+    if ((ppi = find_param_path_info(appendrel, required_outer)))
+        return ppi;
 
-	/* Else build the ParamPathInfo */
-	ppi = makeNode(ParamPathInfo);
-	ppi->ppi_req_outer = required_outer;
-	ppi->ppi_rows = 0;
-	ppi->ppi_clauses = NIL;
-	appendrel->ppilist = lappend(appendrel->ppilist, ppi);
+    /* Else build the ParamPathInfo */
+    ppi = makeNode(ParamPathInfo);
+    ppi->ppi_req_outer = required_outer;
+    ppi->ppi_rows = 0;
+    ppi->ppi_clauses = NIL;
+    appendrel->ppilist = lappend(appendrel->ppilist, ppi);
 
-	return ppi;
+    return ppi;
 }
 
 /*
@@ -1587,19 +1495,17 @@ get_appendrel_parampathinfo(RelOptInfo *appendrel, Relids required_outer)
  * already available in the given rel. Returns NULL otherwise.
  */
 ParamPathInfo *
-find_param_path_info(RelOptInfo *rel, Relids required_outer)
-{
-	ListCell   *lc;
+find_param_path_info(RelOptInfo *rel, Relids required_outer) {
+    ListCell *lc;
 
-	foreach(lc, rel->ppilist)
-	{
-		ParamPathInfo *ppi = (ParamPathInfo *) lfirst(lc);
+    foreach(lc, rel->ppilist) {
+        ParamPathInfo *ppi = (ParamPathInfo *) lfirst(lc);
 
-		if (bms_equal(ppi->ppi_req_outer, required_outer))
-			return ppi;
-	}
+        if (bms_equal(ppi->ppi_req_outer, required_outer))
+            return ppi;
+    }
 
-	return NULL;
+    return NULL;
 }
 
 /*
@@ -1611,171 +1517,165 @@ find_param_path_info(RelOptInfo *rel, Relids required_outer)
  */
 static void
 build_joinrel_partition_info(RelOptInfo *joinrel, RelOptInfo *outer_rel,
-							 RelOptInfo *inner_rel, List *restrictlist,
-							 JoinType jointype)
-{
-	int			partnatts;
-	int			cnt;
-	PartitionScheme part_scheme;
+                             RelOptInfo *inner_rel, List *restrictlist,
+                             JoinType jointype) {
+    int partnatts;
+    int cnt;
+    PartitionScheme part_scheme;
 
-	/* Nothing to do if partitionwise join technique is disabled. */
-	if (!enable_partitionwise_join)
-	{
-		Assert(!IS_PARTITIONED_REL(joinrel));
-		return;
-	}
+    /* Nothing to do if partitionwise join technique is disabled. */
+    if (!enable_partitionwise_join) {
+        Assert(!IS_PARTITIONED_REL(joinrel));
+        return;
+    }
 
-	/*
-	 * We can only consider this join as an input to further partitionwise
-	 * joins if (a) the input relations are partitioned and have
-	 * consider_partitionwise_join=true, (b) the partition schemes match, and
-	 * (c) we can identify an equi-join between the partition keys.  Note that
-	 * if it were possible for have_partkey_equi_join to return different
-	 * answers for the same joinrel depending on which join ordering we try
-	 * first, this logic would break.  That shouldn't happen, though, because
-	 * of the way the query planner deduces implied equalities and reorders
-	 * the joins.  Please see optimizer/README for details.
-	 */
-	if (!IS_PARTITIONED_REL(outer_rel) || !IS_PARTITIONED_REL(inner_rel) ||
-		!outer_rel->consider_partitionwise_join ||
-		!inner_rel->consider_partitionwise_join ||
-		outer_rel->part_scheme != inner_rel->part_scheme ||
-		!have_partkey_equi_join(joinrel, outer_rel, inner_rel,
-								jointype, restrictlist))
-	{
-		Assert(!IS_PARTITIONED_REL(joinrel));
-		return;
-	}
+    /*
+     * We can only consider this join as an input to further partitionwise
+     * joins if (a) the input relations are partitioned and have
+     * consider_partitionwise_join=true, (b) the partition schemes match, and
+     * (c) we can identify an equi-join between the partition keys.  Note that
+     * if it were possible for have_partkey_equi_join to return different
+     * answers for the same joinrel depending on which join ordering we try
+     * first, this logic would break.  That shouldn't happen, though, because
+     * of the way the query planner deduces implied equalities and reorders
+     * the joins.  Please see optimizer/README for details.
+     */
+    if (!IS_PARTITIONED_REL(outer_rel) || !IS_PARTITIONED_REL(inner_rel) ||
+        !outer_rel->consider_partitionwise_join ||
+        !inner_rel->consider_partitionwise_join ||
+        outer_rel->part_scheme != inner_rel->part_scheme ||
+        !have_partkey_equi_join(joinrel, outer_rel, inner_rel,
+                                jointype, restrictlist)) {
+        Assert(!IS_PARTITIONED_REL(joinrel));
+        return;
+    }
 
-	part_scheme = outer_rel->part_scheme;
+    part_scheme = outer_rel->part_scheme;
 
-	Assert(REL_HAS_ALL_PART_PROPS(outer_rel) &&
-		   REL_HAS_ALL_PART_PROPS(inner_rel));
+    Assert(REL_HAS_ALL_PART_PROPS(outer_rel) &&
+           REL_HAS_ALL_PART_PROPS(inner_rel));
 
-	/*
-	 * For now, our partition matching algorithm can match partitions only
-	 * when the partition bounds of the joining relations are exactly same.
-	 * So, bail out otherwise.
-	 */
-	if (outer_rel->nparts != inner_rel->nparts ||
-		!partition_bounds_equal(part_scheme->partnatts,
-								part_scheme->parttyplen,
-								part_scheme->parttypbyval,
-								outer_rel->boundinfo, inner_rel->boundinfo))
-	{
-		Assert(!IS_PARTITIONED_REL(joinrel));
-		return;
-	}
+    /*
+     * For now, our partition matching algorithm can match partitions only
+     * when the partition bounds of the joining relations are exactly same.
+     * So, bail out otherwise.
+     */
+    if (outer_rel->nparts != inner_rel->nparts ||
+        !partition_bounds_equal(part_scheme->partnatts,
+                                part_scheme->parttyplen,
+                                part_scheme->parttypbyval,
+                                outer_rel->boundinfo, inner_rel->boundinfo)) {
+        Assert(!IS_PARTITIONED_REL(joinrel));
+        return;
+    }
 
-	/*
-	 * This function will be called only once for each joinrel, hence it
-	 * should not have partition scheme, partition bounds, partition key
-	 * expressions and array for storing child relations set.
-	 */
-	Assert(!joinrel->part_scheme && !joinrel->partexprs &&
-		   !joinrel->nullable_partexprs && !joinrel->part_rels &&
-		   !joinrel->boundinfo);
+    /*
+     * This function will be called only once for each joinrel, hence it
+     * should not have partition scheme, partition bounds, partition key
+     * expressions and array for storing child relations set.
+     */
+    Assert(!joinrel->part_scheme && !joinrel->partexprs &&
+           !joinrel->nullable_partexprs && !joinrel->part_rels &&
+           !joinrel->boundinfo);
 
-	/*
-	 * Join relation is partitioned using the same partitioning scheme as the
-	 * joining relations and has same bounds.
-	 */
-	joinrel->part_scheme = part_scheme;
-	joinrel->boundinfo = outer_rel->boundinfo;
-	partnatts = joinrel->part_scheme->partnatts;
-	joinrel->partexprs = (List **) palloc0(sizeof(List *) * partnatts);
-	joinrel->nullable_partexprs =
-		(List **) palloc0(sizeof(List *) * partnatts);
-	joinrel->nparts = outer_rel->nparts;
-	joinrel->part_rels =
-		(RelOptInfo **) palloc0(sizeof(RelOptInfo *) * joinrel->nparts);
+    /*
+     * Join relation is partitioned using the same partitioning scheme as the
+     * joining relations and has same bounds.
+     */
+    joinrel->part_scheme = part_scheme;
+    joinrel->boundinfo = outer_rel->boundinfo;
+    partnatts = joinrel->part_scheme->partnatts;
+    joinrel->partexprs = (List **) palloc0(sizeof(List *) * partnatts);
+    joinrel->nullable_partexprs =
+            (List **) palloc0(sizeof(List *) * partnatts);
+    joinrel->nparts = outer_rel->nparts;
+    joinrel->part_rels =
+            (RelOptInfo **) palloc0(sizeof(RelOptInfo *) * joinrel->nparts);
 
-	/*
-	 * Set the consider_partitionwise_join flag.
-	 */
-	Assert(outer_rel->consider_partitionwise_join);
-	Assert(inner_rel->consider_partitionwise_join);
-	joinrel->consider_partitionwise_join = true;
+    /*
+     * Set the consider_partitionwise_join flag.
+     */
+    Assert(outer_rel->consider_partitionwise_join);
+    Assert(inner_rel->consider_partitionwise_join);
+    joinrel->consider_partitionwise_join = true;
 
-	/*
-	 * Construct partition keys for the join.
-	 *
-	 * An INNER join between two partitioned relations can be regarded as
-	 * partitioned by either key expression.  For example, A INNER JOIN B ON
-	 * A.a = B.b can be regarded as partitioned on A.a or on B.b; they are
-	 * equivalent.
-	 *
-	 * For a SEMI or ANTI join, the result can only be regarded as being
-	 * partitioned in the same manner as the outer side, since the inner
-	 * columns are not retained.
-	 *
-	 * An OUTER join like (A LEFT JOIN B ON A.a = B.b) may produce rows with
-	 * B.b NULL. These rows may not fit the partitioning conditions imposed on
-	 * B.b. Hence, strictly speaking, the join is not partitioned by B.b and
-	 * thus partition keys of an OUTER join should include partition key
-	 * expressions from the OUTER side only.  However, because all
-	 * commonly-used comparison operators are strict, the presence of nulls on
-	 * the outer side doesn't cause any problem; they can't match anything at
-	 * future join levels anyway.  Therefore, we track two sets of
-	 * expressions: those that authentically partition the relation
-	 * (partexprs) and those that partition the relation with the exception
-	 * that extra nulls may be present (nullable_partexprs).  When the
-	 * comparison operator is strict, the latter is just as good as the
-	 * former.
-	 */
-	for (cnt = 0; cnt < partnatts; cnt++)
-	{
-		List	   *outer_expr;
-		List	   *outer_null_expr;
-		List	   *inner_expr;
-		List	   *inner_null_expr;
-		List	   *partexpr = NIL;
-		List	   *nullable_partexpr = NIL;
+    /*
+     * Construct partition keys for the join.
+     *
+     * An INNER join between two partitioned relations can be regarded as
+     * partitioned by either key expression.  For example, A INNER JOIN B ON
+     * A.a = B.b can be regarded as partitioned on A.a or on B.b; they are
+     * equivalent.
+     *
+     * For a SEMI or ANTI join, the result can only be regarded as being
+     * partitioned in the same manner as the outer side, since the inner
+     * columns are not retained.
+     *
+     * An OUTER join like (A LEFT JOIN B ON A.a = B.b) may produce rows with
+     * B.b NULL. These rows may not fit the partitioning conditions imposed on
+     * B.b. Hence, strictly speaking, the join is not partitioned by B.b and
+     * thus partition keys of an OUTER join should include partition key
+     * expressions from the OUTER side only.  However, because all
+     * commonly-used comparison operators are strict, the presence of nulls on
+     * the outer side doesn't cause any problem; they can't match anything at
+     * future join levels anyway.  Therefore, we track two sets of
+     * expressions: those that authentically partition the relation
+     * (partexprs) and those that partition the relation with the exception
+     * that extra nulls may be present (nullable_partexprs).  When the
+     * comparison operator is strict, the latter is just as good as the
+     * former.
+     */
+    for (cnt = 0; cnt < partnatts; cnt++) {
+        List *outer_expr;
+        List *outer_null_expr;
+        List *inner_expr;
+        List *inner_null_expr;
+        List *partexpr = NIL;
+        List *nullable_partexpr = NIL;
 
-		outer_expr = list_copy(outer_rel->partexprs[cnt]);
-		outer_null_expr = list_copy(outer_rel->nullable_partexprs[cnt]);
-		inner_expr = list_copy(inner_rel->partexprs[cnt]);
-		inner_null_expr = list_copy(inner_rel->nullable_partexprs[cnt]);
+        outer_expr = list_copy(outer_rel->partexprs[cnt]);
+        outer_null_expr = list_copy(outer_rel->nullable_partexprs[cnt]);
+        inner_expr = list_copy(inner_rel->partexprs[cnt]);
+        inner_null_expr = list_copy(inner_rel->nullable_partexprs[cnt]);
 
-		switch (jointype)
-		{
-			case JOIN_INNER:
-				partexpr = list_concat(outer_expr, inner_expr);
-				nullable_partexpr = list_concat(outer_null_expr,
-												inner_null_expr);
-				break;
+        switch (jointype) {
+            case JOIN_INNER:
+                partexpr = list_concat(outer_expr, inner_expr);
+                nullable_partexpr = list_concat(outer_null_expr,
+                                                inner_null_expr);
+                break;
 
-			case JOIN_SEMI:
-			case JOIN_ANTI:
-				partexpr = outer_expr;
-				nullable_partexpr = outer_null_expr;
-				break;
+            case JOIN_SEMI:
+            case JOIN_ANTI:
+                partexpr = outer_expr;
+                nullable_partexpr = outer_null_expr;
+                break;
 
-			case JOIN_LEFT:
-				partexpr = outer_expr;
-				nullable_partexpr = list_concat(inner_expr,
-												outer_null_expr);
-				nullable_partexpr = list_concat(nullable_partexpr,
-												inner_null_expr);
-				break;
+            case JOIN_LEFT:
+                partexpr = outer_expr;
+                nullable_partexpr = list_concat(inner_expr,
+                                                outer_null_expr);
+                nullable_partexpr = list_concat(nullable_partexpr,
+                                                inner_null_expr);
+                break;
 
-			case JOIN_FULL:
-				nullable_partexpr = list_concat(outer_expr,
-												inner_expr);
-				nullable_partexpr = list_concat(nullable_partexpr,
-												outer_null_expr);
-				nullable_partexpr = list_concat(nullable_partexpr,
-												inner_null_expr);
-				break;
+            case JOIN_FULL:
+                nullable_partexpr = list_concat(outer_expr,
+                                                inner_expr);
+                nullable_partexpr = list_concat(nullable_partexpr,
+                                                outer_null_expr);
+                nullable_partexpr = list_concat(nullable_partexpr,
+                                                inner_null_expr);
+                break;
 
-			default:
-				elog(ERROR, "unrecognized join type: %d", (int) jointype);
+            default:
+                elog(ERROR, "unrecognized join type: %d", (int) jointype);
 
-		}
+        }
 
-		joinrel->partexprs[cnt] = partexpr;
-		joinrel->nullable_partexprs[cnt] = nullable_partexpr;
-	}
+        joinrel->partexprs[cnt] = partexpr;
+        joinrel->nullable_partexprs[cnt] = nullable_partexpr;
+    }
 }
 
 /*
@@ -1784,19 +1684,18 @@ build_joinrel_partition_info(RelOptInfo *joinrel, RelOptInfo *outer_rel,
  */
 static void
 build_child_join_reltarget(PlannerInfo *root,
-						   RelOptInfo *parentrel,
-						   RelOptInfo *childrel,
-						   int nappinfos,
-						   AppendRelInfo **appinfos)
-{
-	/* Build the targetlist */
-	childrel->reltarget->exprs = (List *)
-		adjust_appendrel_attrs(root,
-							   (Node *) parentrel->reltarget->exprs,
-							   nappinfos, appinfos);
+                           RelOptInfo *parentrel,
+                           RelOptInfo *childrel,
+                           int nappinfos,
+                           AppendRelInfo **appinfos) {
+    /* Build the targetlist */
+    childrel->reltarget->exprs = (List *)
+            adjust_appendrel_attrs(root,
+                                   (Node *) parentrel->reltarget->exprs,
+                                   nappinfos, appinfos);
 
-	/* Set the cost and width fields */
-	childrel->reltarget->cost.startup = parentrel->reltarget->cost.startup;
-	childrel->reltarget->cost.per_tuple = parentrel->reltarget->cost.per_tuple;
-	childrel->reltarget->width = parentrel->reltarget->width;
+    /* Set the cost and width fields */
+    childrel->reltarget->cost.startup = parentrel->reltarget->cost.startup;
+    childrel->reltarget->cost.per_tuple = parentrel->reltarget->cost.per_tuple;
+    childrel->reltarget->width = parentrel->reltarget->width;
 }

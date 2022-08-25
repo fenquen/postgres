@@ -46,7 +46,7 @@
 #define EarlyPruningEnabled(rel) (old_snapshot_threshold >= 0 && RelationAllowsEarlyPruning(rel))
 
 /* GUC variables */
-extern PGDLLIMPORT int old_snapshot_threshold;
+extern PGDLLIMPORT int old_snapshot_threshold; // 对应了配置 old_snapshot_threshold
 
 
 extern Size SnapMgrShmemSize(void);

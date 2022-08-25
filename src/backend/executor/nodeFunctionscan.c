@@ -42,7 +42,7 @@ typedef struct FunctionScanPerFuncState {
     TupleTableSlot *func_slot;    /* function result slot (or NULL) */
 } FunctionScanPerFuncState;
 
-static TupleTableSlot *FunctionNext(FunctionScanState *node);
+static TupleTableSlot *FunctionNext(FunctionScanState *functionScanState);
 
 
 /* ----------------------------------------------------------------
@@ -55,35 +55,33 @@ static TupleTableSlot *FunctionNext(FunctionScanState *node);
  *		This is a workhorse for ExecFunctionScan
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *FunctionNext(FunctionScanState *node) {
-    bool alldone;
-    int64 oldpos;
-    int funcno;
-    int att;
-
+static TupleTableSlot *FunctionNext(FunctionScanState *functionScanState) {
     // get information from the estate and scan state
-    EState *estate = node->ss.ps.state;
+    EState *estate = functionScanState->ss.ps.state;
     ScanDirection scanDirection = estate->es_direction;
-    TupleTableSlot *tupleTableSlot = node->ss.ss_ScanTupleSlot;
+    TupleTableSlot *tupleTableSlot = functionScanState->ss.ss_ScanTupleSlot;
 
-    if (node->simple) {
+    if (functionScanState->simple) {
         /*
          * Fast path for the trivial case: the function return type and scan
          * result type are the same, so we fetch the function result straight
          * into the scan result slot. No need to update ordinality or
          * rowcounts either.
          */
-        Tuplestorestate *tuplestorestate = node->funcstates[0].tstore;
+        Tuplestorestate *tuplestorestate = functionScanState->funcstates[0].tstore;
 
         // If first time through, read all tuples from function and put them
         // in a tuplestore. Subsequent calls just fetch tuples from tuplestore.
         if (tuplestorestate == NULL) {
-            node->funcstates[0].tstore = tuplestorestate =
-                    ExecMakeTableFunctionResult(node->funcstates[0].setexpr,
-                                                node->ss.ps.ps_ExprContext,
-                                                node->argcontext,
-                                                node->funcstates[0].tupdesc,
-                                                node->eflags & EXEC_FLAG_BACKWARD);
+
+            // 内部会去使用extension眼熟的fcinfo 把你的自定函数给驱动起来
+            // 你在自定义函数中生成的tuplestorestate 注入到了 fcinfo->rsinfo.setResult 然后是该函数的返回的值
+            functionScanState->funcstates[0].tstore = tuplestorestate =
+                    ExecMakeTableFunctionResult(functionScanState->funcstates[0].setexpr,
+                                                functionScanState->ss.ps.ps_ExprContext,
+                                                functionScanState->argcontext,
+                                                functionScanState->funcstates[0].tupdesc,
+                                                functionScanState->eflags & EXEC_FLAG_BACKWARD);
 
             /*
              * paranoia - cope if the function, which may have constructed the
@@ -107,11 +105,11 @@ static TupleTableSlot *FunctionNext(FunctionScanState *node) {
      * 1) without losing correct count.  See PortalRunSelect for why we can
      * assume that we won't be called repeatedly in the end-of-data state.
      */
-    oldpos = node->ordinal;
+    int64 oldpos = functionScanState->ordinal;
     if (ScanDirectionIsForward(scanDirection))
-        node->ordinal++;
+        functionScanState->ordinal++;
     else
-        node->ordinal--;
+        functionScanState->ordinal--;
 
     /*
      * Main loop over functions.
@@ -121,10 +119,10 @@ static TupleTableSlot *FunctionNext(FunctionScanState *node) {
      * scan result type), setting the ordinal column (if any) as well.
      */
     ExecClearTuple(tupleTableSlot);
-    att = 0;
-    alldone = true;
-    for (funcno = 0; funcno < node->nfuncs; funcno++) {
-        FunctionScanPerFuncState *fs = &node->funcstates[funcno];
+    int att = 0;
+    bool alldone = true;
+    for (int funcno = 0; funcno < functionScanState->nfuncs; funcno++) {
+        FunctionScanPerFuncState *fs = &functionScanState->funcstates[funcno];
         int i;
 
         /*
@@ -133,12 +131,11 @@ static TupleTableSlot *FunctionNext(FunctionScanState *node) {
          * tuplestore.
          */
         if (fs->tstore == NULL) {
-            fs->tstore =
-                    ExecMakeTableFunctionResult(fs->setexpr,
-                                                node->ss.ps.ps_ExprContext,
-                                                node->argcontext,
-                                                fs->tupdesc,
-                                                node->eflags & EXEC_FLAG_BACKWARD);
+            fs->tstore = ExecMakeTableFunctionResult(fs->setexpr,
+                                                     functionScanState->ss.ps.ps_ExprContext,
+                                                     functionScanState->argcontext,
+                                                     fs->tupdesc,
+                                                     functionScanState->eflags & EXEC_FLAG_BACKWARD);
 
             /*
              * paranoia - cope if the function, which may have constructed the
@@ -172,7 +169,7 @@ static TupleTableSlot *FunctionNext(FunctionScanState *node) {
              * position the tuplestore 1 off its end sometimes.
              */
             if (ScanDirectionIsForward(scanDirection) && fs->rowcount == -1)
-                fs->rowcount = node->ordinal;
+                fs->rowcount = functionScanState->ordinal;
 
             /*
              * populate the result cols with nulls
@@ -202,18 +199,13 @@ static TupleTableSlot *FunctionNext(FunctionScanState *node) {
         }
     }
 
-    /*
-     * ordinal col is always last, per spec.
-     */
-    if (node->ordinality) {
-        tupleTableSlot->tts_values[att] = Int64GetDatumFast(node->ordinal);
+    // ordinal col is always last, per spec.
+    if (functionScanState->ordinality) {
+        tupleTableSlot->tts_values[att] = Int64GetDatumFast(functionScanState->ordinal);
         tupleTableSlot->tts_isnull[att] = false;
     }
 
-    /*
-     * If alldone, we just return the previously-cleared scanslot.  Otherwise,
-     * finish creating the virtual tuple.
-     */
+    // If alldone, we just return the previously-cleared scanslot.  Otherwise finish creating the virtual tuple.
     if (!alldone)
         ExecStoreVirtualTuple(tupleTableSlot);
 
@@ -238,23 +230,20 @@ FunctionRecheck(FunctionScanState *node, TupleTableSlot *slot) {
  *		access method functions.
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *ExecFunctionScan(PlanState *pstate) {
-    FunctionScanState *node = castNode(FunctionScanState, pstate);
+static TupleTableSlot *ExecFunctionScan(PlanState *planState) {
+    FunctionScanState *functionScanState = castNode(FunctionScanState, planState);
 
-    return ExecScan(&node->ss, (ExecScanAccessMtd) FunctionNext, (ExecScanRecheckMtd) FunctionRecheck);
+    return ExecScan(&functionScanState->ss, (ExecScanAccessMtd) FunctionNext, (ExecScanRecheckMtd) FunctionRecheck);
 }
 
 /* ----------------------------------------------------------------
  *		ExecInitFunctionScan
  * ----------------------------------------------------------------
  */
-FunctionScanState *
-ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags) {
-    FunctionScanState *scanstate;
-    int nfuncs = list_length(node->functions);
-    TupleDesc scan_tupdesc;
-    int i,
-            natts;
+FunctionScanState *ExecInitFunctionScan(FunctionScan *functionScan, EState *estate, int eflags) {
+    int nfuncs = list_length(functionScan->functions);
+
+    int i, natts;
     ListCell *lc;
 
     /* check for unsupported flags */
@@ -263,28 +252,26 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags) {
     /*
      * FunctionScan should not have any children.
      */
-    Assert(outerPlan(node) == NULL);
-    Assert(innerPlan(node) == NULL);
+    Assert(outerPlan(functionScan) == NULL);
+    Assert(innerPlan(functionScan) == NULL);
 
-    /*
-     * create new ScanState for node
-     */
-    scanstate = makeNode(FunctionScanState);
-    scanstate->ss.ps.plan = (Plan *) node;
-    scanstate->ss.ps.state = estate;
-    scanstate->ss.ps.ExecProcNode = ExecFunctionScan;
-    scanstate->eflags = eflags;
+    // create new
+    FunctionScanState *functionScanState = makeNode(FunctionScanState);
+    functionScanState->ss.ps.plan = (Plan *) functionScan;
+    functionScanState->ss.ps.state = estate;
+    functionScanState->ss.ps.ExecProcNode = ExecFunctionScan;
+    functionScanState->eflags = eflags;
 
     /*
      * are we adding an ordinality column?
      */
-    scanstate->ordinality = node->funcordinality;
+    functionScanState->ordinality = functionScan->funcordinality;
 
-    scanstate->nfuncs = nfuncs;
-    if (nfuncs == 1 && !node->funcordinality)
-        scanstate->simple = true;
+    functionScanState->nfuncs = nfuncs;
+    if (nfuncs == 1 && !functionScan->funcordinality)
+        functionScanState->simple = true;
     else
-        scanstate->simple = false;
+        functionScanState->simple = false;
 
     /*
      * Ordinal 0 represents the "before the first row" position.
@@ -296,32 +283,31 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags) {
      * end, so when scanning backwards, we need to know when to start
      * including the function in the scan again.)
      */
-    scanstate->ordinal = 0;
+    functionScanState->ordinal = 0;
 
     /*
      * Miscellaneous initialization
      *
      * create expression context for node
      */
-    ExecAssignExprContext(estate, &scanstate->ss.ps);
+    ExecAssignExprContext(estate, &functionScanState->ss.ps);
 
-    scanstate->funcstates = palloc(nfuncs * sizeof(FunctionScanPerFuncState));
+    functionScanState->funcstates = palloc(nfuncs * sizeof(FunctionScanPerFuncState));
 
     natts = 0;
     i = 0;
-    foreach(lc, node->functions) {
-        RangeTblFunction *rtfunc = (RangeTblFunction *) lfirst(lc);
-        Node *funcexpr = rtfunc->funcexpr;
-        int colcount = rtfunc->funccolcount;
-        FunctionScanPerFuncState *fs = &scanstate->funcstates[i];
+    foreach(lc, functionScan->functions) {
+        RangeTblFunction *rangeTblFunction = (RangeTblFunction *) lfirst(lc);
+        Node *funcexpr = rangeTblFunction->funcexpr;
+        int colcount = rangeTblFunction->funccolcount;
+        FunctionScanPerFuncState *fs = &functionScanState->funcstates[i];
         TypeFuncClass functypclass;
         Oid funcrettype;
         TupleDesc tupdesc;
 
-        fs->setexpr =
-                ExecInitTableFunctionResult((Expr *) funcexpr,
-                                            scanstate->ss.ps.ps_ExprContext,
-                                            &scanstate->ss.ps);
+        fs->setexpr = ExecInitTableFunctionResult((Expr *) funcexpr,
+                                                  functionScanState->ss.ps.ps_ExprContext,
+                                                  &functionScanState->ss.ps);
 
         /*
          * Don't allocate the tuplestores; the actual calls to the functions
@@ -337,12 +323,9 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags) {
          * the function may now return more columns than it did when the plan
          * was made; we have to ignore any columns beyond "colcount".
          */
-        functypclass = get_expr_result_type(funcexpr,
-                                            &funcrettype,
-                                            &tupdesc);
+        functypclass = get_expr_result_type(funcexpr, &funcrettype, &tupdesc);
 
-        if (functypclass == TYPEFUNC_COMPOSITE ||
-            functypclass == TYPEFUNC_COMPOSITE_DOMAIN) {
+        if (functypclass == TYPEFUNC_COMPOSITE || functypclass == TYPEFUNC_COMPOSITE_DOMAIN) {
             /* Composite data type, e.g. a table's row type */
             Assert(tupdesc);
             Assert(tupdesc->natts >= colcount);
@@ -361,10 +344,10 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags) {
                                         (AttrNumber) 1,
                                         exprCollation(funcexpr));
         } else if (functypclass == TYPEFUNC_RECORD) {
-            tupdesc = BuildDescFromLists(rtfunc->funccolnames,
-                                         rtfunc->funccoltypes,
-                                         rtfunc->funccoltypmods,
-                                         rtfunc->funccolcollations);
+            tupdesc = BuildDescFromLists(rangeTblFunction->funccolnames,
+                                         rangeTblFunction->funccoltypes,
+                                         rangeTblFunction->funccoltypmods,
+                                         rangeTblFunction->funccolcollations);
 
             /*
              * For RECORD results, make sure a typmod has been assigned.  (The
@@ -385,9 +368,8 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags) {
          * doing ordinality or multiple functions; otherwise, we'll fetch
          * function results directly into the scan slot.
          */
-        if (!scanstate->simple) {
-            fs->func_slot = ExecInitExtraTupleSlot(estate, fs->tupdesc,
-                                                   &TTSOpsMinimalTuple);
+        if (!functionScanState->simple) {
+            fs->func_slot = ExecInitExtraTupleSlot(estate, fs->tupdesc, &TTSOpsMinimalTuple);
         } else
             fs->func_slot = NULL;
 
@@ -402,21 +384,22 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags) {
      * tupdesc is the same as the function result tupdesc --- except that we
      * may stuff new names into it below, so drop any rowtype label.
      */
-    if (scanstate->simple) {
-        scan_tupdesc = CreateTupleDescCopy(scanstate->funcstates[0].tupdesc);
+    TupleDesc scan_tupdesc;
+    if (functionScanState->simple) {
+        scan_tupdesc = CreateTupleDescCopy(functionScanState->funcstates[0].tupdesc);
         scan_tupdesc->tdtypeid = RECORDOID;
         scan_tupdesc->tdtypmod = -1;
     } else {
         AttrNumber attno = 0;
 
-        if (node->funcordinality)
+        if (functionScan->funcordinality)
             natts++;
 
         scan_tupdesc = CreateTemplateTupleDesc(natts);
 
         for (i = 0; i < nfuncs; i++) {
-            TupleDesc tupdesc = scanstate->funcstates[i].tupdesc;
-            int colcount = scanstate->funcstates[i].colcount;
+            TupleDesc tupdesc = functionScanState->funcstates[i].tupdesc;
+            int colcount = functionScanState->funcstates[i].colcount;
             int j;
 
             for (j = 1; j <= colcount; j++)
@@ -424,7 +407,7 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags) {
         }
 
         /* If doing ordinality, add a column of type "bigint" at the end */
-        if (node->funcordinality) {
+        if (functionScan->funcordinality) {
             TupleDescInitEntry(scan_tupdesc,
                                ++attno,
                                NULL,    /* don't care about the name here */
@@ -436,23 +419,15 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags) {
         Assert(attno == natts);
     }
 
-    /*
-     * Initialize scan slot and type.
-     */
-    ExecInitScanTupleSlot(estate, &scanstate->ss, scan_tupdesc,
-                          &TTSOpsMinimalTuple);
+    // initialize scan slot and type.
+    ExecInitScanTupleSlot(estate, &functionScanState->ss, scan_tupdesc, &TTSOpsMinimalTuple);
 
-    /*
-     * Initialize result slot, type and projection.
-     */
-    ExecInitResultTypeTL(&scanstate->ss.ps);
-    ExecAssignScanProjectionInfo(&scanstate->ss);
+    // initialize result slot, type and projection.
+    ExecInitResultTypeTL(&functionScanState->ss.ps);
+    ExecAssignScanProjectionInfo(&functionScanState->ss);
 
-    /*
-     * initialize child expressions
-     */
-    scanstate->ss.ps.qual =
-            ExecInitQual(node->scan.plan.qual, (PlanState *) scanstate);
+    // initialize child expressions
+    functionScanState->ss.ps.qual = ExecInitQual(functionScan->scan.plan.qual, (PlanState *) functionScanState);
 
     /*
      * Create a memory context that ExecMakeTableFunctionResult can use to
@@ -461,11 +436,11 @@ ExecInitFunctionScan(FunctionScan *node, EState *estate, int eflags) {
      * evaluation results into the query-lifespan context either.  We just
      * need one context, because we evaluate each function separately.
      */
-    scanstate->argcontext = AllocSetContextCreate(CurrentMemoryContext,
-                                                  "Table function arguments",
-                                                  ALLOCSET_DEFAULT_SIZES);
+    functionScanState->argcontext = AllocSetContextCreate(CurrentMemoryContext,
+                                                          "Table function arguments",
+                                                          ALLOCSET_DEFAULT_SIZES);
 
-    return scanstate;
+    return functionScanState;
 }
 
 /* ----------------------------------------------------------------
