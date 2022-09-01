@@ -649,7 +649,7 @@ typedef struct RelOptInfo {
     /* information about a base rel (not set for join rels!) */
     Index relid;          // 对应的table在sql中的位置(1based)
     Oid reltablespace;    /* containing tablespace */
-    RTEKind rtekind;        /* RELATION, SUBQUERY, FUNCTION, etc */
+    RTEKind rtekind;        /* RELATION, SUBQUERY, FUNCTION 等  */
     AttrNumber min_attr;        /* smallest attrno of rel (often <0) */
     AttrNumber max_attr;        /* largest attrno of rel */
     Relids *attr_needed;    /* array indexed [min_attr .. max_attr] */
@@ -674,32 +674,26 @@ typedef struct RelOptInfo {
     void *fdw_private;
 
     /* cache space for remembering if we have proven this relation unique */
-    List *unique_for_rels;    /* known unique for these other relid
-									 * set(s) */
+    List *unique_for_rels;    /* known unique for these other relid set(s) */
     List *non_unique_for_rels;    /* known not unique for these set(s) */
 
     /* used by various scans and joins: */
     List *baserestrictinfo;    /* RestrictInfo structures (if base rel) */
     QualCost baserestrictcost;    /* cost of evaluating the above */
-    Index baserestrict_min_security;    /* min security_level found in
-											 * baserestrictinfo */
-    List *joininfo;        /* RestrictInfo structures for join clauses
-								 * involving this rel */
+    Index baserestrict_min_security;    /* min security_level found in baserestrictinfo */
+    List *joininfo;        /* RestrictInfo structures for join clauses involving this rel */
     bool has_eclass_joins;    /* T means joininfo is incomplete */
 
     /* used by partitionwise joins: */
-    bool consider_partitionwise_join;    /* consider partitionwise join
-												 * paths? (if partitioned rel) */
-    Relids top_parent_relids;    /* Relids of topmost parents (if "other"
-									 * rel) */
+    bool consider_partitionwise_join;    /* consider partitionwise join paths? (if partitioned rel) */
+    Relids top_parent_relids;    /* Relids of topmost parents (if "other" rel) */
 
     /* used for partitioned relations */
     PartitionScheme part_scheme;    /* Partitioning scheme. */
     int nparts;            /* number of partitions */
     struct PartitionBoundInfoData *boundinfo;    /* Partition bounds */
     List *partition_qual; /* partition constraint */
-    struct RelOptInfo **part_rels;    /* Array of RelOptInfos of partitions,
-									 * stored in the same order of bounds */
+    struct RelOptInfo **part_rels;    /* Array of RelOptInfos of partitions,stored in the same order of bounds */
     List **partexprs;        /* Non-nullable partition key expressions. */
     List **nullable_partexprs; /* Nullable partition key expressions. */
     List *partitioned_child_rels; /* List of RT indexes. */
@@ -725,7 +719,23 @@ typedef struct RelOptInfo {
     ((rel)->part_scheme && (rel)->boundinfo && (rel)->nparts > 0 && \
      (rel)->part_rels && (rel)->partexprs && (rel)->nullable_partexprs)
 
+
+
+
+
+#ifndef HAVE_INDEXOPTINFO_TYPEDEF
+typedef struct IndexOptInfo IndexOptInfo;
+#define HAVE_INDEXOPTINFO_TYPEDEF 1
+#endif
+
 /*
+ *         indexOptInfo->indexkeys = (int *) palloc(sizeof(int) * ncolumns);
+            indexOptInfo->indexcollations = (Oid *) palloc(sizeof(Oid) * nkeycolumns);
+            indexOptInfo->opfamily = (Oid *) palloc(sizeof(Oid) * nkeycolumns);
+            indexOptInfo->opcintype = (Oid *) palloc(sizeof(Oid) * nkeycolumns);
+            indexOptInfo->canreturn = (bool *) palloc(sizeof(bool) * ncolumns);
+ *
+ *
  * IndexOptInfo
  *		Per-index information for planning/optimization
  *
@@ -756,11 +766,6 @@ typedef struct RelOptInfo {
  *		(by plancat.c), indrestrictinfo and predOK are set later, in
  *		check_index_predicates().
  */
-#ifndef HAVE_INDEXOPTINFO_TYPEDEF
-typedef struct IndexOptInfo IndexOptInfo;
-#define HAVE_INDEXOPTINFO_TYPEDEF 1
-#endif
-
 struct IndexOptInfo {
     NodeTag type;
 
@@ -776,16 +781,14 @@ struct IndexOptInfo {
     /* index descriptor information */
     int ncolumns;        /* number of columns in index */
     int nkeycolumns;    /* number of key columns in index */
-    int *indexkeys;        /* column numbers of index's attributes both
-								 * key and included columns, or 0 */
-    Oid *indexcollations;    /* OIDs of collations of index columns */
-    Oid *opfamily;        /* OIDs of operator families for columns */
-    Oid *opcintype;        /* OIDs of opclass declared input data types */
+    int *indexkeys;        /* column 位置(1起始) of both key and not key column, or 0 */
+    Oid *indexcollations;    /* OIDs of collations of index key columns */
+    Oid *opfamily;        /* OIDs of operator families for key columns */
+    Oid *opcintype;        /* OIDs of opclass declared input data type 数量  keyColumn数量 */
     Oid *sortopfamily;    /* OIDs of btree opfamilies, if orderable */
     bool *reverse_sort;    /* is sort order descending? */
     bool *nulls_first;    /* do NULLs come first in the sort order? */
-    bool *canreturn;        /* which index cols can be returned in an
-								 * index-only scan? */
+    bool *canreturn;        /* which index cols can be returned in an index-only scan? */
     Oid relam;            /* OID of the access method (in pg_am) */
 
     List *indexprs;        /* expressions for non-simple index columns */
@@ -797,7 +800,7 @@ struct IndexOptInfo {
 									 * list, less any conditions implied by
 									 * the index's predicate (unless it's a
 									 * target rel, see comments in
-									 * check_index_predicates()) */
+									 * check_index_predicates()) 是 restrictInfo*/
 
     bool predOK;            /* true if index predicate matches query */
     bool unique;            /* true if a unique index */
@@ -1048,7 +1051,7 @@ typedef struct ParamPathInfo {
 } ParamPathInfo;
 
 /*
- * 是物理计划，它包含优化器对于单个关系代数的理解，包括并行度、PathKey和cost
+ * 是物理计划其实严格的说应该只是物理信息，它包含优化器对于单个关系代数的理解，包括并行度、PathKey和cost
  * Type "Path" is used as-is for sequential-scan paths, as well as some other
  * simple plan types that we don't need any extra information in the path for.
  * For other path types it is the first component of a larger struct.
@@ -1083,7 +1086,7 @@ typedef struct Path {
     NodeTag pathtype;        /* tag identifying scan/join method */
 
     /**
-     * 对应的 RelOptInfo 应该算是逻辑优化信息
+     * 它对应的RelOptInfo,应该算是逻辑优化信息
      * the relation this path can build
      */
     RelOptInfo *parent;
@@ -1100,8 +1103,7 @@ typedef struct Path {
     Cost startup_cost;    /* cost expended before fetching any tuples */
     Cost total_cost;        /* total cost (assuming all tuples fetched) */
 
-    List *pathkeys;        /* sort ordering of path's output */
-    /* pathkeys is a List of PathKey nodes; see above */
+    List *pathkeys;        /* sort ordering of path's output ,is a List of PathKey */
 } Path;
 
 /* Macro for extracting a path's parameterization relids; beware double eval */

@@ -242,10 +242,9 @@ static List *set_returning_clause_references(PlannerInfo *root,
  * nodes were just built by the planner and are not multiply referenced, but
  * it's not so safe to assume that for expression tree nodes.
  */
-Plan *
-set_plan_references(PlannerInfo *root, Plan *plan) {
-    PlannerGlobal *glob = root->glob;
-    int rtoffset = list_length(glob->finalrtable);
+Plan *set_plan_references(PlannerInfo *root, Plan *plan) {
+    PlannerGlobal *plannerGlobal = root->glob;
+    int rtoffset = list_length(plannerGlobal->finalrtable);
     ListCell *lc;
 
     /*
@@ -255,9 +254,7 @@ set_plan_references(PlannerInfo *root, Plan *plan) {
      */
     add_rtes_to_flat_rtable(root, false);
 
-    /*
-     * Adjust RT indexes of PlanRowMarks and add to final rowmarks list
-     */
+    // Adjust RT indexes of PlanRowMarks and add to final rowmarks list
     foreach(lc, root->rowMarks) {
         PlanRowMark *rc = lfirst_node(PlanRowMark, lc);
         PlanRowMark *newrc;
@@ -270,7 +267,7 @@ set_plan_references(PlannerInfo *root, Plan *plan) {
         newrc->rti += rtoffset;
         newrc->prti += rtoffset;
 
-        glob->finalrowmarks = lappend(glob->finalrowmarks, newrc);
+        plannerGlobal->finalrowmarks = lappend(plannerGlobal->finalrowmarks, newrc);
     }
 
     /* Now fix the Plan tree */
@@ -452,61 +449,55 @@ add_rte_to_flat_rtable(PlannerGlobal *glob, RangeTblEntry *rte) {
         glob->relationOids = lappend_oid(glob->relationOids, newrte->relid);
 }
 
-/*
- * set_plan_refs: recurse through the Plan nodes of a single subquery level
- */
-static Plan *
-set_plan_refs(PlannerInfo *root, Plan *plan, int rtoffset) {
-    ListCell *l;
-
-    if (plan == NULL)
+// recurse through the Plan nodes of a single subquery level
+static Plan *set_plan_refs(PlannerInfo *root, Plan *plan, int rtoffset) {
+    if (plan == NULL) {
         return NULL;
+    }
 
     /* Assign this node a unique ID. */
     plan->plan_node_id = root->glob->lastPlanNodeId++;
 
-    /*
-     * Plan-type-specific fixes
-     */
+    ListCell *l;
+
+    // Plan-type-specific fixes
     switch (nodeTag(plan)) {
+        case T_FunctionScan: {
+            FunctionScan *functionScan = (FunctionScan *) plan;
+
+            functionScan->scan.scanrelid += rtoffset;
+            functionScan->scan.plan.targetlist = fix_scan_list(root, functionScan->scan.plan.targetlist, rtoffset);
+            functionScan->scan.plan.qual = fix_scan_list(root, functionScan->scan.plan.qual, rtoffset);
+            functionScan->functions = fix_scan_list(root, functionScan->functions, rtoffset);
+        }
+            break;
         case T_SeqScan: {
             SeqScan *splan = (SeqScan *) plan;
 
             splan->scanrelid += rtoffset;
-            splan->plan.targetlist =
-                    fix_scan_list(root, splan->plan.targetlist, rtoffset);
-            splan->plan.qual =
-                    fix_scan_list(root, splan->plan.qual, rtoffset);
+            splan->plan.targetlist = fix_scan_list(root, splan->plan.targetlist, rtoffset);
+            splan->plan.qual = fix_scan_list(root, splan->plan.qual, rtoffset);
         }
             break;
         case T_SampleScan: {
             SampleScan *splan = (SampleScan *) plan;
 
             splan->scan.scanrelid += rtoffset;
-            splan->scan.plan.targetlist =
-                    fix_scan_list(root, splan->scan.plan.targetlist, rtoffset);
-            splan->scan.plan.qual =
-                    fix_scan_list(root, splan->scan.plan.qual, rtoffset);
-            splan->tablesample = (TableSampleClause *)
-                    fix_scan_expr(root, (Node *) splan->tablesample, rtoffset);
+            splan->scan.plan.targetlist = fix_scan_list(root, splan->scan.plan.targetlist, rtoffset);
+            splan->scan.plan.qual = fix_scan_list(root, splan->scan.plan.qual, rtoffset);
+            splan->tablesample = (TableSampleClause *) fix_scan_expr(root, (Node *) splan->tablesample, rtoffset);
         }
             break;
         case T_IndexScan: {
             IndexScan *splan = (IndexScan *) plan;
 
             splan->scan.scanrelid += rtoffset;
-            splan->scan.plan.targetlist =
-                    fix_scan_list(root, splan->scan.plan.targetlist, rtoffset);
-            splan->scan.plan.qual =
-                    fix_scan_list(root, splan->scan.plan.qual, rtoffset);
-            splan->indexqual =
-                    fix_scan_list(root, splan->indexqual, rtoffset);
-            splan->indexqualorig =
-                    fix_scan_list(root, splan->indexqualorig, rtoffset);
-            splan->indexorderby =
-                    fix_scan_list(root, splan->indexorderby, rtoffset);
-            splan->indexorderbyorig =
-                    fix_scan_list(root, splan->indexorderbyorig, rtoffset);
+            splan->scan.plan.targetlist = fix_scan_list(root, splan->scan.plan.targetlist, rtoffset);
+            splan->scan.plan.qual = fix_scan_list(root, splan->scan.plan.qual, rtoffset);
+            splan->indexqual = fix_scan_list(root, splan->indexqual, rtoffset);
+            splan->indexqualorig = fix_scan_list(root, splan->indexqualorig, rtoffset);
+            splan->indexorderby = fix_scan_list(root, splan->indexorderby, rtoffset);
+            splan->indexorderbyorig = fix_scan_list(root, splan->indexorderbyorig, rtoffset);
         }
             break;
         case T_IndexOnlyScan: {
@@ -514,7 +505,6 @@ set_plan_refs(PlannerInfo *root, Plan *plan, int rtoffset) {
 
             return set_indexonlyscan_references(root, splan, rtoffset);
         }
-            break;
         case T_BitmapIndexScan: {
             BitmapIndexScan *splan = (BitmapIndexScan *) plan;
 
@@ -522,53 +512,31 @@ set_plan_refs(PlannerInfo *root, Plan *plan, int rtoffset) {
             /* no need to fix targetlist and qual */
             Assert(splan->scan.plan.targetlist == NIL);
             Assert(splan->scan.plan.qual == NIL);
-            splan->indexqual =
-                    fix_scan_list(root, splan->indexqual, rtoffset);
-            splan->indexqualorig =
-                    fix_scan_list(root, splan->indexqualorig, rtoffset);
+            splan->indexqual = fix_scan_list(root, splan->indexqual, rtoffset);
+            splan->indexqualorig = fix_scan_list(root, splan->indexqualorig, rtoffset);
         }
             break;
         case T_BitmapHeapScan: {
             BitmapHeapScan *splan = (BitmapHeapScan *) plan;
 
             splan->scan.scanrelid += rtoffset;
-            splan->scan.plan.targetlist =
-                    fix_scan_list(root, splan->scan.plan.targetlist, rtoffset);
-            splan->scan.plan.qual =
-                    fix_scan_list(root, splan->scan.plan.qual, rtoffset);
-            splan->bitmapqualorig =
-                    fix_scan_list(root, splan->bitmapqualorig, rtoffset);
+            splan->scan.plan.targetlist = fix_scan_list(root, splan->scan.plan.targetlist, rtoffset);
+            splan->scan.plan.qual = fix_scan_list(root, splan->scan.plan.qual, rtoffset);
+            splan->bitmapqualorig = fix_scan_list(root, splan->bitmapqualorig, rtoffset);
         }
             break;
         case T_TidScan: {
             TidScan *splan = (TidScan *) plan;
 
             splan->scan.scanrelid += rtoffset;
-            splan->scan.plan.targetlist =
-                    fix_scan_list(root, splan->scan.plan.targetlist, rtoffset);
-            splan->scan.plan.qual =
-                    fix_scan_list(root, splan->scan.plan.qual, rtoffset);
-            splan->tidquals =
-                    fix_scan_list(root, splan->tidquals, rtoffset);
+            splan->scan.plan.targetlist = fix_scan_list(root, splan->scan.plan.targetlist, rtoffset);
+            splan->scan.plan.qual = fix_scan_list(root, splan->scan.plan.qual, rtoffset);
+            splan->tidquals = fix_scan_list(root, splan->tidquals, rtoffset);
         }
             break;
         case T_SubqueryScan:
             /* Needs special treatment, see comments below */
-            return set_subqueryscan_references(root,
-                                               (SubqueryScan *) plan,
-                                               rtoffset);
-        case T_FunctionScan: {
-            FunctionScan *splan = (FunctionScan *) plan;
-
-            splan->scan.scanrelid += rtoffset;
-            splan->scan.plan.targetlist =
-                    fix_scan_list(root, splan->scan.plan.targetlist, rtoffset);
-            splan->scan.plan.qual =
-                    fix_scan_list(root, splan->scan.plan.qual, rtoffset);
-            splan->functions =
-                    fix_scan_list(root, splan->functions, rtoffset);
-        }
-            break;
+            return set_subqueryscan_references(root, (SubqueryScan *) plan, rtoffset);
         case T_TableFuncScan: {
             TableFuncScan *splan = (TableFuncScan *) plan;
 

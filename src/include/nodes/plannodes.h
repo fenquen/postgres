@@ -67,14 +67,10 @@ typedef struct PlannedStmt {
     /* rtable indexes of target relations for INSERT/UPDATE/DELETE */
     List *resultRelations;    /* integer list of RT indexes, or NIL */
 
-    /*
-     * rtable indexes of partitioned table roots that are UPDATE/DELETE
-     * targets; needed for trigger firing.
-     */
+    // rtable indexes of partitioned table roots that are UPDATE/DELETE targets; needed for trigger firing.
     List *rootResultRelations;
 
-    List *subplans;        /* Plan trees for SubPlan expressions; note
-								 * that some could be NULL */
+    List *subplans;        /* Plan trees for SubPlan expressions; note that some could be NULL */
 
     Bitmapset *rewindPlanIDs;    /* indices of subplans that require REWIND */
 
@@ -136,11 +132,10 @@ typedef struct Plan {
      */
     int plan_node_id;    /* unique across entire final plan tree */
     List *targetlist;        /* targetEntryList要取的column,target list to be computed at this node */
-    List *qual;            /* restrictinfoList, implicitly-ANDed qual conditions */
+    List *qual;            /* restrictinfo, implicitly-ANDed qual conditions */
     struct Plan *lefttree;        /* input plan tree(s) */
     struct Plan *righttree;
-    List *initPlan;        /* Init Plan nodes (un-correlated expr
-								 * subselects) */
+    List *initPlan;        /* Init Plan nodes (un-correlated expr subselects) */
 
     /*
      * Information for management of parameter-change-driven rescanning
@@ -327,7 +322,7 @@ typedef struct BitmapOr {
  */
 typedef struct Scan {
     Plan plan;
-    Index scanrelid;        /* relid is index into the range table */
+    Index scanrelid; // relid is index into the range table 对应的表在sql的1起始的位置
 } Scan;
 
 /* ----------------

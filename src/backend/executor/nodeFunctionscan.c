@@ -75,7 +75,7 @@ static TupleTableSlot *FunctionNext(FunctionScanState *functionScanState) {
         if (tuplestorestate == NULL) {
 
             // 内部会去使用extension眼熟的fcinfo 把你的自定函数给驱动起来
-            // 你在自定义函数中生成的tuplestorestate 注入到了 fcinfo->rsinfo.setResult 然后是该函数的返回的值
+            // 得到的tuplestorestate是你在自定义函数中生成的tuplestorestate 注入到了 fcinfo->rsinfo.setResult 然后是该函数的返回的值
             functionScanState->funcstates[0].tstore = tuplestorestate =
                     ExecMakeTableFunctionResult(functionScanState->funcstates[0].setexpr,
                                                 functionScanState->ss.ps.ps_ExprContext,
@@ -241,17 +241,14 @@ static TupleTableSlot *ExecFunctionScan(PlanState *planState) {
  * ----------------------------------------------------------------
  */
 FunctionScanState *ExecInitFunctionScan(FunctionScan *functionScan, EState *estate, int eflags) {
-    int nfuncs = list_length(functionScan->functions);
+    int functionNum = list_length(functionScan->functions);
 
-    int i, natts;
     ListCell *lc;
 
     /* check for unsupported flags */
     Assert(!(eflags & EXEC_FLAG_MARK));
 
-    /*
-     * FunctionScan should not have any children.
-     */
+    // FunctionScan should not have any children.
     Assert(outerPlan(functionScan) == NULL);
     Assert(innerPlan(functionScan) == NULL);
 
@@ -262,16 +259,16 @@ FunctionScanState *ExecInitFunctionScan(FunctionScan *functionScan, EState *esta
     functionScanState->ss.ps.ExecProcNode = ExecFunctionScan;
     functionScanState->eflags = eflags;
 
-    /*
-     * are we adding an ordinality column?
-     */
+    // are we adding an ordinality column?
     functionScanState->ordinality = functionScan->funcordinality;
 
-    functionScanState->nfuncs = nfuncs;
-    if (nfuncs == 1 && !functionScan->funcordinality)
+    functionScanState->nfuncs = functionNum;
+
+    if (functionNum == 1 && !functionScan->funcordinality) {
         functionScanState->simple = true;
-    else
+    } else {
         functionScanState->simple = false;
+    }
 
     /*
      * Ordinal 0 represents the "before the first row" position.
@@ -285,37 +282,36 @@ FunctionScanState *ExecInitFunctionScan(FunctionScan *functionScan, EState *esta
      */
     functionScanState->ordinal = 0;
 
-    /*
-     * Miscellaneous initialization
-     *
-     * create expression context for node
-     */
+    // Miscellaneous initialization
+    // create expression context for node
     ExecAssignExprContext(estate, &functionScanState->ss.ps);
 
-    functionScanState->funcstates = palloc(nfuncs * sizeof(FunctionScanPerFuncState));
+    functionScanState->funcstates = palloc(functionNum * sizeof(FunctionScanPerFuncState));
 
-    natts = 0;
-    i = 0;
+    int natts = 0;
+    int i = 0;
     foreach(lc, functionScan->functions) {
         RangeTblFunction *rangeTblFunction = (RangeTblFunction *) lfirst(lc);
         Node *funcexpr = rangeTblFunction->funcexpr;
-        int colcount = rangeTblFunction->funccolcount;
-        FunctionScanPerFuncState *fs = &functionScanState->funcstates[i];
-        TypeFuncClass functypclass;
+        int funcColCount = rangeTblFunction->funccolcount;
+
+
         Oid funcrettype;
         TupleDesc tupdesc;
 
-        fs->setexpr = ExecInitTableFunctionResult((Expr *) funcexpr,
-                                                  functionScanState->ss.ps.ps_ExprContext,
-                                                  &functionScanState->ss.ps);
+        FunctionScanPerFuncState *functionScanPerFuncState = &functionScanState->funcstates[i];
+
+        functionScanPerFuncState->setexpr = ExecInitTableFunctionResult((Expr *) funcexpr,
+                                                                        functionScanState->ss.ps.ps_ExprContext,
+                                                                        &functionScanState->ss.ps);
 
         /*
          * Don't allocate the tuplestores; the actual calls to the functions
          * do that.  NULL means that we have not called the function yet (or
          * need to call it again after a rescan).
          */
-        fs->tstore = NULL;
-        fs->rowcount = -1;
+        functionScanPerFuncState->tstore = NULL;
+        functionScanPerFuncState->rowcount = -1;
 
         /*
          * Now determine if the function returns a simple or composite type,
@@ -323,27 +319,28 @@ FunctionScanState *ExecInitFunctionScan(FunctionScan *functionScan, EState *esta
          * the function may now return more columns than it did when the plan
          * was made; we have to ignore any columns beyond "colcount".
          */
-        functypclass = get_expr_result_type(funcexpr, &funcrettype, &tupdesc);
+        TypeFuncClass typeFuncClass = get_expr_result_type(funcexpr, &funcrettype, &tupdesc);
 
-        if (functypclass == TYPEFUNC_COMPOSITE || functypclass == TYPEFUNC_COMPOSITE_DOMAIN) {
+        if (typeFuncClass == TYPEFUNC_COMPOSITE || typeFuncClass == TYPEFUNC_COMPOSITE_DOMAIN) {
             /* Composite data type, e.g. a table's row type */
             Assert(tupdesc);
-            Assert(tupdesc->natts >= colcount);
+            Assert(tupdesc->natts >= funcColCount);
+
             /* Must copy it out of typcache for safety */
             tupdesc = CreateTupleDescCopy(tupdesc);
-        } else if (functypclass == TYPEFUNC_SCALAR) {
+        } else if (typeFuncClass == TYPEFUNC_SCALAR) {
             /* Base data type, i.e. scalar */
             tupdesc = CreateTemplateTupleDesc(1);
+
             TupleDescInitEntry(tupdesc,
                                (AttrNumber) 1,
                                NULL,    /* don't care about the name here */
                                funcrettype,
                                -1,
                                0);
-            TupleDescInitEntryCollation(tupdesc,
-                                        (AttrNumber) 1,
-                                        exprCollation(funcexpr));
-        } else if (functypclass == TYPEFUNC_RECORD) {
+
+            TupleDescInitEntryCollation(tupdesc, (AttrNumber) 1, exprCollation(funcexpr));
+        } else if (typeFuncClass == TYPEFUNC_RECORD) {
             tupdesc = BuildDescFromLists(rangeTblFunction->funccolnames,
                                          rangeTblFunction->funccoltypes,
                                          rangeTblFunction->funccoltypmods,
@@ -351,8 +348,7 @@ FunctionScanState *ExecInitFunctionScan(FunctionScan *functionScan, EState *esta
 
             /*
              * For RECORD results, make sure a typmod has been assigned.  (The
-             * function should do this for itself, but let's cover things in
-             * case it doesn't.)
+             * function should do this for itself, but let's cover things in case it doesn't.)
              */
             BlessTupleDesc(tupdesc);
         } else {
@@ -360,8 +356,8 @@ FunctionScanState *ExecInitFunctionScan(FunctionScan *functionScan, EState *esta
             elog(ERROR, "function in FROM has unsupported return type");
         }
 
-        fs->tupdesc = tupdesc;
-        fs->colcount = colcount;
+        functionScanPerFuncState->tupdesc = tupdesc;
+        functionScanPerFuncState->colcount = funcColCount;
 
         /*
          * We only need separate slots for the function results if we are
@@ -369,11 +365,14 @@ FunctionScanState *ExecInitFunctionScan(FunctionScan *functionScan, EState *esta
          * function results directly into the scan slot.
          */
         if (!functionScanState->simple) {
-            fs->func_slot = ExecInitExtraTupleSlot(estate, fs->tupdesc, &TTSOpsMinimalTuple);
-        } else
-            fs->func_slot = NULL;
+            functionScanPerFuncState->func_slot = ExecInitExtraTupleSlot(estate,
+                                                                         functionScanPerFuncState->tupdesc,
+                                                                         &TTSOpsMinimalTuple);
+        } else {
+            functionScanPerFuncState->func_slot = NULL;
+        }
 
-        natts += colcount;
+        natts += funcColCount;
         i++;
     }
 
@@ -397,12 +396,11 @@ FunctionScanState *ExecInitFunctionScan(FunctionScan *functionScan, EState *esta
 
         scan_tupdesc = CreateTemplateTupleDesc(natts);
 
-        for (i = 0; i < nfuncs; i++) {
+        for (i = 0; i < functionNum; i++) {
             TupleDesc tupdesc = functionScanState->funcstates[i].tupdesc;
             int colcount = functionScanState->funcstates[i].colcount;
-            int j;
 
-            for (j = 1; j <= colcount; j++)
+            for (int j = 1; j <= colcount; j++)
                 TupleDescCopyEntry(scan_tupdesc, ++attno, tupdesc, j);
         }
 
@@ -419,8 +417,11 @@ FunctionScanState *ExecInitFunctionScan(FunctionScan *functionScan, EState *esta
         Assert(attno == natts);
     }
 
-    // initialize scan slot and type.
-    ExecInitScanTupleSlot(estate, &functionScanState->ss, scan_tupdesc, &TTSOpsMinimalTuple);
+    // 生成tupleTableSlot注入scanstate的ss_ScanTupleSlot
+    ExecInitScanTupleSlot(estate,
+                          &functionScanState->ss,
+                          scan_tupdesc,
+                          &TTSOpsMinimalTuple);
 
     // initialize result slot, type and projection.
     ExecInitResultTypeTL(&functionScanState->ss.ps);

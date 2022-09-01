@@ -81,8 +81,8 @@ static void set_base_rel_pathlists(PlannerInfo *root);
 static void set_rel_size(PlannerInfo *root, RelOptInfo *rel,
                          Index rti, RangeTblEntry *rte);
 
-static void set_rel_pathlist(PlannerInfo *root, RelOptInfo *relOptInfo,
-                             Index rti, RangeTblEntry *rangeTblEntry);
+static void set_relOptInfo_pathlist(PlannerInfo *root, RelOptInfo *relOptInfo,
+                                    Index rti, RangeTblEntry *rangeTblEntry);
 
 static void set_plain_rel_size(PlannerInfo *root, RelOptInfo *rel,
                                RangeTblEntry *rte);
@@ -92,7 +92,7 @@ static void create_plain_partial_paths(PlannerInfo *root, RelOptInfo *rel);
 static void set_rel_consider_parallel(PlannerInfo *root, RelOptInfo *rel,
                                       RangeTblEntry *rte);
 
-static void set_plain_rel_pathlist(PlannerInfo *root, RelOptInfo *rel,
+static void set_plain_rel_pathlist(PlannerInfo *root, RelOptInfo *relOptInfo,
                                    RangeTblEntry *rte);
 
 static void set_tablesample_rel_size(PlannerInfo *root, RelOptInfo *rel,
@@ -251,8 +251,9 @@ RelOptInfo *make_one_rel(PlannerInfo *root, List *joinlist) {
 
     root->total_table_pages = total_pages;
 
-    // root 的 simple_rel_array 已包含了 relOptInfo
-    // Generate access paths for each base relOptInfo, 注入relOptInfo的pathlist
+    // 这个时候 root 的 simple_rel_array 已包含了 relOptInfo
+    // Generate access paths for each base relOptInfo,
+    // 遍历 plannerInfo.simple_rel_array 注入各个relOptInfo的pathlist
     set_base_rel_pathlists(root);
 
     // Generate access paths for the entire join tree.
@@ -353,6 +354,7 @@ set_base_rel_sizes(PlannerInfo *root) {
 
 /*
  * set_base_rel_pathlists
+ *    遍历 plannerInfo.simple_rel_array 注入对应的各个relOptInfo的pathlist
  *	  Finds all paths available for scanning each base-relation entry.
  *	  Sequential scan and any available indices are considered.
  *	  Each useful path is attached to its relation's 'pathlist' field.
@@ -374,7 +376,7 @@ static void set_base_rel_pathlists(PlannerInfo *root) {
             continue;
         }
 
-        set_rel_pathlist(root, relOptInfo, rti, root->simple_rte_array[rti]);
+        set_relOptInfo_pathlist(root, relOptInfo, rti, root->simple_rte_array[rti]);
     }
 }
 
@@ -473,10 +475,10 @@ static void set_rel_size(PlannerInfo *root, RelOptInfo *rel,
 }
 
 // build access paths for a base relation
-static void set_rel_pathlist(PlannerInfo *root,
-                             RelOptInfo *relOptInfo,
-                             Index rti,
-                             RangeTblEntry *rangeTblEntry) {
+static void set_relOptInfo_pathlist(PlannerInfo *root,
+                                    RelOptInfo *relOptInfo,
+                                    Index rti,
+                                    RangeTblEntry *rangeTblEntry) {
     if (IS_DUMMY_REL(relOptInfo)) {
         /* We already proved the relation empty, so nothing more to do */
     } else if (rangeTblEntry->inh) {
@@ -489,7 +491,7 @@ static void set_rel_pathlist(PlannerInfo *root,
                     set_foreign_pathlist(root, relOptInfo, rangeTblEntry);
                 } else if (rangeTblEntry->tablesample != NULL) {  // sampled relation
                     set_tablesample_rel_pathlist(root, relOptInfo, rangeTblEntry);
-                } else { // plain relation
+                } else { // plain relation 对应 select from table
                     set_plain_rel_pathlist(root, relOptInfo, rangeTblEntry);
                 }
                 break;
@@ -723,8 +725,9 @@ set_rel_consider_parallel(PlannerInfo *root, RelOptInfo *rel,
      * outer join clauses work correctly.  It would likely break equivalence
      * classes, too.
      */
-    if (!is_parallel_safe(root, (Node *) rel->baserestrictinfo))
+    if (!is_parallel_safe(root, (Node *) rel->baserestrictinfo)) {
         return;
+    }
 
     /*
      * Likewise, if the relation's outputs are not parallel-safe, give up.
@@ -737,33 +740,30 @@ set_rel_consider_parallel(PlannerInfo *root, RelOptInfo *rel,
     rel->consider_parallel = true;
 }
 
-/*
- * set_plain_rel_pathlist
- *	  Build access paths for a plain relation (no subquery, no inheritance)
- */
-static void
-set_plain_rel_pathlist(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte) {
-    Relids required_outer;
-
+// build access paths for a plain relation (no subquery, no inheritance)
+static void set_plain_rel_pathlist(PlannerInfo *root,
+                                   RelOptInfo *relOptInfo,
+                                   RangeTblEntry *rte) {
     /*
      * We don't support pushing join clauses into the quals of a seqscan, but
-     * it could still have required parameterization due to LATERAL refs in
-     * its tlist.
+     * it could still have required parameterization due to LATERAL refs in its tlist.
      */
-    required_outer = rel->lateral_relids;
+    Relids required_outer = relOptInfo->lateral_relids;
 
-    /* Consider sequential scan */
-    add_path(rel, create_seqscan_path(root, rel, required_outer, 0));
+    /* consider sequential scan */
+    Path *path = create_seqscan_path(root, relOptInfo, required_outer, 0);
+    add_path(relOptInfo, path);
 
-    /* If appropriate, consider parallel sequential scan */
-    if (rel->consider_parallel && required_outer == NULL)
-        create_plain_partial_paths(root, rel);
+    // If appropriate, consider parallel sequential scan
+    if (relOptInfo->consider_parallel && required_outer == NULL) {
+        create_plain_partial_paths(root, relOptInfo);
+    }
 
-    /* Consider index scans */
-    create_index_paths(root, rel);
+    // consider index scans
+    create_index_paths(root, relOptInfo);
 
-    /* Consider TID scans */
-    create_tidscan_paths(root, rel);
+    // consider TID(tuple 的 id) scans
+    create_tidscan_paths(root, relOptInfo);
 }
 
 /*
@@ -1218,7 +1218,7 @@ set_append_rel_pathlist(PlannerInfo *root, RelOptInfo *rel,
         /*
          * Compute the child's access paths.
          */
-        set_rel_pathlist(root, childrel, childRTindex, childRTE);
+        set_relOptInfo_pathlist(root, childrel, childRTindex, childRTE);
 
         /*
          * If child is dummy, ignore it.
@@ -2240,9 +2240,11 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
                                              make_tlist_from_pathtarget(subpath->pathtarget));
 
         /* Generate outer path using this subpath */
-        add_path(rel, (Path *)
-                create_subqueryscan_path(root, rel, subpath,
-                                         pathkeys, required_outer));
+        add_path(rel, (Path *) create_subqueryscan_path(root,
+                                                        rel,
+                                                        subpath,
+                                                        pathkeys,
+                                                        required_outer));
     }
 
     /* If outer rel allows parallelism, do same for partial paths. */
@@ -2263,17 +2265,16 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
                                                  make_tlist_from_pathtarget(subpath->pathtarget));
 
             /* Generate outer path using this subpath */
-            add_partial_path(rel, (Path *)
-                    create_subqueryscan_path(root, rel, subpath,
-                                             pathkeys,
-                                             required_outer));
+            add_partial_path(rel, (Path *) create_subqueryscan_path(root,
+                                                                    rel,
+                                                                    subpath,
+                                                                    pathkeys,
+                                                                    required_outer));
         }
     }
 }
 
-/*
- *		build the (single) access path for a function RTE
- */
+// build the (single) access path for a function RTE
 static void set_function_pathlist(PlannerInfo *root,
                                   RelOptInfo *relOptInfo,
                                   RangeTblEntry *rangeTblEntry) {

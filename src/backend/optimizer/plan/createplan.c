@@ -142,13 +142,13 @@ static Limit *create_limit_plan(PlannerInfo *root, LimitPath *best_path,
                                 int flags);
 
 static SeqScan *create_seqscan_plan(PlannerInfo *root, Path *best_path,
-                                    List *tlist, List *scan_clauses);
+                                    List *targetEntryList, List *restricInfoList);
 
 static SampleScan *create_samplescan_plan(PlannerInfo *root, Path *best_path,
                                           List *tlist, List *scan_clauses);
 
 static Scan *create_indexscan_plan(PlannerInfo *root, IndexPath *best_path,
-                                   List *tlist, List *scan_clauses, bool indexonly);
+                                   List *targetEntryList, List *restrictInfoList, bool indexonly);
 
 static BitmapHeapScan *create_bitmap_scan_plan(PlannerInfo *root,
                                                BitmapHeapPath *best_path,
@@ -412,7 +412,8 @@ Plan *create_plan(PlannerInfo *root, Path *best_path) {
     root->curOuterRels = NULL;
     root->curOuterParams = NIL;
 
-    /* Recursively process the path tree, demanding the correct tlist result */
+    // 通过了path的type生成各种的plan
+    // recursively process the path tree, demanding the correct tlist result
     Plan *plan = create_plan_recurse(root, best_path, CP_EXACT_TLIST);
 
     /*
@@ -436,8 +437,9 @@ Plan *create_plan(PlannerInfo *root, Path *best_path) {
     SS_attach_initplans(root, plan);
 
     /* Check we successfully assigned all NestLoopParams to plan nodes */
-    if (root->curOuterParams != NIL)
+    if (root->curOuterParams != NIL) {
         elog(ERROR, "failed to assign all NestLoopParams to plan nodes");
+    }
 
     // reset plan_params to ensure param IDs used for nestloop params are not re-used later
     root->plan_params = NIL;
@@ -447,7 +449,7 @@ Plan *create_plan(PlannerInfo *root, Path *best_path) {
 
 /*
  * create_plan_recurse
- *	  Recursive guts of create_plan().
+ *	  Recursive of create_plan().
  */
 static Plan *create_plan_recurse(PlannerInfo *root, Path *best_path, int flags) {
     Plan *plan;
@@ -559,14 +561,9 @@ static Plan *create_plan_recurse(PlannerInfo *root, Path *best_path, int flags) 
     return plan;
 }
 
-/*
- * create a scan plan for the parent relation of 'best_path'.
- */
+// create a scan plan for the parent relation of 'best_path'.
 static Plan *create_scan_plan(PlannerInfo *root, Path *best_path, int flags) {
     RelOptInfo *relOptInfo = best_path->parent;
-    List *restricInfoList;
-
-    Plan *plan;
 
     /*
 	 * Extract the relevant restriction clauses from the parent relation. The
@@ -580,6 +577,7 @@ static Plan *create_scan_plan(PlannerInfo *root, Path *best_path, int flags) {
 	 * involved; but it doesn't matter since create_bitmap_scan_plan() will be
 	 * able to get rid of such clauses anyway via predicate proof.
 	 */
+    List *restricInfoList;
     switch (best_path->pathtype) {
         case T_IndexScan:
         case T_IndexOnlyScan:
@@ -651,7 +649,15 @@ static Plan *create_scan_plan(PlannerInfo *root, Path *best_path, int flags) {
         targetEntryList = build_path_tlist(root, best_path);
     }
 
+    Plan *plan;
     switch (best_path->pathtype) {
+        case T_FunctionScan:
+            // functionScan
+            plan = (Plan *) create_functionscan_plan(root,
+                                                     best_path,
+                                                     targetEntryList,
+                                                     restricInfoList);
+            break;
         case T_SeqScan:
             plan = (Plan *) create_seqscan_plan(root,
                                                 best_path,
@@ -693,13 +699,6 @@ static Plan *create_scan_plan(PlannerInfo *root, Path *best_path, int flags) {
         case T_SubqueryScan:
             plan = (Plan *) create_subqueryscan_plan(root,
                                                      (SubqueryScanPath *) best_path,
-                                                     targetEntryList,
-                                                     restricInfoList);
-            break;
-        case T_FunctionScan:
-            // functionScan
-            plan = (Plan *) create_functionscan_plan(root,
-                                                     best_path,
                                                      targetEntryList,
                                                      restricInfoList);
             break;
@@ -761,8 +760,9 @@ static Plan *create_scan_plan(PlannerInfo *root, Path *best_path, int flags) {
 	 * If there are any pseudoconstant clauses attached to this node, insert a
 	 * gating Result node that evaluates the pseudoconstants as one-time quals.
 	 */
-    if (gating_clauses)
+    if (gating_clauses) {
         plan = create_gating_plan(root, best_path, plan, gating_clauses);
+    }
 
     return plan;
 }
@@ -2618,10 +2618,10 @@ create_limit_plan(PlannerInfo *root, LimitPath *best_path, int flags) {
  *	 Returns a seqscan plan for the base relation scanned by 'best_path'
  *	 with restriction clauses 'scan_clauses' and targetlist 'tlist'.
  */
-static SeqScan *
-create_seqscan_plan(PlannerInfo *root, Path *best_path,
-                    List *tlist, List *scan_clauses) {
-    SeqScan *seqScan;
+static SeqScan *create_seqscan_plan(PlannerInfo *root,
+                                    Path *best_path,
+                                    List *targetEntryList,
+                                    List *restricInfoList) {
     Index scan_relid = best_path->parent->relid;
 
     /* it should be a base rel... */
@@ -2629,20 +2629,19 @@ create_seqscan_plan(PlannerInfo *root, Path *best_path,
     Assert(best_path->parent->rtekind == RTE_RELATION);
 
     /* Sort clauses into best execution order */
-    scan_clauses = order_qual_clauses(root, scan_clauses);
+    restricInfoList = order_qual_clauses(root, restricInfoList);
 
     /* Reduce RestrictInfo list to bare expressions; ignore pseudoconstants */
-    scan_clauses = extract_actual_clauses(scan_clauses, false);
+    restricInfoList = extract_actual_clauses(restricInfoList, false);
 
     /* Replace any outer-relation variables with nestloop params */
     if (best_path->param_info) {
-        scan_clauses = (List *)
-                replace_nestloop_params(root, (Node *) scan_clauses);
+        restricInfoList = (List *) replace_nestloop_params(root, (Node *) restricInfoList);
     }
 
-    seqScan = make_seqscan(tlist,
-                           scan_clauses,
-                           scan_relid);
+    SeqScan *seqScan = make_seqscan(targetEntryList,
+                                    restricInfoList,
+                                    scan_relid);
 
     copy_generic_path_info(&seqScan->plan, best_path);
 
@@ -2703,24 +2702,17 @@ create_samplescan_plan(PlannerInfo *root, Path *best_path,
  * us which to build --- we don't look at best_path->path.pathtype, because
  * create_bitmap_subplan needs to be able to override the prior decision.
  */
-static Scan *
-create_indexscan_plan(PlannerInfo *root,
-                      IndexPath *best_path,
-                      List *tlist,
-                      List *scan_clauses,
-                      bool indexonly) {
-    Scan *scan_plan;
+static Scan *create_indexscan_plan(PlannerInfo *root,
+                                   IndexPath *best_path,
+                                   List *targetEntryList,
+                                   List *restrictInfoList,
+                                   bool indexonly) {
+
     List *indexclauses = best_path->indexclauses;
     List *indexorderbys = best_path->indexorderbys;
     Index baserelid = best_path->path.parent->relid;
     IndexOptInfo *indexinfo = best_path->indexinfo;
-    Oid indexoid = indexinfo->indexoid;
-    List *qpqual;
-    List *stripped_indexquals;
-    List *fixed_indexquals;
-    List *fixed_indexorderbys;
-    List *indexorderbyops = NIL;
-    ListCell *l;
+    Oid indexOid = indexinfo->indexoid;
 
     /* it should be a base rel... */
     Assert(baserelid > 0);
@@ -2732,14 +2724,16 @@ create_indexscan_plan(PlannerInfo *root,
 	 * table Vars.  (This step also does replace_nestloop_params on the
 	 * fixed_indexquals.)
 	 */
-    fix_indexqual_references(root, best_path,
+    List *stripped_indexquals;
+    List *fixed_indexquals;
+
+    fix_indexqual_references(root,
+                             best_path,
                              &stripped_indexquals,
                              &fixed_indexquals);
 
-    /*
-	 * Likewise fix up index attr references in the ORDER BY expressions.
-	 */
-    fixed_indexorderbys = fix_indexorderby_references(root, best_path);
+    // Likewise fix up index attr references in the ORDER BY expressions.
+    List *fixed_indexorderbys = fix_indexorderby_references(root, best_path);
 
     /*
 	 * The qpqual list must contain all restrictions not automatically handled
@@ -2769,19 +2763,29 @@ create_indexscan_plan(PlannerInfo *root,
 	 * Note: if you change this bit of code you should also look at
 	 * extract_nonindex_conditions() in costsize.c.
 	 */
-    qpqual = NIL;
-    foreach(l, scan_clauses) {
-        RestrictInfo *rinfo = lfirst_node(RestrictInfo, l);
+    List *qpqual = NIL;
 
-        if (rinfo->pseudoconstant)
-            continue;            /* we may drop pseudoconstants here */
-        if (is_redundant_with_indexclauses(rinfo, indexclauses))
-            continue;            /* dup or derived from same EquivalenceClass */
-        if (!contain_mutable_functions((Node *) rinfo->clause) &&
-            predicate_implied_by(list_make1(rinfo->clause), stripped_indexquals,
-                                 false))
-            continue;            /* provably implied by indexquals */
-        qpqual = lappend(qpqual, rinfo);
+    ListCell *l;
+    foreach(l, restrictInfoList) {
+        RestrictInfo *restrictnfo = lfirst_node(RestrictInfo, l);
+
+        /* we may drop pseudoconstants here */
+        if (restrictnfo->pseudoconstant) {
+            continue;
+        }
+
+        /* dup or derived from same EquivalenceClass */
+        if (is_redundant_with_indexclauses(restrictnfo, indexclauses)) {
+            continue;
+        }
+
+        /* provably implied by indexquals */
+        if (!contain_mutable_functions((Node *) restrictnfo->clause) &&
+            predicate_implied_by(list_make1(restrictnfo->clause), stripped_indexquals, false)) {
+            continue;
+        }
+
+        qpqual = lappend(qpqual, restrictnfo);
     }
 
     /* Sort clauses into best execution order */
@@ -2800,21 +2804,18 @@ create_indexscan_plan(PlannerInfo *root,
 	 * wouldn't have outer refs)
 	 */
     if (best_path->path.param_info) {
-        stripped_indexquals = (List *)
-                replace_nestloop_params(root, (Node *) stripped_indexquals);
-        qpqual = (List *)
-                replace_nestloop_params(root, (Node *) qpqual);
-        indexorderbys = (List *)
-                replace_nestloop_params(root, (Node *) indexorderbys);
+        stripped_indexquals = (List *) replace_nestloop_params(root, (Node *) stripped_indexquals);
+        qpqual = (List *) replace_nestloop_params(root, (Node *) qpqual);
+        indexorderbys = (List *) replace_nestloop_params(root, (Node *) indexorderbys);
     }
 
     /*
 	 * If there are ORDER BY expressions, look up the sort operators for their
 	 * result datatypes.
 	 */
+    List *indexorderbyops = NIL;
     if (indexorderbys) {
-        ListCell *pathkeyCell,
-                *exprCell;
+        ListCell *pathkeyCell, *exprCell;
 
         /*
 		 * PathKey contains OID of the btree opfamily we're sorting by, but
@@ -2822,6 +2823,7 @@ create_indexscan_plan(PlannerInfo *root,
 		 * to look up the sort operator in the operator family.
 		 */
         Assert(list_length(best_path->path.pathkeys) == list_length(indexorderbys));
+
         forboth(pathkeyCell, best_path->path.pathkeys, exprCell, indexorderbys) {
             PathKey *pathkey = (PathKey *) lfirst(pathkeyCell);
             Node *expr = (Node *) lfirst(exprCell);
@@ -2836,6 +2838,7 @@ create_indexscan_plan(PlannerInfo *root,
             if (!OidIsValid(sortop))
                 elog(ERROR, "missing operator %d(%u,%u) in opfamily %u",
                      pathkey->pk_strategy, exprtype, exprtype, pathkey->pk_opfamily);
+
             indexorderbyops = lappend_oid(indexorderbyops, sortop);
         }
     }
@@ -2849,39 +2852,40 @@ create_indexscan_plan(PlannerInfo *root,
         int i = 0;
 
         foreach(l, indexinfo->indextlist) {
-            TargetEntry *indextle = (TargetEntry *) lfirst(l);
+            TargetEntry *targetEntry = (TargetEntry *) lfirst(l);
 
-            indextle->resjunk = !indexinfo->canreturn[i];
+            targetEntry->resjunk = !indexinfo->canreturn[i];
             i++;
         }
     }
 
-    /* Finally ready to build the plan node */
-    if (indexonly)
-        scan_plan = (Scan *) make_indexonlyscan(tlist,
-                                                qpqual,
-                                                baserelid,
-                                                indexoid,
-                                                fixed_indexquals,
-                                                stripped_indexquals,
-                                                fixed_indexorderbys,
-                                                indexinfo->indextlist,
-                                                best_path->indexscandir);
-    else
-        scan_plan = (Scan *) make_indexscan(tlist,
-                                            qpqual,
-                                            baserelid,
-                                            indexoid,
-                                            fixed_indexquals,
-                                            stripped_indexquals,
-                                            fixed_indexorderbys,
-                                            indexorderbys,
-                                            indexorderbyops,
-                                            best_path->indexscandir);
+    Scan *scan;
+    if (indexonly) {
+        scan = (Scan *) make_indexonlyscan(targetEntryList,
+                                           qpqual,
+                                           baserelid,
+                                           indexOid,
+                                           fixed_indexquals,
+                                           stripped_indexquals,
+                                           fixed_indexorderbys,
+                                           indexinfo->indextlist,
+                                           best_path->indexscandir);
+    } else {
+        scan = (Scan *) make_indexscan(targetEntryList,
+                                       qpqual,
+                                       baserelid,
+                                       indexOid,
+                                       fixed_indexquals,
+                                       stripped_indexquals,
+                                       fixed_indexorderbys,
+                                       indexorderbys,
+                                       indexorderbyops,
+                                       best_path->indexscandir);
+    }
 
-    copy_generic_path_info(&scan_plan->plan, &best_path->path);
+    copy_generic_path_info(&scan->plan, &best_path->path);
 
-    return scan_plan;
+    return scan;
 }
 
 /*
@@ -3301,9 +3305,8 @@ create_tidscan_plan(PlannerInfo *root, TidPath *best_path,
  *	 Returns a subqueryscan plan for the base relation scanned by 'best_path'
  *	 with restriction clauses 'scan_clauses' and targetlist 'tlist'.
  */
-static SubqueryScan *
-create_subqueryscan_plan(PlannerInfo *root, SubqueryScanPath *best_path,
-                         List *tlist, List *scan_clauses) {
+static SubqueryScan *create_subqueryscan_plan(PlannerInfo *root, SubqueryScanPath *best_path,
+                                              List *tlist, List *scan_clauses) {
     SubqueryScan *scan_plan;
     RelOptInfo *rel = best_path->path.parent;
     Index scan_relid = rel->relid;
@@ -3353,14 +3356,14 @@ static FunctionScan *create_functionscan_plan(PlannerInfo *root,
                                               Path *best_path,
                                               List *targetEntryList,
                                               List *restrictinfoList) {
-    Index scan_relid = best_path->parent->relid;
+    Index relid = best_path->parent->relid;
 
-    /* it should be a function base rel... */
-    Assert(scan_relid > 0);
+    // it should be a function base rel...
+    Assert(relid > 0);
 
-    RangeTblEntry *rangeTableEntry = planner_rt_fetch(scan_relid, root);
-    Assert(rangeTableEntry->rtekind == RTE_FUNCTION);
-    List *rangeTblFunctionList = rangeTableEntry->functions;
+    RangeTblEntry *rangeTblEntry = planner_rt_fetch(relid, root);
+    Assert(rangeTblEntry->rtekind == RTE_FUNCTION);
+    List *rangeTblFunctionList = rangeTblEntry->functions;
 
     /* Sort clauses into best execution order */
     restrictinfoList = order_qual_clauses(root, restrictinfoList);
@@ -3377,10 +3380,11 @@ static FunctionScan *create_functionscan_plan(PlannerInfo *root,
 
     FunctionScan *functionScan = make_functionscan(targetEntryList,
                                                    restrictinfoList,
-                                                   scan_relid,
+                                                   relid,
                                                    rangeTblFunctionList,
-                                                   rangeTableEntry->funcordinality);
+                                                   rangeTblEntry->funcordinality);
 
+    // 把path的信息搬到plan
     copy_generic_path_info(&functionScan->scan.plan, best_path);
 
     return functionScan;
@@ -4863,12 +4867,13 @@ order_qual_clauses(PlannerInfo *root, List *clauses) {
 }
 
 /*
+ * 把path的信息搬到plan
+ *
  * Copy cost and size info from a Path node to the Plan node created from it.
  * The executor usually won't use this info, but it's needed by EXPLAIN.
  * Also copy the parallel-related flags, which the executor *will* use.
  */
-static void
-copy_generic_path_info(Plan *dest, Path *src) {
+static void copy_generic_path_info(Plan *dest, Path *src) {
     dest->startup_cost = src->startup_cost;
     dest->total_cost = src->total_cost;
     dest->plan_rows = src->rows;
@@ -4956,10 +4961,9 @@ bitmap_subplan_mark_shared(Plan *plan) {
  *
  *****************************************************************************/
 
-static SeqScan *
-make_seqscan(List *qptlist,
-             List *qpqual,
-             Index scanrelid) {
+static SeqScan *make_seqscan(List *qptlist,
+                             List *qpqual,
+                             Index scanrelid) {
     SeqScan *seqScan = makeNode(SeqScan);
     Plan *plan = &seqScan->plan;
 
@@ -4990,17 +4994,16 @@ make_samplescan(List *qptlist,
     return node;
 }
 
-static IndexScan *
-make_indexscan(List *qptlist,
-               List *qpqual,
-               Index scanrelid,
-               Oid indexid,
-               List *indexqual,
-               List *indexqualorig,
-               List *indexorderby,
-               List *indexorderbyorig,
-               List *indexorderbyops,
-               ScanDirection indexscandir) {
+static IndexScan *make_indexscan(List *qptlist,
+                                 List *qpqual,
+                                 Index scanrelid,
+                                 Oid indexid,
+                                 List *indexqual,
+                                 List *indexqualorig,
+                                 List *indexorderby,
+                                 List *indexorderbyorig,
+                                 List *indexorderbyops,
+                                 ScanDirection indexscandir) {
     IndexScan *node = makeNode(IndexScan);
     Plan *plan = &node->scan.plan;
 
@@ -5020,16 +5023,15 @@ make_indexscan(List *qptlist,
     return node;
 }
 
-static IndexOnlyScan *
-make_indexonlyscan(List *qptlist,
-                   List *qpqual,
-                   Index scanrelid,
-                   Oid indexid,
-                   List *indexqual,
-                   List *recheckqual,
-                   List *indexorderby,
-                   List *indextlist,
-                   ScanDirection indexscandir) {
+static IndexOnlyScan *make_indexonlyscan(List *qptlist,
+                                         List *qpqual,
+                                         Index scanrelid,
+                                         Oid indexid,
+                                         List *indexqual,
+                                         List *recheckqual,
+                                         List *indexorderby,
+                                         List *indextlist,
+                                         ScanDirection indexscandir) {
     IndexOnlyScan *node = makeNode(IndexOnlyScan);
     Plan *plan = &node->scan.plan;
 

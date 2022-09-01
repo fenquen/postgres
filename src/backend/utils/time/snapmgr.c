@@ -2140,10 +2140,10 @@ XidInMVCCSnapshot(TransactionId xid, Snapshot snapshot) {
      * parent that was not yet committed at the time of this snapshot.
      */
 
-    /* Any xid < xmin is not in-progress */
+    // any xid < xmin,means not in-progress */
     if (TransactionIdPrecedes(xid, snapshot->xmin))
         return false;
-    /* Any xid >= xmax is in-progress */
+    /* any xid >= xmax,means is in-progress */
     if (TransactionIdFollowsOrEquals(xid, snapshot->xmax))
         return true;
 

@@ -47,13 +47,12 @@ typedef struct HeapScanDescData {
     TableScanDescData rs_base;    /* AM independent part of the descriptor */
 
     /* state set up at initscan time */
-    BlockNumber rs_nblocks;        /* total number of blocks in rel */
+    BlockNumber rs_nblocks;        /* total number of blocks in rel,initscan()注入 */
     BlockNumber rs_startblock;    /* block # to start at */
-    BlockNumber rs_numblocks;    /* max number of blocks to scan */
-    /* rs_numblocks is usually InvalidBlockNumber, meaning "scan whole rel" */
+    BlockNumber rs_numblocks;    /* max number of blocks to scan ,is usually InvalidBlockNumber, meaning "scan whole rel" */
 
     /* scan current state */
-    bool rs_inited;        /* false = scan not init'd yet */
+    bool rs_inited;        /* false means scan not init yet */
     BlockNumber rs_cblock;        /* current block # in scan, if any */
     Buffer rs_cbuf;        /* current buffer in scan, if any */
     /* NB: if rs_cbuf is not InvalidBuffer, we hold a pin on that buffer */
@@ -61,12 +60,12 @@ typedef struct HeapScanDescData {
     /* rs_numblocks is usually InvalidBlockNumber, meaning "scan whole rel" */
     BufferAccessStrategy rs_strategy;    /* access strategy for reads */
 
-    HeapTupleData rs_ctup;        /* current tuple in scan, if any */
+    HeapTupleData rs_ctup;        /* current tuple in scan,是空的架子专门盛放data */
 
     /* these fields only used in page-at-a-time mode and for bitmap scans */
-    int rs_cindex;        /* current tuple's index in vistuples */
-    int rs_ntuples;        /* number of visible tuples on page */
-    OffsetNumber rs_vistuples[MaxHeapTuplesPerPage];    /* their offsets */
+    int rs_cindex;        /* 当前 rs_vistuples 的 index */
+    int rs_ntuples;        /* number of rs_vistuples below (visible tuples on page) */
+    OffsetNumber rs_vistuples[MaxHeapTuplesPerPage];    /* 保存的是 offset */
 } HeapScanDescData;
 typedef struct HeapScanDescData *HeapScanDesc;
 
@@ -224,7 +223,7 @@ extern void heap_vacuum_rel(Relation onerel,
                             struct VacuumParams *params, BufferAccessStrategy bstrategy);
 
 /* in heap/heapam_visibility.c */
-extern bool HeapTupleSatisfiesVisibility(HeapTuple stup, Snapshot snapshot,
+extern bool HeapTupleSatisfiesVisibility(HeapTuple heapTuple, Snapshot snapshot,
                                          Buffer buffer);
 
 extern TM_Result HeapTupleSatisfiesUpdate(HeapTuple stup, CommandId curcid,

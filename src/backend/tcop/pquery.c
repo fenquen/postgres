@@ -48,7 +48,7 @@ static uint64 RunFromStore(Portal portal, ScanDirection direction, uint64 count,
                            DestReceiver *dest);
 
 static uint64 PortalRunSelect(Portal portal, bool forward, long count,
-                              DestReceiver *dest);
+                              DestReceiver *destReceiver);
 
 static void PortalRunUtility(Portal portal, PlannedStmt *pstmt,
                              bool isTopLevel, bool setHoldSnapshot,
@@ -423,14 +423,15 @@ void PortalStart(Portal portal,
             {
                 ActivePortal = portal;
 
-                if (portal->resowner)
+                if (portal->resowner) {
                     CurrentResourceOwner = portal->resowner;
+                }
 
                 PortalContext = portal->portalContext;
 
                 oldContext = MemoryContextSwitchTo(PortalContext);
 
-                /* must remember portal param list, if any */
+                // must remember portal param list, if any
                 portal->portalParams = paramListInfo;
 
                 // Determine the portal execution strategy
@@ -439,10 +440,11 @@ void PortalStart(Portal portal,
                 switch (portal->strategy) {
                     case PORTAL_ONE_SELECT: // 通常都是
                         // must set snapshot before starting executor. */
-                        if (snapshot)
+                        if (snapshot) {
                             PushActiveSnapshot(snapshot);
-                        else
+                        } else {
                             PushActiveSnapshot(GetTransactionSnapshot());
+                        }
 
                         /*
                          * We could remember the snapshot in portal->portalSnapshot,
@@ -491,7 +493,6 @@ void PortalStart(Portal portal,
 
                         PopActiveSnapshot();
                         break;
-
                     case PORTAL_ONE_RETURNING:
                     case PORTAL_ONE_MOD_WITH:
                         /*
@@ -635,13 +636,6 @@ bool PortalRun(Portal portal,
                DestReceiver *altdest,
                char *completionTag) {
     bool result;
-    uint64 nprocessed;
-    ResourceOwner saveTopTransactionResourceOwner;
-    MemoryContext saveTopTransactionContext;
-    Portal saveActivePortal;
-    ResourceOwner saveResourceOwner;
-    MemoryContext savePortalContext;
-    MemoryContext saveMemoryContext;
 
     AssertArg(PortalIsValid(portal));
 
@@ -679,20 +673,21 @@ bool PortalRun(Portal portal,
      * CurrentMemoryContext has a similar problem, but the other pointers we
      * save here will be NULL or pointing to longer-lived objects.
      */
-    saveTopTransactionResourceOwner = TopTransactionResourceOwner;
-    saveTopTransactionContext = TopTransactionContext;
-    saveActivePortal = ActivePortal;
-    saveResourceOwner = CurrentResourceOwner;
-    savePortalContext = PortalContext;
-    saveMemoryContext = CurrentMemoryContext;
+    ResourceOwner saveTopTransactionResourceOwner = TopTransactionResourceOwner;
+    MemoryContext saveTopTransactionContext = TopTransactionContext;
+    Portal saveActivePortal = ActivePortal;
+    ResourceOwner saveResourceOwner = CurrentResourceOwner;
+    MemoryContext savePortalContext = PortalContext;
+    MemoryContext saveMemoryContext = CurrentMemoryContext;
 
     PG_TRY();
             {
                 ActivePortal = portal;
-                if (portal->resowner)
+                if (portal->resowner) {
                     CurrentResourceOwner = portal->resowner;
-                PortalContext = portal->portalContext;
+                }
 
+                PortalContext = portal->portalContext;
                 MemoryContextSwitchTo(PortalContext);
 
                 switch (portal->strategy) {
@@ -700,17 +695,14 @@ bool PortalRun(Portal portal,
                     case PORTAL_ONE_RETURNING:
                     case PORTAL_ONE_MOD_WITH:
                     case PORTAL_UTIL_SELECT:
-
-                        /*
-                         * If we have not yet run the command, do so, storing its
-                         * results in the portal's tuplestore.  But we don't do that
-                         * for the PORTAL_ONE_SELECT case.
-                         */
-                        if (portal->strategy != PORTAL_ONE_SELECT && !portal->holdStore)
+                        // If we have not yet run the command, do so, storing its
+                        // results in the portal's tuplestore.  But we don't do that for the PORTAL_ONE_SELECT case.
+                        if (portal->strategy != PORTAL_ONE_SELECT && !portal->holdStore) {
                             FillPortalStore(portal, isTopLevel);
+                        }
 
                         // Now fetch desired portion of results.
-                        nprocessed = PortalRunSelect(portal, true, count, destReceiver);
+                        uint64 nprocessed = PortalRunSelect(portal, true, count, destReceiver);
 
                         /*
                          * If the portal result contains a command tag and the caller
@@ -727,15 +719,16 @@ bool PortalRun(Portal portal,
                         /* Mark portal not active */
                         portal->status = PORTAL_READY;
 
-                        /*
-                         * Since it's a forward fetch, say DONE iff atEnd is now true.
-                         */
+                        // Since it's a forward fetch, say DONE iff atEnd is now true.
                         result = portal->atEnd;
                         break;
-
                     case PORTAL_MULTI_QUERY:
-                        PortalRunMulti(portal, isTopLevel, false,
-                                       destReceiver, altdest, completionTag);
+                        PortalRunMulti(portal,
+                                       isTopLevel,
+                                       false,
+                                       destReceiver,
+                                       altdest,
+                                       completionTag);
 
                         /* Prevent portal's commands from being re-executed */
                         MarkPortalDone(portal);
@@ -743,10 +736,8 @@ bool PortalRun(Portal portal,
                         /* Always complete at end of RunMulti */
                         result = true;
                         break;
-
                     default:
-                        elog(ERROR, "unrecognized portal strategy: %d",
-                             (int) portal->strategy);
+                        elog(ERROR, "unrecognized portal strategy: %d", (int) portal->strategy);
                         result = false; /* keep compiler quiet */
                         break;
                 }
@@ -815,20 +806,15 @@ bool PortalRun(Portal portal,
  *
  * Returns number of rows processed (suitable for use in result tag)
  */
-static uint64
-PortalRunSelect(Portal portal,
-                bool forward,
-                long count,
-                DestReceiver *dest) {
-    QueryDesc *queryDesc;
-    ScanDirection scanDirection;
-    uint64 nprocessed;
-
+static uint64 PortalRunSelect(Portal portal,
+                              bool forward,
+                              long count,
+                              DestReceiver *destReceiver) {
     /*
      * NB: queryDesc will be NULL if we are fetching from a held cursor or a
      * completed utility query; can't use it in that path.
      */
-    queryDesc = portal->queryDesc;
+    QueryDesc *queryDesc = portal->queryDesc;
 
     /* Caller messed up if we have neither a ready query nor held data. */
     Assert(queryDesc || portal->holdStore);
@@ -840,7 +826,7 @@ PortalRunSelect(Portal portal,
      * assume that dest never changes.)
      */
     if (queryDesc)
-        queryDesc->dest = dest;
+        queryDesc->dest = destReceiver;
 
     /*
      * Determine which scanDirection to go in, and check to see if we're already
@@ -853,6 +839,8 @@ PortalRunSelect(Portal portal,
      * the portal position state depending on the number of tuples that were
      * retrieved.
      */
+    uint64 nprocessed;
+    ScanDirection scanDirection;
     if (forward) {
         if (portal->atEnd || count <= 0) {
             scanDirection = NoMovementScanDirection;
@@ -866,9 +854,9 @@ PortalRunSelect(Portal portal,
             count = 0;
         }
 
-        if (portal->holdStore)
-            nprocessed = RunFromStore(portal, scanDirection, (uint64) count, dest);
-        else {
+        if (portal->holdStore) {
+            nprocessed = RunFromStore(portal, scanDirection, (uint64) count, destReceiver);
+        } else {
             PushActiveSnapshot(queryDesc->snapshot);
             ExecutorRun(queryDesc, scanDirection, (uint64) count, portal->run_once);
             nprocessed = queryDesc->estate->es_processed;
@@ -905,7 +893,7 @@ PortalRunSelect(Portal portal,
         }
 
         if (portal->holdStore) {
-            nprocessed = RunFromStore(portal, scanDirection, (uint64) count, dest);
+            nprocessed = RunFromStore(portal, scanDirection, (uint64) count, destReceiver);
         } else {
             PushActiveSnapshot(queryDesc->snapshot);
             ExecutorRun(queryDesc, scanDirection, (uint64) count, portal->run_once);

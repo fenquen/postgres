@@ -75,8 +75,8 @@ static TupleDesc ExecTypeFromTLInternal(List *targetList,
 static pg_attribute_always_inline void slot_deform_heap_tuple(TupleTableSlot *slot, HeapTuple tuple, uint32 *offp,
                                                               int natts);
 
-static inline void tts_buffer_heap_store_tuple(TupleTableSlot *slot,
-                                               HeapTuple tuple,
+static inline void tts_buffer_heap_store_tuple(TupleTableSlot *tupleTableSlot,
+                                               HeapTuple heapTuple,
                                                Buffer buffer,
                                                bool transfer_pin);
 
@@ -783,8 +783,7 @@ tts_buffer_heap_copy_heap_tuple(TupleTableSlot *slot) {
     return heap_copytuple(bslot->base.tuple);
 }
 
-static MinimalTuple
-tts_buffer_heap_copy_minimal_tuple(TupleTableSlot *slot) {
+static MinimalTuple tts_buffer_heap_copy_minimal_tuple(TupleTableSlot *slot) {
     BufferHeapTupleTableSlot *bslot = (BufferHeapTupleTableSlot *) slot;
 
     Assert(!TTS_EMPTY(slot));
@@ -795,24 +794,27 @@ tts_buffer_heap_copy_minimal_tuple(TupleTableSlot *slot) {
     return minimal_tuple_from_heap_tuple(bslot->base.tuple);
 }
 
-static inline void
-tts_buffer_heap_store_tuple(TupleTableSlot *slot, HeapTuple tuple,
-                            Buffer buffer, bool transfer_pin) {
-    BufferHeapTupleTableSlot *bslot = (BufferHeapTupleTableSlot *) slot;
+static inline void tts_buffer_heap_store_tuple(TupleTableSlot *tupleTableSlot,
+                                               HeapTuple heapTuple, //
+                                               Buffer buffer,
+                                               bool transfer_pin) {
+    // 这个 tupleTableSlot 来自 scanstate->ss_ScanTupleSlot = ExecAllocTableSlot() 注入
+    // 为什么是 BufferHeapTupleTableSlot 和该函数的参数 TTSOpsBufferHeapTuple 的 base_slot_size = sizeof(BufferHeapTupleTableSlot)
+    BufferHeapTupleTableSlot *bufferHeapTupleTableSlot = (BufferHeapTupleTableSlot *) tupleTableSlot;
 
-    if (TTS_SHOULDFREE(slot)) {
+    if (TTS_SHOULDFREE(tupleTableSlot)) {
         /* materialized slot shouldn't have a buffer to release */
-        Assert(!BufferIsValid(bslot->buffer));
+        Assert(!BufferIsValid(bufferHeapTupleTableSlot->buffer));
 
-        heap_freetuple(bslot->base.tuple);
-        slot->tts_flags &= ~TTS_FLAG_SHOULDFREE;
+        heap_freetuple(bufferHeapTupleTableSlot->base.tuple);
+        tupleTableSlot->tts_flags &= ~TTS_FLAG_SHOULDFREE;
     }
 
-    slot->tts_flags &= ~TTS_FLAG_EMPTY;
-    slot->tts_nvalid = 0;
-    bslot->base.tuple = tuple;
-    bslot->base.off = 0;
-    slot->tts_tid = tuple->t_self;
+    tupleTableSlot->tts_flags &= ~TTS_FLAG_EMPTY;
+    tupleTableSlot->tts_nvalid = 0;
+    bufferHeapTupleTableSlot->base.tuple = heapTuple;
+    bufferHeapTupleTableSlot->base.off = 0;
+    tupleTableSlot->tts_tid = heapTuple->t_self;
 
     /*
      * If tuple is on a disk page, keep the page pinned as long as we hold a
@@ -825,19 +827,18 @@ tts_buffer_heap_store_tuple(TupleTableSlot *slot, HeapTuple tuple,
      * the pin is a waste of cycles.  This is a common situation during
      * seqscans, so it's worth troubling over.
      */
-    if (bslot->buffer != buffer) {
-        if (BufferIsValid(bslot->buffer))
-            ReleaseBuffer(bslot->buffer);
+    if (bufferHeapTupleTableSlot->buffer != buffer) {
+        if (BufferIsValid(bufferHeapTupleTableSlot->buffer)) {
+            ReleaseBuffer(bufferHeapTupleTableSlot->buffer);
+        }
 
-        bslot->buffer = buffer;
+        bufferHeapTupleTableSlot->buffer = buffer;
 
-        if (!transfer_pin && BufferIsValid(buffer))
+        if (!transfer_pin && BufferIsValid(buffer)) {
             IncrBufferRefCount(buffer);
+        }
     } else if (transfer_pin && BufferIsValid(buffer)) {
-        /*
-         * In transfer_pin mode the caller won't know about the same-page
-         * optimization, so we gotta release its pin.
-         */
+        // in transfer_pin mode the caller won't know about the same-page optimization, so we gotta release its pin
         ReleaseBuffer(buffer);
     }
 }
@@ -1090,9 +1091,9 @@ MakeTupleTableSlot(TupleDesc tupleDesc,
  *		Create a tuple table slot within a tuple table (which is just a List).
  * --------------------------------
  */
-TupleTableSlot *
-ExecAllocTableSlot(List **tupleTable, TupleDesc desc,
-                   const TupleTableSlotOps *tts_ops) {
+TupleTableSlot *ExecAllocTableSlot(List **tupleTable,
+                                   TupleDesc desc,
+                                   const TupleTableSlotOps *tts_ops) {
     TupleTableSlot *slot = MakeTupleTableSlot(desc, tts_ops);
 
     *tupleTable = lappend(*tupleTable, slot);
@@ -1302,25 +1303,24 @@ ExecStoreHeapTuple(HeapTuple tuple,
  * use the, more expensive, ExecForceStoreHeapTuple().
  * --------------------------------
  */
-TupleTableSlot *
-ExecStoreBufferHeapTuple(HeapTuple tuple,
-                         TupleTableSlot *slot,
-                         Buffer buffer) {
-    /*
-     * sanity checks
-     */
-    Assert(tuple != NULL);
-    Assert(slot != NULL);
-    Assert(slot->tts_tupleDescriptor != NULL);
+TupleTableSlot *ExecStoreBufferHeapTuple(HeapTuple heapTuple,
+                                         TupleTableSlot *tupleTableSlot,
+                                         Buffer buffer) {
+    // sanity check
+    Assert(heapTuple != NULL);
+    Assert(tupleTableSlot != NULL);
+    Assert(tupleTableSlot->tts_tupleDescriptor != NULL);
     Assert(BufferIsValid(buffer));
 
-    if (unlikely(!TTS_IS_BUFFERTUPLE(slot)))
+    if (unlikely(!TTS_IS_BUFFERTUPLE(tupleTableSlot))) {
         elog(ERROR, "trying to store an on-disk heap tuple into wrong type of slot");
-    tts_buffer_heap_store_tuple(slot, tuple, buffer, false);
+    }
 
-    slot->tts_tableOid = tuple->t_tableOid;
+    tts_buffer_heap_store_tuple(tupleTableSlot, heapTuple, buffer, false);
 
-    return slot;
+    tupleTableSlot->tts_tableOid = heapTuple->t_tableOid;
+
+    return tupleTableSlot;
 }
 
 /*
@@ -1638,10 +1638,10 @@ ExecFetchSlotHeapTupleDatum(TupleTableSlot *slot) {
  * ----------------
  */
 void
-ExecInitResultTypeTL(PlanState *planstate) {
-    TupleDesc tupDesc = ExecTypeFromTL(planstate->plan->targetlist);
+ExecInitResultTypeTL(PlanState *planState) {
+    TupleDesc tupDesc = ExecTypeFromTL(planState->plan->targetlist);
 
-    planstate->ps_ResultTupleDesc = tupDesc;
+    planState->ps_ResultTupleDesc = tupDesc;
 }
 
 /* --------------------------------
@@ -1687,14 +1687,15 @@ ExecInitResultTupleSlotTL(PlanState *planstate,
 }
 
 /* ----------------
- *		ExecInitScanTupleSlot
+ *	生成tupleTableSlot注入scanstate->ss_ScanTupleSlot
  * ----------------
  */
-void
-ExecInitScanTupleSlot(EState *estate, ScanState *scanstate,
-                      TupleDesc tupledesc, const TupleTableSlotOps *tts_ops) {
-    scanstate->ss_ScanTupleSlot = ExecAllocTableSlot(&estate->es_tupleTable,
-                                                     tupledesc, tts_ops);
+void ExecInitScanTupleSlot(EState *estate,
+                           ScanState *scanstate,
+                           TupleDesc tupledesc,
+                           const TupleTableSlotOps *tts_ops) {
+    scanstate->ss_ScanTupleSlot = ExecAllocTableSlot(&estate->es_tupleTable, tupledesc, tts_ops);
+
     scanstate->ps.scandesc = tupledesc;
     scanstate->ps.scanopsfixed = tupledesc != NULL;
     scanstate->ps.scanops = tts_ops;

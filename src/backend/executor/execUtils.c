@@ -656,27 +656,22 @@ ExecRelationIsTargetRelation(EState *estate, Index scanrelid) {
  *		This should be called during the node's ExecInit routine.
  * ----------------------------------------------------------------
  */
-Relation
-ExecOpenScanRelation(EState *estate, Index scanrelid, int eflags) {
-    Relation rel;
-
-    /* Open the relation. */
-    rel = ExecGetRangeTableRelation(estate, scanrelid);
+Relation ExecOpenScanRelation(EState *estate, Index scanrelid, int eflags) {
+    Relation relation = ExecGetRangeTableRelation(estate, scanrelid);
 
     /*
      * Complain if we're attempting a scan of an unscannable relation, except
      * when the query won't actually be run.  This is a slightly klugy place
      * to do this, perhaps, but there is no better place.
      */
-    if ((eflags & (EXEC_FLAG_EXPLAIN_ONLY | EXEC_FLAG_WITH_NO_DATA)) == 0 &&
-        !RelationIsScannable(rel))
+    if ((eflags & (EXEC_FLAG_EXPLAIN_ONLY | EXEC_FLAG_WITH_NO_DATA)) == 0 && !RelationIsScannable(relation)) {
         ereport(ERROR,
                 (errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
-                        errmsg("materialized view \"%s\" has not been populated",
-                               RelationGetRelationName(rel)),
+                        errmsg("materialized view \"%s\" has not been populated", RelationGetRelationName(relation)),
                         errhint("Use the REFRESH MATERIALIZED VIEW command.")));
+    }
 
-    return rel;
+    return relation;
 }
 
 /*
@@ -727,15 +722,15 @@ ExecInitRangeTable(EState *estate, List *rangeTable) {
  * The Relations will be closed again in ExecEndPlan().
  */
 Relation
-ExecGetRangeTableRelation(EState *estate, Index rti) {
-    Relation rel;
+ExecGetRangeTableRelation(EState *estate, Index relid) {
 
-    Assert(rti > 0 && rti <= estate->es_range_table_size);
 
-    rel = estate->es_relations[rti - 1];
-    if (rel == NULL) {
+    Assert(relid > 0 && relid <= estate->es_range_table_size);
+
+    Relation relation = estate->es_relations[relid - 1];
+    if (relation == NULL) {
         /* First time through, so open the relation */
-        RangeTblEntry *rte = exec_rt_fetch(rti, estate);
+        RangeTblEntry *rte = exec_rt_fetch(relid, estate);
 
         Assert(rte->rtekind == RTE_RELATION);
 
@@ -747,22 +742,22 @@ ExecGetRangeTableRelation(EState *estate, Index rti) {
              * seems sufficient to check this only when rellockmode is higher
              * than the minimum.
              */
-            rel = table_open(rte->relid, NoLock);
+            relation = table_open(rte->relid, NoLock);
             Assert(rte->rellockmode == AccessShareLock ||
-                   CheckRelationLockedByMe(rel, rte->rellockmode, false));
+                   CheckRelationLockedByMe(relation, rte->rellockmode, false));
         } else {
             /*
              * If we are a parallel worker, we need to obtain our own local
              * lock on the relation.  This ensures sane behavior in case the
              * parent process exits before we do.
              */
-            rel = table_open(rte->relid, rte->rellockmode);
+            relation = table_open(rte->relid, rte->rellockmode);
         }
 
-        estate->es_relations[rti - 1] = rel;
+        estate->es_relations[relid - 1] = relation;
     }
 
-    return rel;
+    return relation;
 }
 
 /*

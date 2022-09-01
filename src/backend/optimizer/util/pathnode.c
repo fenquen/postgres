@@ -195,6 +195,7 @@ compare_path_costs_fuzzily(Path *path1, Path *path2, double fuzz_factor) {
         /* ... but path2 fuzzily worse on startup, so path1 wins */
         return COSTS_BETTER1;
     }
+
     /* fuzzily the same on both costs */
     return COSTS_EQUAL;
 
@@ -861,24 +862,24 @@ add_partial_path_precheck(RelOptInfo *parent_rel, Cost total_cost,
  *	  Creates a path corresponding to a sequential scan, returning the
  *	  pathnode.
  */
-Path *
-create_seqscan_path(PlannerInfo *root, RelOptInfo *rel,
-                    Relids required_outer, int parallel_workers) {
-    Path *pathnode = makeNode(Path);
+Path *create_seqscan_path(PlannerInfo *root,
+                          RelOptInfo *relOptInfo,
+                          Relids required_outer,
+                          int parallel_workers) {
+    Path *path = makeNode(Path);
 
-    pathnode->pathtype = T_SeqScan;
-    pathnode->parent = rel;
-    pathnode->pathtarget = rel->reltarget;
-    pathnode->param_info = get_baserel_parampathinfo(root, rel,
-                                                     required_outer);
-    pathnode->parallel_aware = parallel_workers > 0 ? true : false;
-    pathnode->parallel_safe = rel->consider_parallel;
-    pathnode->parallel_workers = parallel_workers;
-    pathnode->pathkeys = NIL;    /* seqscan has unordered result */
+    path->pathtype = T_SeqScan;
+    path->parent = relOptInfo;
+    path->pathtarget = relOptInfo->reltarget;
+    path->param_info = get_baserel_parampathinfo(root, relOptInfo, required_outer);
+    path->parallel_aware = parallel_workers > 0 ? true : false;
+    path->parallel_safe = relOptInfo->consider_parallel;
+    path->parallel_workers = parallel_workers;
+    path->pathkeys = NIL;    /* seqscan has unordered result */
 
-    cost_seqscan(pathnode, root, rel, pathnode->param_info);
+    cost_seqscan(path, root, relOptInfo, path->param_info);
 
-    return pathnode;
+    return path;
 }
 
 /*
@@ -927,40 +928,39 @@ create_samplescan_path(PlannerInfo *root, RelOptInfo *rel, Relids required_outer
  *
  * Returns the new path node.
  */
-IndexPath *
-create_index_path(PlannerInfo *root,
-                  IndexOptInfo *index,
-                  List *indexclauses,
-                  List *indexorderbys,
-                  List *indexorderbycols,
-                  List *pathkeys,
-                  ScanDirection indexscandir,
-                  bool indexonly,
-                  Relids required_outer,
-                  double loop_count,
-                  bool partial_path) {
-    IndexPath *pathnode = makeNode(IndexPath);
-    RelOptInfo *rel = index->rel;
+IndexPath *create_index_path(PlannerInfo *root,
+                             IndexOptInfo *index,
+                             List *indexclauses,
+                             List *indexorderbys,
+                             List *indexorderbycols,
+                             List *pathkeys,
+                             ScanDirection indexscandir,
+                             bool indexonly,
+                             Relids required_outer,
+                             double loop_count,
+                             bool partial_path) {
+    IndexPath *indexPath = makeNode(IndexPath);
+    RelOptInfo *relOptInfo = index->rel;
 
-    pathnode->path.pathtype = indexonly ? T_IndexOnlyScan : T_IndexScan;
-    pathnode->path.parent = rel;
-    pathnode->path.pathtarget = rel->reltarget;
-    pathnode->path.param_info = get_baserel_parampathinfo(root, rel,
-                                                          required_outer);
-    pathnode->path.parallel_aware = false;
-    pathnode->path.parallel_safe = rel->consider_parallel;
-    pathnode->path.parallel_workers = 0;
-    pathnode->path.pathkeys = pathkeys;
+    indexPath->path.pathtype = indexonly ? T_IndexOnlyScan : T_IndexScan;
+    indexPath->path.parent = relOptInfo;
+    indexPath->path.pathtarget = relOptInfo->reltarget;
+    indexPath->path.param_info = get_baserel_parampathinfo(root, relOptInfo,
+                                                           required_outer);
+    indexPath->path.parallel_aware = false;
+    indexPath->path.parallel_safe = relOptInfo->consider_parallel;
+    indexPath->path.parallel_workers = 0;
+    indexPath->path.pathkeys = pathkeys;
 
-    pathnode->indexinfo = index;
-    pathnode->indexclauses = indexclauses;
-    pathnode->indexorderbys = indexorderbys;
-    pathnode->indexorderbycols = indexorderbycols;
-    pathnode->indexscandir = indexscandir;
+    indexPath->indexinfo = index;
+    indexPath->indexclauses = indexclauses;
+    indexPath->indexorderbys = indexorderbys;
+    indexPath->indexorderbycols = indexorderbycols;
+    indexPath->indexscandir = indexscandir;
 
-    cost_index(pathnode, root, loop_count, partial_path);
+    cost_index(indexPath, root, loop_count, partial_path);
 
-    return pathnode;
+    return indexPath;
 }
 
 /*

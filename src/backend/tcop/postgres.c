@@ -1037,11 +1037,12 @@ static void exec_simple_query(const char *queryString) {
          * might be safe to allow some additional utility commands in this
          * state, but not many...)
          */
-        if (IsAbortedTransactionBlockState() && !IsTransactionExitStmt(parseTree->stmt))
+        if (IsAbortedTransactionBlockState() && !IsTransactionExitStmt(parseTree->stmt)) {
             ereport(ERROR,
                     (errcode(ERRCODE_IN_FAILED_SQL_TRANSACTION),
                             errmsg("current transaction is aborted,commands ignored until end of transaction block"),
                             errdetail_abort()));
+        }
 
         /* Make sure we are in a transaction command */
         start_xact_command();
@@ -1102,7 +1103,8 @@ static void exec_simple_query(const char *queryString) {
                           plannedStmtList,
                           NULL);
 
-        // start the portal.  No parameters here.
+
+        // 会生成planState 注入 portal.queryDesc.planstate
         PortalStart(portal, NULL, 0, InvalidSnapshot);
 
         /*
@@ -1135,13 +1137,13 @@ static void exec_simple_query(const char *queryString) {
         MemoryContextSwitchTo(oldMemoryContext);
 
         // run the portal to completion, and then drop it (and the receiver).
-        (void) PortalRun(portal,
-                         FETCH_ALL,
-                         true,    /* always top level */
-                         true,
-                         destReceiver,
-                         destReceiver,
-                         completionTag);
+        PortalRun(portal,
+                  FETCH_ALL,
+                  true, // always top level
+                  true,
+                  destReceiver,
+                  destReceiver,
+                  completionTag);
 
         destReceiver->rDestroy(destReceiver);
 
@@ -1157,8 +1159,10 @@ static void exec_simple_query(const char *queryString) {
              * error, not one and then the other.  Also, if we're using an
              * implicit transaction block, we must close that out first.
              */
-            if (use_implicit_block)
+            if (use_implicit_block) {
                 EndImplicitTransactionBlock();
+            }
+
             finish_xact_command();
         } else if (IsA(parseTree->stmt, TransactionStmt)) {
             // If this was a transaction control statement, commit it. We will start a new xact command for the next command.
@@ -1195,13 +1199,11 @@ static void exec_simple_query(const char *queryString) {
     // Emit duration logging if appropriate.
     switch (check_log_duration(msec_str, was_logged)) {
         case 1:
-            ereport(LOG,
-                    (errmsg("duration: %s ms", msec_str), errhidestmt(true)));
+            ereport(LOG, (errmsg("duration: %s ms", msec_str), errhidestmt(true)));
             break;
         case 2:
             ereport(LOG,
-                    (errmsg("duration: %s ms  statement: %s", msec_str, queryString),
-                            errhidestmt(true),
+                    (errmsg("duration: %s ms  statement: %s", msec_str, queryString), errhidestmt(true),
                             errdetail_execute(parseTreeList)));
             break;
     }

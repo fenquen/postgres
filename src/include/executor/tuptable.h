@@ -111,7 +111,7 @@
 struct TupleTableSlotOps;
 typedef struct TupleTableSlotOps TupleTableSlotOps;
 
-/* base tuple table slot type */
+// 目前已知的子类 BufferHeapTupleTableSlot -> HeapTupleTableSlot, VirtualTupleTableSlot
 typedef struct TupleTableSlot {
     NodeTag type;
 #define FIELDNO_TUPLETABLESLOT_FLAGS 1
@@ -310,8 +310,8 @@ extern void ExecForceStoreHeapTuple(HeapTuple tuple,
                                     TupleTableSlot *slot,
                                     bool shouldFree);
 
-extern TupleTableSlot *ExecStoreBufferHeapTuple(HeapTuple tuple,
-                                                TupleTableSlot *slot,
+extern TupleTableSlot *ExecStoreBufferHeapTuple(HeapTuple heapTuple,
+                                                TupleTableSlot *tupleTableSlot,
                                                 Buffer buffer);
 
 extern TupleTableSlot *ExecStorePinnedBufferHeapTuple(HeapTuple tuple,

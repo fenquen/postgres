@@ -221,24 +221,24 @@ TargetEntry *makeTargetEntry(Expr *expr,
                              AttrNumber resno,
                              char *resname,
                              bool resjunk) {
-    TargetEntry *tle = makeNode(TargetEntry);
+    TargetEntry *targetEntry = makeNode(TargetEntry);
 
-    tle->expr = expr;
-    tle->resno = resno;
-    tle->resname = resname;
+    targetEntry->expr = expr;
+    targetEntry->resno = resno;
+    targetEntry->resname = resname;
 
     /*
      * We always set these fields to 0. If the caller wants to change them he
      * must do so explicitly.  Few callers do that, so omitting these
      * arguments reduces the chance of error.
      */
-    tle->ressortgroupref = 0;
-    tle->resorigtbl = InvalidOid;
-    tle->resorigcol = 0;
+    targetEntry->ressortgroupref = 0;
+    targetEntry->resorigtbl = InvalidOid;
+    targetEntry->resorigcol = 0;
 
-    tle->resjunk = resjunk;
+    targetEntry->resjunk = resjunk;
 
-    return tle;
+    return targetEntry;
 }
 
 /*

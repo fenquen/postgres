@@ -193,7 +193,6 @@ void standard_ExecutorStart(QueryDesc *queryDesc, int eflags) {
     // If non-read-only query, set the command ID to mark output tuples with
     switch (queryDesc->operation) {
         case CMD_SELECT:
-
             // SELECT FOR [KEY] UPDATE/SHARE and modifying CTEs need to mark tuples
             if (queryDesc->plannedstmt->rowMarks != NIL || queryDesc->plannedstmt->hasModifyingCTE) {
                 estate->es_output_cid = GetCurrentCommandId(true);
@@ -205,16 +204,16 @@ void standard_ExecutorStart(QueryDesc *queryDesc, int eflags) {
              * hack, since AfterTriggerBeginQuery/AfterTriggerEndQuery aren't
              * all that expensive, but we might as well do it.
              */
-            if (!queryDesc->plannedstmt->hasModifyingCTE)
+            if (!queryDesc->plannedstmt->hasModifyingCTE) {
                 eflags |= EXEC_FLAG_SKIP_TRIGGERS;
-            break;
+            }
 
+            break;
         case CMD_INSERT:
         case CMD_DELETE:
         case CMD_UPDATE:
             estate->es_output_cid = GetCurrentCommandId(true);
             break;
-
         default:
             elog(ERROR, "unrecognized operation code: %d", (int) queryDesc->operation);
             break;
@@ -236,6 +235,7 @@ void standard_ExecutorStart(QueryDesc *queryDesc, int eflags) {
     }
 
     // Initialize the plan state tree
+    // 生成和注入 queryDesc->planstate
     InitPlan(queryDesc, eflags);
 
     MemoryContextSwitchTo(oldcontext);
@@ -284,7 +284,7 @@ void ExecutorRun(QueryDesc *queryDesc,
 void standard_ExecutorRun(QueryDesc *queryDesc,
                           ScanDirection scanDirection,
                           uint64 count,
-                          bool execute_once) {
+                          bool executeOnce) {
     /* sanity checks */
     Assert(queryDesc != NULL);
 
@@ -296,8 +296,9 @@ void standard_ExecutorRun(QueryDesc *queryDesc,
     MemoryContext oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
     /* Allow instrumentation of Executor overall runtime */
-    if (queryDesc->totaltime)
+    if (queryDesc->totaltime) {
         InstrStartNode(queryDesc->totaltime);
+    }
 
     // extract information from the query descriptor and the query feature.
     CmdType cmdType = queryDesc->operation;
@@ -308,12 +309,13 @@ void standard_ExecutorRun(QueryDesc *queryDesc,
 
     bool sendTuples = (cmdType == CMD_SELECT || queryDesc->plannedstmt->hasReturning);
 
-    if (sendTuples)
+    if (sendTuples) {
         destReceiver->rStartup(destReceiver, cmdType, queryDesc->tupDesc);
+    }
 
     // run plan
     if (!ScanDirectionIsNoMovement(scanDirection)) {
-        if (execute_once && queryDesc->already_executed) {
+        if (executeOnce && queryDesc->already_executed) {
             elog(ERROR, "can't re-execute query flagged for single execution");
         }
 
@@ -327,7 +329,7 @@ void standard_ExecutorRun(QueryDesc *queryDesc,
                     count,
                     scanDirection,
                     destReceiver,
-                    execute_once);
+                    executeOnce);
     }
 
     // shutdown destReceiver
@@ -951,12 +953,8 @@ static void InitPlan(QueryDesc *queryDesc, int eflags) {
         }
 
         if (junkFilterNeeded) {
-            JunkFilter *j;
-            TupleTableSlot *slot;
-
-            slot = ExecInitExtraTupleSlot(estate, NULL, &TTSOpsVirtual);
-            j = ExecInitJunkFilter(planstate->plan->targetlist,
-                                   slot);
+            TupleTableSlot *slot = ExecInitExtraTupleSlot(estate, NULL, &TTSOpsVirtual);
+            JunkFilter *j = ExecInitJunkFilter(planstate->plan->targetlist, slot);
             estate->es_junkFilter = j;
 
             /* Want to return the cleaned tuple type */
@@ -1511,7 +1509,7 @@ static void ExecutePlan(EState *estate,
         /* Reset the per-output-tuple exprcontext */
         ResetPerTupleExprContext(estate);
 
-        // Execute the plan and obtain a tuple
+        // planState->ExecProcNode(planState)
         TupleTableSlot *tupleTableSlot = ExecProcNode(planState);
 
         // if the tuple is null, then we assume there is nothing more to process so we just end the loop...

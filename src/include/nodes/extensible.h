@@ -74,13 +74,9 @@ typedef struct ExtensibleNodeMethods {
 
 extern void RegisterExtensibleNodeMethods(const ExtensibleNodeMethods *method);
 
-extern const ExtensibleNodeMethods *GetExtensibleNodeMethods(const char *name,
-                                                             bool missing_ok);
+extern const ExtensibleNodeMethods *GetExtensibleNodeMethods(const char *name, bool missing_ok);
 
-/*
- * Flags for custom paths, indicating what capabilities the resulting scan
- * will have.
- */
+// flags for custom paths, indicating what capabilities the resulting scan will have.
 #define CUSTOMPATH_SUPPORT_BACKWARD_SCAN    0x0001
 #define CUSTOMPATH_SUPPORT_MARK_RESTORE        0x0002
 

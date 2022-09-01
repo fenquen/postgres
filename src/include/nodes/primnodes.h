@@ -162,7 +162,7 @@ typedef struct Var {
     Expr xpr;
     Index varno;            /* index of this var's 隶属 relation in the range
 								 * table, or INNER_VAR/OUTER_VAR/INDEX_VAR */
-    AttrNumber varattno;        /* attribute number of this var, or zero for
+    AttrNumber varattno;        /* 对应的column在表的位置 attribute number of this var, or zero for
 								 * all attrs ("whole-row Var") */
     Oid vartype;        /* pg_type OID for the type of this var */
     int32 vartypmod;        /* pg_attribute typmod value */
@@ -1278,7 +1278,7 @@ typedef struct InferenceElem {
 
 /*--------------------
  *
- * a target entry (used in query target lists)
+ * a target entry (used in query target lists) 要得到的column
  *
  * Strictly speaking, a TargetEntry isn't an expression node (since it can't
  * be evaluated by ExecEvalExpr).  But we treat it as one anyway, since in
@@ -1335,12 +1335,10 @@ typedef struct TargetEntry {
     Expr *expr;            /* expression to evaluate */
     AttrNumber resno;            /* attribute number (see notes above) */
     char *resname;        /* name of the column (could be NULL) */
-    Index ressortgroupref;    /* nonzero if referenced by a sort/group
-									 * clause */
+    Index ressortgroupref;    /* nonzero if referenced by a sort/group clause */
     Oid resorigtbl;        /* OID of column's source table */
     AttrNumber resorigcol;        /* column's number in source table */
-    bool resjunk;        /* set to true to eliminate the attribute from
-								 * final target list */
+    bool resjunk;        /* set to true to eliminate the attribute from final target list */
 } TargetEntry;
 
 

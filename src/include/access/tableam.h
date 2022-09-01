@@ -24,7 +24,7 @@
 #include "utils/snapshot.h"
 
 
-#define DEFAULT_TABLE_ACCESS_METHOD	"heap"
+#define DEFAULT_TABLE_ACCESS_METHOD    "heap"
 
 /* GUCs */
 extern char *default_table_access_method;
@@ -41,63 +41,61 @@ struct ValidateIndexState;
 /*
  * Bitmask values for the flags argument to the scan_begin callback.
  */
-typedef enum ScanOptions
-{
-	/* one of SO_TYPE_* may be specified */
-	SO_TYPE_SEQSCAN = 1 << 0,
-	SO_TYPE_BITMAPSCAN = 1 << 1,
-	SO_TYPE_SAMPLESCAN = 1 << 2,
-	SO_TYPE_ANALYZE = 1 << 3,
-	SO_TYPE_TIDSCAN = 1 << 8,
+typedef enum ScanOptions {
+    /* one of SO_TYPE_* may be specified */
+    SO_TYPE_SEQSCAN = 1 << 0,
+    SO_TYPE_BITMAPSCAN = 1 << 1,
+    SO_TYPE_SAMPLESCAN = 1 << 2,
+    SO_TYPE_ANALYZE = 1 << 3,
+    SO_TYPE_TIDSCAN = 1 << 8,
 
-	/* several of SO_ALLOW_* may be specified */
-	/* allow or disallow use of access strategy */
-	SO_ALLOW_STRAT = 1 << 4,
-	/* report location to syncscan logic? */
-	SO_ALLOW_SYNC = 1 << 5,
-	/* verify visibility page-at-a-time? */
-	SO_ALLOW_PAGEMODE = 1 << 6,
+    /* several of SO_ALLOW_* may be specified */
+    /* allow or disallow use of access strategy */
+    SO_ALLOW_STRAT = 1 << 4,
+    /* report location to syncscan logic? */
+    SO_ALLOW_SYNC = 1 << 5,
+    /* verify visibility page-at-a-time? */
+    SO_ALLOW_PAGEMODE = 1 << 6,
 
-	/* unregister snapshot at scan end? */
-	SO_TEMP_SNAPSHOT = 1 << 7
+    /* unregister snapshot at scan end? */
+    SO_TEMP_SNAPSHOT = 1 << 7
 } ScanOptions;
 
 /*
  * Result codes for table_{update,delete,lock_tuple}, and for visibility
  * routines inside table AMs.
  */
-typedef enum TM_Result
-{
-	/*
-	 * Signals that the action succeeded (i.e. update/delete performed, lock
-	 * was acquired)
-	 */
-	TM_Ok,
+typedef enum TM_Result {
+    /*
+     * Signals that the action succeeded (i.e. update/delete performed, lock
+     * was acquired)
+     */
+    TM_Ok,
 
-	/* The affected tuple wasn't visible to the relevant snapshot */
-	TM_Invisible,
+    /* The affected tuple wasn't visible to the relevant snapshot */
+    TM_Invisible,
 
-	/* The affected tuple was already modified by the calling backend */
-	TM_SelfModified,
+    /* The affected tuple was already modified by the calling backend */
+    TM_SelfModified,
 
-	/*
-	 * The affected tuple was updated by another transaction. This includes
-	 * the case where tuple was moved to another partition.
-	 */
-	TM_Updated,
+    /*
+     * The affected tuple was updated by another transaction. This includes
+     * the case where tuple was moved to another partition.
+     */
+    TM_Updated,
 
-	/* The affected tuple was deleted by another transaction */
-	TM_Deleted,
+    /* The affected tuple was deleted by another transaction */
+    TM_Deleted,
 
-	/*
-	 * The affected tuple is currently being modified by another session. This
-	 * will only be returned if table_(update/delete/lock_tuple) are
-	 * instructed not to wait.
-	 */
-	TM_BeingModified,
+    /*
+     * The affected tuple is currently being modified by another session. This
+     * will only be returned if table_(update/delete/lock_tuple) are
+     * instructed not to wait.
+     */
+    TM_BeingModified,
 
-	/* lock couldn't be acquired, action skipped. Only used by lock_tuple */
-	TM_WouldBlock
+    /* lock couldn't be acquired, action skipped. Only used by lock_tuple */
+    TM_WouldBlock
 } TM_Result;
 
 /*
@@ -119,34 +117,33 @@ typedef enum TM_Result
  * HeapTupleHeaderGetCmax doesn't work for tuples outdated in other
  * transactions.)
  */
-typedef struct TM_FailureData
-{
-	ItemPointerData ctid;
-	TransactionId xmax;
-	CommandId	cmax;
-	bool		traversed;
+typedef struct TM_FailureData {
+    ItemPointerData ctid;
+    TransactionId xmax;
+    CommandId cmax;
+    bool traversed;
 } TM_FailureData;
 
 /* "options" flag bits for table_tuple_insert */
-#define TABLE_INSERT_SKIP_WAL		0x0001
-#define TABLE_INSERT_SKIP_FSM		0x0002
-#define TABLE_INSERT_FROZEN			0x0004
-#define TABLE_INSERT_NO_LOGICAL		0x0008
+#define TABLE_INSERT_SKIP_WAL        0x0001
+#define TABLE_INSERT_SKIP_FSM        0x0002
+#define TABLE_INSERT_FROZEN            0x0004
+#define TABLE_INSERT_NO_LOGICAL        0x0008
 
 /* flag bits for table_tuple_lock */
 /* Follow tuples whose update is in progress if lock modes don't conflict  */
-#define TUPLE_LOCK_FLAG_LOCK_UPDATE_IN_PROGRESS	(1 << 0)
+#define TUPLE_LOCK_FLAG_LOCK_UPDATE_IN_PROGRESS    (1 << 0)
 /* Follow update chain and lock latest version of tuple */
-#define TUPLE_LOCK_FLAG_FIND_LAST_VERSION		(1 << 1)
+#define TUPLE_LOCK_FLAG_FIND_LAST_VERSION        (1 << 1)
 
 
 /* Typedef for callback function for table_index_build_scan */
-typedef void (*IndexBuildCallback) (Relation index,
-									HeapTuple htup,
-									Datum *values,
-									bool *isnull,
-									bool tupleIsAlive,
-									void *state);
+typedef void (*IndexBuildCallback)(Relation index,
+                                   HeapTuple htup,
+                                   Datum *values,
+                                   bool *isnull,
+                                   bool tupleIsAlive,
+                                   void *state);
 
 /*
  * API struct for a table AM.  Note this must be allocated in a
@@ -160,547 +157,545 @@ typedef void (*IndexBuildCallback) (Relation index,
  * to update when adding a callback.
  */
 typedef struct TableAmRoutine {
-	/* this must be set to T_TableAmRoutine */
-	NodeTag		type;
+    /* this must be set to T_TableAmRoutine */
+    NodeTag type;
 
 
-	/* ------------------------------------------------------------------------
-	 * Slot related callbacks.
-	 * ------------------------------------------------------------------------
-	 */
+    /* ------------------------------------------------------------------------
+     * Slot related callbacks.
+     * ------------------------------------------------------------------------
+     */
 
-	/*
-	 * Return slot implementation suitable for storing a tuple of this AM.
-	 */
-	const TupleTableSlotOps *(*slot_callbacks) (Relation rel);
-
-
-	/* ------------------------------------------------------------------------
-	 * Table scan callbacks.
-	 * ------------------------------------------------------------------------
-	 */
-
-	/*
-	 * Start a scan of `rel`.  The callback has to return a TableScanDesc,
-	 * which will typically be embedded in a larger, AM specific, struct.
-	 *
-	 * If nkeys != 0, the results need to be filtered by those scan keys.
-	 *
-	 * pscan, if not NULL, will have already been initialized with
-	 * parallelscan_initialize(), and has to be for the same relation. Will
-	 * only be set coming from table_beginscan_parallel().
-	 *
-	 * `flags` is a bitmask indicating the type of scan (ScanOptions's
-	 * SO_TYPE_*, currently only one may be specified), options controlling
-	 * the scan's behaviour (ScanOptions's SO_ALLOW_*, several may be
-	 * specified, an AM may ignore unsupported ones) and whether the snapshot
-	 * needs to be deallocated at scan_end (ScanOptions's SO_TEMP_SNAPSHOT).
-	 */
-	TableScanDesc (*scan_begin) (Relation rel,
-								 Snapshot snapshot,
-								 int nkeys,
-                                 struct ScanKeyData *key,
-								 ParallelTableScanDesc pscan,
-								 uint32 flags);
-
-	/*
-	 * Release resources and deallocate scan. If TableScanDesc.temp_snap,
-	 * TableScanDesc.rs_snapshot needs to be unregistered.
-	 */
-	void		(*scan_end) (TableScanDesc scan);
-
-	/*
-	 * Restart relation scan.  If set_params is set to true, allow_{strat,
-	 * sync, pagemode} (see scan_begin) changes should be taken into account.
-	 */
-	void		(*scan_rescan) (TableScanDesc scan, struct ScanKeyData *key,
-								bool set_params, bool allow_strat,
-								bool allow_sync, bool allow_pagemode);
-
-	/*
-	 * Return next tuple from `scan`, store in slot.
-	 */
-	bool		(*scan_getnextslot) (TableScanDesc scan,
-									 ScanDirection direction,
-									 TupleTableSlot *slot);
+    /*
+     * Return slot implementation suitable for storing a tuple of this AM.
+     */
+    const TupleTableSlotOps *(*slot_callbacks)(Relation rel);
 
 
-	/* ------------------------------------------------------------------------
-	 * Parallel table scan related functions.
-	 * ------------------------------------------------------------------------
-	 */
+    /* ------------------------------------------------------------------------
+     * Table scan callbacks.
+     * ------------------------------------------------------------------------
+     */
 
-	/*
-	 * Estimate the size of shared memory needed for a parallel scan of this
-	 * relation. The snapshot does not need to be accounted for.
-	 */
-	Size		(*parallelscan_estimate) (Relation rel);
+    /*
+     * Start a scan on `relation`.  The callback has to return a TableScanDesc,
+     * which will typically be embedded in a larger, AM specific, struct.
+     *
+     * If nkeys != 0, the results need to be filtered by those scan keys.
+     *
+     * pscan, if not NULL, will have already been initialized with
+     * parallelscan_initialize(), and has to be for the same relation. Will
+     * only be set coming from table_beginscan_parallel().
+     *
+     * `flags` is a bitmask indicating the type of scan (ScanOptions's
+     * SO_TYPE_*, currently only one may be specified), options controlling
+     * the scan's behaviour (ScanOptions's SO_ALLOW_*, several may be
+     * specified, an AM may ignore unsupported ones) and whether the snapshot
+     * needs to be deallocated at scan_end (ScanOptions's SO_TEMP_SNAPSHOT).
+     */
+    TableScanDesc (*scan_begin)(Relation rel,
+                                Snapshot snapshot,
+                                int nkeys,
+                                struct ScanKeyData *key,
+                                ParallelTableScanDesc pscan,
+                                uint32 flags);
 
-	/*
-	 * Initialize ParallelTableScanDesc for a parallel scan of this relation.
-	 * `pscan` will be sized according to parallelscan_estimate() for the same
-	 * relation.
-	 */
-	Size		(*parallelscan_initialize) (Relation rel,
-											ParallelTableScanDesc pscan);
+    /*
+     * Release resources and deallocate scan. If TableScanDesc.temp_snap,
+     * TableScanDesc.rs_snapshot needs to be unregistered.
+     */
+    void (*scan_end)(TableScanDesc scan);
 
-	/*
-	 * Reinitialize `pscan` for a new scan. `rel` will be the same relation as
-	 * when `pscan` was initialized by parallelscan_initialize.
-	 */
-	void		(*parallelscan_reinitialize) (Relation rel,
-											  ParallelTableScanDesc pscan);
+    /*
+     * Restart relation scan.  If set_params is set to true, allow_{strat,
+     * sync, pagemode} (see scan_begin) changes should be taken into account.
+     */
+    void (*scan_rescan)(TableScanDesc scan, struct ScanKeyData *key,
+                        bool set_params, bool allow_strat,
+                        bool allow_sync, bool allow_pagemode);
 
-
-	/* ------------------------------------------------------------------------
-	 * Index Scan Callbacks
-	 * ------------------------------------------------------------------------
-	 */
-
-	/*
-	 * Prepare to fetch tuples from the relation, as needed when fetching
-	 * tuples for an index scan.  The callback has to return an
-	 * IndexFetchTableData, which the AM will typically embed in a larger
-	 * structure with additional information.
-	 *
-	 * Tuples for an index scan can then be fetched via index_fetch_tuple.
-	 */
-	struct IndexFetchTableData *(*index_fetch_begin) (Relation rel);
-
-	/*
-	 * Reset index fetch. Typically this will release cross index fetch
-	 * resources held in IndexFetchTableData.
-	 */
-	void		(*index_fetch_reset) (struct IndexFetchTableData *data);
-
-	/*
-	 * Release resources and deallocate index fetch.
-	 */
-	void		(*index_fetch_end) (struct IndexFetchTableData *data);
-
-	/*
-	 * Fetch tuple at `tid` into `slot`, after doing a visibility test
-	 * according to `snapshot`. If a tuple was found and passed the visibility
-	 * test, return true, false otherwise.
-	 *
-	 * Note that AMs that do not necessarily update indexes when indexed
-	 * columns do not change, need to return the current/correct version of
-	 * the tuple that is visible to the snapshot, even if the tid points to an
-	 * older version of the tuple.
-	 *
-	 * *call_again is false on the first call to index_fetch_tuple for a tid.
-	 * If there potentially is another tuple matching the tid, *call_again
-	 * needs be set to true by index_fetch_tuple, signalling to the caller
-	 * that index_fetch_tuple should be called again for the same tid.
-	 *
-	 * *all_dead, if all_dead is not NULL, should be set to true by
-	 * index_fetch_tuple iff it is guaranteed that no backend needs to see
-	 * that tuple. Index AMs can use that to avoid returning that tid in
-	 * future searches.
-	 */
-	bool		(*index_fetch_tuple) (struct IndexFetchTableData *scan,
-									  ItemPointer tid,
-									  Snapshot snapshot,
-									  TupleTableSlot *slot,
-									  bool *call_again, bool *all_dead);
+    // Return next tuple from `scan`, the result is store in slot.
+    bool (*scan_getnextslot)(TableScanDesc scan,
+                             ScanDirection direction,
+                             TupleTableSlot *slot);
 
 
-	/* ------------------------------------------------------------------------
-	 * Callbacks for non-modifying operations on individual tuples
-	 * ------------------------------------------------------------------------
-	 */
+    /* ------------------------------------------------------------------------
+     * Parallel table scan related functions.
+     * ------------------------------------------------------------------------
+     */
 
-	/*
-	 * Fetch tuple at `tid` into `slot`, after doing a visibility test
-	 * according to `snapshot`. If a tuple was found and passed the visibility
-	 * test, returns true, false otherwise.
-	 */
-	bool		(*tuple_fetch_row_version) (Relation rel,
-											ItemPointer tid,
-											Snapshot snapshot,
-											TupleTableSlot *slot);
+    /*
+     * Estimate the size of shared memory needed for a parallel scan of this
+     * relation. The snapshot does not need to be accounted for.
+     */
+    Size (*parallelscan_estimate)(Relation rel);
 
-	/*
-	 * Is tid valid for a scan of this relation.
-	 */
-	bool		(*tuple_tid_valid) (TableScanDesc scan,
-									ItemPointer tid);
+    /*
+     * Initialize ParallelTableScanDesc for a parallel scan of this relation.
+     * `pscan` will be sized according to parallelscan_estimate() for the same
+     * relation.
+     */
+    Size (*parallelscan_initialize)(Relation rel,
+                                    ParallelTableScanDesc pscan);
 
-	/*
-	 * Return the latest version of the tuple at `tid`, by updating `tid` to
-	 * point at the newest version.
-	 */
-	void		(*tuple_get_latest_tid) (TableScanDesc scan,
-										 ItemPointer tid);
-
-	/*
-	 * Does the tuple in `slot` satisfy `snapshot`?  The slot needs to be of
-	 * the appropriate type for the AM.
-	 */
-	bool		(*tuple_satisfies_snapshot) (Relation rel,
-											 TupleTableSlot *slot,
-											 Snapshot snapshot);
-
-	/* see table_compute_xid_horizon_for_tuples() */
-	TransactionId (*compute_xid_horizon_for_tuples) (Relation rel,
-													 ItemPointerData *items,
-													 int nitems);
+    /*
+     * Reinitialize `pscan` for a new scan. `rel` will be the same relation as
+     * when `pscan` was initialized by parallelscan_initialize.
+     */
+    void (*parallelscan_reinitialize)(Relation rel,
+                                      ParallelTableScanDesc pscan);
 
 
-	/* ------------------------------------------------------------------------
-	 * Manipulations of physical tuples.
-	 * ------------------------------------------------------------------------
-	 */
+    /* ------------------------------------------------------------------------
+     * Index Scan Callbacks
+     * ------------------------------------------------------------------------
+     */
 
-	/* see table_tuple_insert() for reference about parameters */
-	void		(*tuple_insert) (Relation rel, TupleTableSlot *slot,
-								 CommandId cid, int options,
-								 struct BulkInsertStateData *bistate);
+    /*
+     * Prepare to fetch tuples from the relation, as needed when fetching
+     * tuples for an index scan.  The callback has to return an
+     * IndexFetchTableData, which the AM will typically embed in a larger
+     * structure with additional information.
+     *
+     * Tuples for an index scan can then be fetched via index_fetch_tuple.
+     */
+    struct IndexFetchTableData *(*index_fetch_begin)(Relation rel);
 
-	/* see table_tuple_insert_speculative() for reference about parameters */
-	void		(*tuple_insert_speculative) (Relation rel,
-											 TupleTableSlot *slot,
-											 CommandId cid,
-											 int options,
-											 struct BulkInsertStateData *bistate,
-											 uint32 specToken);
+    /*
+     * Reset index fetch. Typically this will release cross index fetch
+     * resources held in IndexFetchTableData.
+     */
+    void (*index_fetch_reset)(struct IndexFetchTableData *data);
 
-	/* see table_tuple_complete_speculative() for reference about parameters */
-	void		(*tuple_complete_speculative) (Relation rel,
-											   TupleTableSlot *slot,
-											   uint32 specToken,
-											   bool succeeded);
+    /*
+     * Release resources and deallocate index fetch.
+     */
+    void (*index_fetch_end)(struct IndexFetchTableData *data);
 
-	/* see table_multi_insert() for reference about parameters */
-	void		(*multi_insert) (Relation rel, TupleTableSlot **slots, int nslots,
-								 CommandId cid, int options, struct BulkInsertStateData *bistate);
-
-	/* see table_tuple_delete() for reference about parameters */
-	TM_Result	(*tuple_delete) (Relation rel,
-								 ItemPointer tid,
-								 CommandId cid,
-								 Snapshot snapshot,
-								 Snapshot crosscheck,
-								 bool wait,
-								 TM_FailureData *tmfd,
-								 bool changingPart);
-
-	/* see table_tuple_update() for reference about parameters */
-	TM_Result	(*tuple_update) (Relation rel,
-								 ItemPointer otid,
-								 TupleTableSlot *slot,
-								 CommandId cid,
-								 Snapshot snapshot,
-								 Snapshot crosscheck,
-								 bool wait,
-								 TM_FailureData *tmfd,
-								 LockTupleMode *lockmode,
-								 bool *update_indexes);
-
-	/* see table_tuple_lock() for reference about parameters */
-	TM_Result	(*tuple_lock) (Relation rel,
-							   ItemPointer tid,
-							   Snapshot snapshot,
-							   TupleTableSlot *slot,
-							   CommandId cid,
-							   LockTupleMode mode,
-							   LockWaitPolicy wait_policy,
-							   uint8 flags,
-							   TM_FailureData *tmfd);
-
-	/*
-	 * Perform operations necessary to complete insertions made via
-	 * tuple_insert and multi_insert with a BulkInsertState specified. This
-	 * may for example be used to flush the relation, when the
-	 * TABLE_INSERT_SKIP_WAL option was used.
-	 *
-	 * Typically callers of tuple_insert and multi_insert will just pass all
-	 * the flags that apply to them, and each AM has to decide which of them
-	 * make sense for it, and then only take actions in finish_bulk_insert for
-	 * those flags, and ignore others.
-	 *
-	 * Optional callback.
-	 */
-	void		(*finish_bulk_insert) (Relation rel, int options);
+    /*
+     * Fetch tuple at `tid` into `slot`, after doing a visibility test
+     * according to `snapshot`. If a tuple was found and passed the visibility
+     * test, return true, false otherwise.
+     *
+     * Note that AMs that do not necessarily update indexes when indexed
+     * columns do not change, need to return the current/correct version of
+     * the tuple that is visible to the snapshot, even if the tid points to an
+     * older version of the tuple.
+     *
+     * *call_again is false on the first call to index_fetch_tuple for a tid.
+     * If there potentially is another tuple matching the tid, *call_again
+     * needs be set to true by index_fetch_tuple, signalling to the caller
+     * that index_fetch_tuple should be called again for the same tid.
+     *
+     * *all_dead, if all_dead is not NULL, should be set to true by
+     * index_fetch_tuple iff it is guaranteed that no backend needs to see
+     * that tuple. Index AMs can use that to avoid returning that tid in
+     * future searches.
+     */
+    bool (*index_fetch_tuple)(struct IndexFetchTableData *scan,
+                              ItemPointer tid,
+                              Snapshot snapshot,
+                              TupleTableSlot *slot,
+                              bool *call_again, bool *all_dead);
 
 
-	/* ------------------------------------------------------------------------
-	 * DDL related functionality.
-	 * ------------------------------------------------------------------------
-	 */
+    /* ------------------------------------------------------------------------
+     * Callbacks for non-modifying operations on individual tuples
+     * ------------------------------------------------------------------------
+     */
 
-	/*
-	 * This callback needs to create a new relation filenode for `rel`, with
-	 * appropriate durability behaviour for `persistence`.
-	 *
-	 * Note that only the subset of the relcache filled by
-	 * RelationBuildLocalRelation() can be relied upon and that the relation's
-	 * catalog entries will either not yet exist (new relation), or will still
-	 * reference the old relfilenode.
-	 *
-	 * As output *freezeXid, *minmulti must be set to the values appropriate
-	 * for pg_class.{relfrozenxid, relminmxid}. For AMs that don't need those
-	 * fields to be filled they can be set to InvalidTransactionId and
-	 * InvalidMultiXactId, respectively.
-	 *
-	 * See also table_relation_set_new_filenode().
-	 */
-	void		(*relation_set_new_filenode) (Relation rel,
-											  const RelFileNode *newrnode,
-											  char persistence,
-											  TransactionId *freezeXid,
-											  MultiXactId *minmulti);
+    /*
+     * Fetch tuple at `tid` into `slot`, after doing a visibility test
+     * according to `snapshot`. If a tuple was found and passed the visibility
+     * test, returns true, false otherwise.
+     */
+    bool (*tuple_fetch_row_version)(Relation rel,
+                                    ItemPointer tid,
+                                    Snapshot snapshot,
+                                    TupleTableSlot *slot);
 
-	/*
-	 * This callback needs to remove all contents from `rel`'s current
-	 * relfilenode. No provisions for transactional behaviour need to be made.
-	 * Often this can be implemented by truncating the underlying storage to
-	 * its minimal size.
-	 *
-	 * See also table_relation_nontransactional_truncate().
-	 */
-	void		(*relation_nontransactional_truncate) (Relation rel);
+    /*
+     * Is tid valid for a scan of this relation.
+     */
+    bool (*tuple_tid_valid)(TableScanDesc scan,
+                            ItemPointer tid);
 
-	/*
-	 * See table_relation_copy_data().
-	 *
-	 * This can typically be implemented by directly copying the underlying
-	 * storage, unless it contains references to the tablespace internally.
-	 */
-	void		(*relation_copy_data) (Relation rel,
-									   const RelFileNode *newrnode);
+    /*
+     * Return the latest version of the tuple at `tid`, by updating `tid` to
+     * point at the newest version.
+     */
+    void (*tuple_get_latest_tid)(TableScanDesc scan,
+                                 ItemPointer tid);
 
-	/* See table_relation_copy_for_cluster() */
-	void		(*relation_copy_for_cluster) (Relation NewTable,
-											  Relation OldTable,
-											  Relation OldIndex,
-											  bool use_sort,
-											  TransactionId OldestXmin,
-											  TransactionId *xid_cutoff,
-											  MultiXactId *multi_cutoff,
-											  double *num_tuples,
-											  double *tups_vacuumed,
-											  double *tups_recently_dead);
+    /*
+     * Does the tuple in `slot` satisfy `snapshot`?  The slot needs to be of
+     * the appropriate type for the AM.
+     */
+    bool (*tuple_satisfies_snapshot)(Relation rel,
+                                     TupleTableSlot *slot,
+                                     Snapshot snapshot);
 
-	/*
-	 * React to VACUUM command on the relation. The VACUUM can be
-	 * triggered by a user or by autovacuum. The specific actions
-	 * performed by the AM will depend heavily on the individual AM.
-	 *
-	 * On entry a transaction is already established, and the relation is
-	 * locked with a ShareUpdateExclusive lock.
-	 *
-	 * Note that neither VACUUM FULL (and CLUSTER), nor ANALYZE go through
-	 * this routine, even if (for ANALYZE) it is part of the same VACUUM
-	 * command.
-	 *
-	 * There probably, in the future, needs to be a separate callback to
-	 * integrate with autovacuum's scheduling.
-	 */
-	void		(*relation_vacuum) (Relation onerel,
-									struct VacuumParams *params,
-									BufferAccessStrategy bstrategy);
-
-	/*
-	 * Prepare to analyze block `blockno` of `scan`. The scan has been started
-	 * with table_beginscan_analyze().  See also
-	 * table_scan_analyze_next_block().
-	 *
-	 * The callback may acquire resources like locks that are held until
-	 * table_scan_analyze_next_tuple() returns false. It e.g. can make sense
-	 * to hold a lock until all tuples on a block have been analyzed by
-	 * scan_analyze_next_tuple.
-	 *
-	 * The callback can return false if the block is not suitable for
-	 * sampling, e.g. because it's a metapage that could never contain tuples.
-	 *
-	 * XXX: This obviously is primarily suited for block-based AMs. It's not
-	 * clear what a good interface for non block based AMs would be, so there
-	 * isn't one yet.
-	 */
-	bool		(*scan_analyze_next_block) (TableScanDesc scan,
-											BlockNumber blockno,
-											BufferAccessStrategy bstrategy);
-
-	/*
-	 * See table_scan_analyze_next_tuple().
-	 *
-	 * Not every AM might have a meaningful concept of dead rows, in which
-	 * case it's OK to not increment *deadrows - but note that that may
-	 * influence autovacuum scheduling (see comment for relation_vacuum
-	 * callback).
-	 */
-	bool		(*scan_analyze_next_tuple) (TableScanDesc scan,
-											TransactionId OldestXmin,
-											double *liverows,
-											double *deadrows,
-											TupleTableSlot *slot);
-
-	/* see table_index_build_range_scan for reference about parameters */
-	double		(*index_build_range_scan) (Relation table_rel,
-										   Relation index_rel,
-										   struct IndexInfo *index_info,
-										   bool allow_sync,
-										   bool anyvisible,
-										   bool progress,
-										   BlockNumber start_blockno,
-										   BlockNumber numblocks,
-										   IndexBuildCallback callback,
-										   void *callback_state,
-										   TableScanDesc scan);
-
-	/* see table_index_validate_scan for reference about parameters */
-	void		(*index_validate_scan) (Relation table_rel,
-										Relation index_rel,
-										struct IndexInfo *index_info,
-										Snapshot snapshot,
-										struct ValidateIndexState *state);
+    /* see table_compute_xid_horizon_for_tuples() */
+    TransactionId (*compute_xid_horizon_for_tuples)(Relation rel,
+                                                    ItemPointerData *items,
+                                                    int nitems);
 
 
-	/* ------------------------------------------------------------------------
-	 * Miscellaneous functions.
-	 * ------------------------------------------------------------------------
-	 */
+    /* ------------------------------------------------------------------------
+     * dml Manipulations of physical tuples
+     * ------------------------------------------------------------------------
+     */
 
-	/*
-	 * See table_relation_size().
-	 *
-	 * Note that currently a few callers use the MAIN_FORKNUM size to figure
-	 * out the range of potentially interesting blocks (brin, analyze). It's
-	 * probable that we'll need to revise the interface for those at some
-	 * point.
-	 */
-	uint64		(*relation_size) (Relation rel, ForkNumber forkNumber);
+    /* see table_tuple_insert() for reference about parameters */
+    void (*tuple_insert)(Relation rel, TupleTableSlot *slot,
+                         CommandId cid, int options,
+                         struct BulkInsertStateData *bistate);
+
+    /* see table_tuple_insert_speculative() for reference about parameters */
+    void (*tuple_insert_speculative)(Relation rel,
+                                     TupleTableSlot *slot,
+                                     CommandId cid,
+                                     int options,
+                                     struct BulkInsertStateData *bistate,
+                                     uint32 specToken);
+
+    /* see table_tuple_complete_speculative() for reference about parameters */
+    void (*tuple_complete_speculative)(Relation rel,
+                                       TupleTableSlot *slot,
+                                       uint32 specToken,
+                                       bool succeeded);
+
+    /* see table_multi_insert() for reference about parameters */
+    void (*multi_insert)(Relation rel, TupleTableSlot **slots, int nslots,
+                         CommandId cid, int options, struct BulkInsertStateData *bistate);
+
+    /* see table_tuple_delete() for reference about parameters */
+    TM_Result (*tuple_delete)(Relation rel,
+                              ItemPointer tid,
+                              CommandId cid,
+                              Snapshot snapshot,
+                              Snapshot crosscheck,
+                              bool wait,
+                              TM_FailureData *tmfd,
+                              bool changingPart);
+
+    /* see table_tuple_update() for reference about parameters */
+    TM_Result (*tuple_update)(Relation rel,
+                              ItemPointer otid,
+                              TupleTableSlot *slot,
+                              CommandId cid,
+                              Snapshot snapshot,
+                              Snapshot crosscheck,
+                              bool wait,
+                              TM_FailureData *tmfd,
+                              LockTupleMode *lockmode,
+                              bool *update_indexes);
+
+    /* see table_tuple_lock() for reference about parameters */
+    TM_Result (*tuple_lock)(Relation rel,
+                            ItemPointer tid,
+                            Snapshot snapshot,
+                            TupleTableSlot *slot,
+                            CommandId cid,
+                            LockTupleMode mode,
+                            LockWaitPolicy wait_policy,
+                            uint8 flags,
+                            TM_FailureData *tmfd);
+
+    /*
+     * Perform operations necessary to complete insertions made via
+     * tuple_insert and multi_insert with a BulkInsertState specified. This
+     * may for example be used to flush the relation, when the
+     * TABLE_INSERT_SKIP_WAL option was used.
+     *
+     * Typically callers of tuple_insert and multi_insert will just pass all
+     * the flags that apply to them, and each AM has to decide which of them
+     * make sense for it, and then only take actions in finish_bulk_insert for
+     * those flags, and ignore others.
+     *
+     * Optional callback.
+     */
+    void (*finish_bulk_insert)(Relation rel, int options);
 
 
-	/*
-	 * This callback should return true if the relation requires a TOAST table
-	 * and false if it does not.  It may wish to examine the relation's tuple
-	 * descriptor before making a decision, but if it uses some other method
-	 * of storing large values (or if it does not support them) it can simply
-	 * return false.
-	 */
-	bool		(*relation_needs_toast_table) (Relation rel);
+    /* ------------------------------------------------------------------------
+     * DDL related functionality.
+     * ------------------------------------------------------------------------
+     */
+
+    /*
+     * This callback needs to create a new relation filenode for `rel`, with
+     * appropriate durability behaviour for `persistence`.
+     *
+     * Note that only the subset of the relcache filled by
+     * RelationBuildLocalRelation() can be relied upon and that the relation's
+     * catalog entries will either not yet exist (new relation), or will still
+     * reference the old relfilenode.
+     *
+     * As output *freezeXid, *minmulti must be set to the values appropriate
+     * for pg_class.{relfrozenxid, relminmxid}. For AMs that don't need those
+     * fields to be filled they can be set to InvalidTransactionId and
+     * InvalidMultiXactId, respectively.
+     *
+     * See also table_relation_set_new_filenode().
+     */
+    void (*relation_set_new_filenode)(Relation rel,
+                                      const RelFileNode *newrnode,
+                                      char persistence,
+                                      TransactionId *freezeXid,
+                                      MultiXactId *minmulti);
+
+    /*
+     * This callback needs to remove all contents from `rel`'s current
+     * relfilenode. No provisions for transactional behaviour need to be made.
+     * Often this can be implemented by truncating the underlying storage to
+     * its minimal size.
+     *
+     * See also table_relation_nontransactional_truncate().
+     */
+    void (*relation_nontransactional_truncate)(Relation rel);
+
+    /*
+     * See table_relation_copy_data().
+     *
+     * This can typically be implemented by directly copying the underlying
+     * storage, unless it contains references to the tablespace internally.
+     */
+    void (*relation_copy_data)(Relation rel,
+                               const RelFileNode *newrnode);
+
+    /* See table_relation_copy_for_cluster() */
+    void (*relation_copy_for_cluster)(Relation NewTable,
+                                      Relation OldTable,
+                                      Relation OldIndex,
+                                      bool use_sort,
+                                      TransactionId OldestXmin,
+                                      TransactionId *xid_cutoff,
+                                      MultiXactId *multi_cutoff,
+                                      double *num_tuples,
+                                      double *tups_vacuumed,
+                                      double *tups_recently_dead);
+
+    /*
+     * React to VACUUM command on the relation. The VACUUM can be
+     * triggered by a user or by autovacuum. The specific actions
+     * performed by the AM will depend heavily on the individual AM.
+     *
+     * On entry a transaction is already established, and the relation is
+     * locked with a ShareUpdateExclusive lock.
+     *
+     * Note that neither VACUUM FULL (and CLUSTER), nor ANALYZE go through
+     * this routine, even if (for ANALYZE) it is part of the same VACUUM
+     * command.
+     *
+     * There probably, in the future, needs to be a separate callback to
+     * integrate with autovacuum's scheduling.
+     */
+    void (*relation_vacuum)(Relation onerel,
+                            struct VacuumParams *params,
+                            BufferAccessStrategy bstrategy);
+
+    /*
+     * Prepare to analyze block `blockno` of `scan`. The scan has been started
+     * with table_beginscan_analyze().  See also
+     * table_scan_analyze_next_block().
+     *
+     * The callback may acquire resources like locks that are held until
+     * table_scan_analyze_next_tuple() returns false. It e.g. can make sense
+     * to hold a lock until all tuples on a block have been analyzed by
+     * scan_analyze_next_tuple.
+     *
+     * The callback can return false if the block is not suitable for
+     * sampling, e.g. because it's a metapage that could never contain tuples.
+     *
+     * XXX: This obviously is primarily suited for block-based AMs. It's not
+     * clear what a good interface for non block based AMs would be, so there
+     * isn't one yet.
+     */
+    bool (*scan_analyze_next_block)(TableScanDesc scan,
+                                    BlockNumber blockno,
+                                    BufferAccessStrategy bstrategy);
+
+    /*
+     * See table_scan_analyze_next_tuple().
+     *
+     * Not every AM might have a meaningful concept of dead rows, in which
+     * case it's OK to not increment *deadrows - but note that that may
+     * influence autovacuum scheduling (see comment for relation_vacuum
+     * callback).
+     */
+    bool (*scan_analyze_next_tuple)(TableScanDesc scan,
+                                    TransactionId OldestXmin,
+                                    double *liverows,
+                                    double *deadrows,
+                                    TupleTableSlot *slot);
+
+    /* see table_index_build_range_scan for reference about parameters */
+    double (*index_build_range_scan)(Relation table_rel,
+                                     Relation index_rel,
+                                     struct IndexInfo *index_info,
+                                     bool allow_sync,
+                                     bool anyvisible,
+                                     bool progress,
+                                     BlockNumber start_blockno,
+                                     BlockNumber numblocks,
+                                     IndexBuildCallback callback,
+                                     void *callback_state,
+                                     TableScanDesc scan);
+
+    /* see table_index_validate_scan for reference about parameters */
+    void (*index_validate_scan)(Relation table_rel,
+                                Relation index_rel,
+                                struct IndexInfo *index_info,
+                                Snapshot snapshot,
+                                struct ValidateIndexState *state);
 
 
-	/* ------------------------------------------------------------------------
-	 * Planner related functions.
-	 * ------------------------------------------------------------------------
-	 */
+    /* ------------------------------------------------------------------------
+     * Miscellaneous functions.
+     * ------------------------------------------------------------------------
+     */
 
-	/*
-	 * See table_relation_estimate_size().
-	 *
-	 * While block oriented, it shouldn't be too hard for an AM that doesn't
-	 * internally use blocks to convert into a usable representation.
-	 *
-	 * This differs from the relation_size callback by returning size
-	 * estimates (both relation size and tuple count) for planning purposes,
-	 * rather than returning a currently correct estimate.
-	 */
-	void		(*relation_estimate_size) (Relation rel, int32 *attr_widths,
-										   BlockNumber *pages, double *tuples,
-										   double *allvisfrac);
+    /*
+     * See table_relation_size().
+     *
+     * Note that currently a few callers use the MAIN_FORKNUM size to figure
+     * out the range of potentially interesting blocks (brin, analyze). It's
+     * probable that we'll need to revise the interface for those at some
+     * point.
+     */
+    uint64 (*relation_size)(Relation rel, ForkNumber forkNumber);
 
 
-	/* ------------------------------------------------------------------------
-	 * Executor related functions.
-	 * ------------------------------------------------------------------------
-	 */
+    /*
+     * This callback should return true if the relation requires a TOAST table
+     * and false if it does not.  It may wish to examine the relation's tuple
+     * descriptor before making a decision, but if it uses some other method
+     * of storing large values (or if it does not support them) it can simply
+     * return false.
+     */
+    bool (*relation_needs_toast_table)(Relation rel);
 
-	/*
-	 * Prepare to fetch / check / return tuples from `tbmres->blockno` as part
-	 * of a bitmap table scan. `scan` was started via table_beginscan_bm().
-	 * Return false if there are no tuples to be found on the page, true
-	 * otherwise.
-	 *
-	 * This will typically read and pin the target block, and do the necessary
-	 * work to allow scan_bitmap_next_tuple() to return tuples (e.g. it might
-	 * make sense to perform tuple visibility checks at this time). For some
-	 * AMs it will make more sense to do all the work referencing `tbmres`
-	 * contents here, for others it might be better to defer more work to
-	 * scan_bitmap_next_tuple.
-	 *
-	 * If `tbmres->blockno` is -1, this is a lossy scan and all visible tuples
-	 * on the page have to be returned, otherwise the tuples at offsets in
-	 * `tbmres->offsets` need to be returned.
-	 *
-	 * XXX: Currently this may only be implemented if the AM uses md.c as its
-	 * storage manager, and uses ItemPointer->ip_blkid in a manner that maps
-	 * blockids directly to the underlying storage. nodeBitmapHeapscan.c
-	 * performs prefetching directly using that interface.  This probably
-	 * needs to be rectified at a later point.
-	 *
-	 * XXX: Currently this may only be implemented if the AM uses the
-	 * visibilitymap, as nodeBitmapHeapscan.c unconditionally accesses it to
-	 * perform prefetching.  This probably needs to be rectified at a later
-	 * point.
-	 *
-	 * Optional callback, but either both scan_bitmap_next_block and
-	 * scan_bitmap_next_tuple need to exist, or neither.
-	 */
-	bool		(*scan_bitmap_next_block) (TableScanDesc scan,
-										   struct TBMIterateResult *tbmres);
 
-	/*
-	 * Fetch the next tuple of a bitmap table scan into `slot` and return true
-	 * if a visible tuple was found, false otherwise.
-	 *
-	 * For some AMs it will make more sense to do all the work referencing
-	 * `tbmres` contents in scan_bitmap_next_block, for others it might be
-	 * better to defer more work to this callback.
-	 *
-	 * Optional callback, but either both scan_bitmap_next_block and
-	 * scan_bitmap_next_tuple need to exist, or neither.
-	 */
-	bool		(*scan_bitmap_next_tuple) (TableScanDesc scan,
-										   struct TBMIterateResult *tbmres,
-										   TupleTableSlot *slot);
+    /* ------------------------------------------------------------------------
+     * Planner related functions.
+     * ------------------------------------------------------------------------
+     */
 
-	/*
-	 * Prepare to fetch tuples from the next block in a sample scan. Return
-	 * false if the sample scan is finished, true otherwise. `scan` was
-	 * started via table_beginscan_sampling().
-	 *
-	 * Typically this will first determine the target block by calling the
-	 * TsmRoutine's NextSampleBlock() callback if not NULL, or alternatively
-	 * perform a sequential scan over all blocks.  The determined block is
-	 * then typically read and pinned.
-	 *
-	 * As the TsmRoutine interface is block based, a block needs to be passed
-	 * to NextSampleBlock(). If that's not appropriate for an AM, it
-	 * internally needs to perform mapping between the internal and a block
-	 * based representation.
-	 *
-	 * Note that it's not acceptable to hold deadlock prone resources such as
-	 * lwlocks until scan_sample_next_tuple() has exhausted the tuples on the
-	 * block - the tuple is likely to be returned to an upper query node, and
-	 * the next call could be off a long while. Holding buffer pins and such
-	 * is obviously OK.
-	 *
-	 * Currently it is required to implement this interface, as there's no
-	 * alternative way (contrary e.g. to bitmap scans) to implement sample
-	 * scans. If infeasible to implement, the AM may raise an error.
-	 */
-	bool		(*scan_sample_next_block) (TableScanDesc scan,
-										   struct SampleScanState *scanstate);
+    /*
+     * See table_relation_estimate_size().
+     *
+     * While block oriented, it shouldn't be too hard for an AM that doesn't
+     * internally use blocks to convert into a usable representation.
+     *
+     * This differs from the relation_size callback by returning size
+     * estimates (both relation size and tuple count) for planning purposes,
+     * rather than returning a currently correct estimate.
+     */
+    void (*relation_estimate_size)(Relation rel, int32 *attr_widths,
+                                   BlockNumber *pages, double *tuples,
+                                   double *allvisfrac);
 
-	/*
-	 * This callback, only called after scan_sample_next_block has returned
-	 * true, should determine the next tuple to be returned from the selected
-	 * block using the TsmRoutine's NextSampleTuple() callback.
-	 *
-	 * The callback needs to perform visibility checks, and only return
-	 * visible tuples. That obviously can mean calling NextSampleTuple()
-	 * multiple times.
-	 *
-	 * The TsmRoutine interface assumes that there's a maximum offset on a
-	 * given page, so if that doesn't apply to an AM, it needs to emulate that
-	 * assumption somehow.
-	 */
-	bool		(*scan_sample_next_tuple) (TableScanDesc scan,
-										   struct SampleScanState *scanstate,
-										   TupleTableSlot *slot);
+
+    /* ------------------------------------------------------------------------
+     * Executor related functions.
+     * ------------------------------------------------------------------------
+     */
+
+    /*
+     * Prepare to fetch / check / return tuples from `tbmres->blockno` as part
+     * of a bitmap table scan. `scan` was started via table_beginscan_bm().
+     * Return false if there are no tuples to be found on the page, true
+     * otherwise.
+     *
+     * This will typically read and pin the target block, and do the necessary
+     * work to allow scan_bitmap_next_tuple() to return tuples (e.g. it might
+     * make sense to perform tuple visibility checks at this time). For some
+     * AMs it will make more sense to do all the work referencing `tbmres`
+     * contents here, for others it might be better to defer more work to
+     * scan_bitmap_next_tuple.
+     *
+     * If `tbmres->blockno` is -1, this is a lossy scan and all visible tuples
+     * on the page have to be returned, otherwise the tuples at offsets in
+     * `tbmres->offsets` need to be returned.
+     *
+     * XXX: Currently this may only be implemented if the AM uses md.c as its
+     * storage manager, and uses ItemPointer->ip_blkid in a manner that maps
+     * blockids directly to the underlying storage. nodeBitmapHeapscan.c
+     * performs prefetching directly using that interface.  This probably
+     * needs to be rectified at a later point.
+     *
+     * XXX: Currently this may only be implemented if the AM uses the
+     * visibilitymap, as nodeBitmapHeapscan.c unconditionally accesses it to
+     * perform prefetching.  This probably needs to be rectified at a later
+     * point.
+     *
+     * Optional callback, but either both scan_bitmap_next_block and
+     * scan_bitmap_next_tuple need to exist, or neither.
+     */
+    bool (*scan_bitmap_next_block)(TableScanDesc scan,
+                                   struct TBMIterateResult *tbmres);
+
+    /*
+     * Fetch the next tuple of a bitmap table scan into `slot` and return true
+     * if a visible tuple was found, false otherwise.
+     *
+     * For some AMs it will make more sense to do all the work referencing
+     * `tbmres` contents in scan_bitmap_next_block, for others it might be
+     * better to defer more work to this callback.
+     *
+     * Optional callback, but either both scan_bitmap_next_block and
+     * scan_bitmap_next_tuple need to exist, or neither.
+     */
+    bool (*scan_bitmap_next_tuple)(TableScanDesc scan,
+                                   struct TBMIterateResult *tbmres,
+                                   TupleTableSlot *slot);
+
+    /*
+     * Prepare to fetch tuples from the next block in a sample scan. Return
+     * false if the sample scan is finished, true otherwise. `scan` was
+     * started via table_beginscan_sampling().
+     *
+     * Typically this will first determine the target block by calling the
+     * TsmRoutine's NextSampleBlock() callback if not NULL, or alternatively
+     * perform a sequential scan over all blocks.  The determined block is
+     * then typically read and pinned.
+     *
+     * As the TsmRoutine interface is block based, a block needs to be passed
+     * to NextSampleBlock(). If that's not appropriate for an AM, it
+     * internally needs to perform mapping between the internal and a block
+     * based representation.
+     *
+     * Note that it's not acceptable to hold deadlock prone resources such as
+     * lwlocks until scan_sample_next_tuple() has exhausted the tuples on the
+     * block - the tuple is likely to be returned to an upper query node, and
+     * the next call could be off a long while. Holding buffer pins and such
+     * is obviously OK.
+     *
+     * Currently it is required to implement this interface, as there's no
+     * alternative way (contrary e.g. to bitmap scans) to implement sample
+     * scans. If infeasible to implement, the AM may raise an error.
+     */
+    bool (*scan_sample_next_block)(TableScanDesc scan,
+                                   struct SampleScanState *scanstate);
+
+    /*
+     * This callback, only called after scan_sample_next_block has returned
+     * true, should determine the next tuple to be returned from the selected
+     * block using the TsmRoutine's NextSampleTuple() callback.
+     *
+     * The callback needs to perform visibility checks, and only return
+     * visible tuples. That obviously can mean calling NextSampleTuple()
+     * multiple times.
+     *
+     * The TsmRoutine interface assumes that there's a maximum offset on a
+     * given page, so if that doesn't apply to an AM, it needs to emulate that
+     * assumption somehow.
+     */
+    bool (*scan_sample_next_tuple)(TableScanDesc scan,
+                                   struct SampleScanState *scanstate,
+                                   TupleTableSlot *slot);
 
 } TableAmRoutine;
 
@@ -737,7 +732,6 @@ static inline TableScanDesc table_beginscan(Relation relation,
                                             Snapshot snapshot,
                                             int nkeys,
                                             struct ScanKeyData *scanKeyData) {
-
     uint32 flags = SO_TYPE_SEQSCAN | SO_ALLOW_STRAT | SO_ALLOW_SYNC | SO_ALLOW_PAGEMODE;
 
     return relation->rd_tableam->scan_begin(relation, snapshot, nkeys, scanKeyData, NULL, flags);
@@ -748,7 +742,7 @@ static inline TableScanDesc table_beginscan(Relation relation,
  * snapshot appropriate for scanning catalog relations.
  */
 extern TableScanDesc table_beginscan_catalog(Relation rel, int nkeys,
-											 struct ScanKeyData *key);
+                                             struct ScanKeyData *key);
 
 /*
  * Like table_beginscan(), but table_beginscan_strat() offers an extended API
@@ -759,17 +753,16 @@ extern TableScanDesc table_beginscan_catalog(Relation rel, int nkeys,
  */
 static inline TableScanDesc
 table_beginscan_strat(Relation rel, Snapshot snapshot,
-					  int nkeys, struct ScanKeyData *key,
-					  bool allow_strat, bool allow_sync)
-{
-	uint32		flags = SO_TYPE_SEQSCAN | SO_ALLOW_PAGEMODE;
+                      int nkeys, struct ScanKeyData *key,
+                      bool allow_strat, bool allow_sync) {
+    uint32 flags = SO_TYPE_SEQSCAN | SO_ALLOW_PAGEMODE;
 
-	if (allow_strat)
-		flags |= SO_ALLOW_STRAT;
-	if (allow_sync)
-		flags |= SO_ALLOW_SYNC;
+    if (allow_strat)
+        flags |= SO_ALLOW_STRAT;
+    if (allow_sync)
+        flags |= SO_ALLOW_SYNC;
 
-	return rel->rd_tableam->scan_begin(rel, snapshot, nkeys, key, NULL, flags);
+    return rel->rd_tableam->scan_begin(rel, snapshot, nkeys, key, NULL, flags);
 }
 
 /*
@@ -780,11 +773,10 @@ table_beginscan_strat(Relation rel, Snapshot snapshot,
  */
 static inline TableScanDesc
 table_beginscan_bm(Relation rel, Snapshot snapshot,
-				   int nkeys, struct ScanKeyData *key)
-{
-	uint32		flags = SO_TYPE_BITMAPSCAN | SO_ALLOW_PAGEMODE;
+                   int nkeys, struct ScanKeyData *key) {
+    uint32 flags = SO_TYPE_BITMAPSCAN | SO_ALLOW_PAGEMODE;
 
-	return rel->rd_tableam->scan_begin(rel, snapshot, nkeys, key, NULL, flags);
+    return rel->rd_tableam->scan_begin(rel, snapshot, nkeys, key, NULL, flags);
 }
 
 /*
@@ -796,20 +788,19 @@ table_beginscan_bm(Relation rel, Snapshot snapshot,
  */
 static inline TableScanDesc
 table_beginscan_sampling(Relation rel, Snapshot snapshot,
-						 int nkeys, struct ScanKeyData *key,
-						 bool allow_strat, bool allow_sync,
-						 bool allow_pagemode)
-{
-	uint32		flags = SO_TYPE_SAMPLESCAN;
+                         int nkeys, struct ScanKeyData *key,
+                         bool allow_strat, bool allow_sync,
+                         bool allow_pagemode) {
+    uint32 flags = SO_TYPE_SAMPLESCAN;
 
-	if (allow_strat)
-		flags |= SO_ALLOW_STRAT;
-	if (allow_sync)
-		flags |= SO_ALLOW_SYNC;
-	if (allow_pagemode)
-		flags |= SO_ALLOW_PAGEMODE;
+    if (allow_strat)
+        flags |= SO_ALLOW_STRAT;
+    if (allow_sync)
+        flags |= SO_ALLOW_SYNC;
+    if (allow_pagemode)
+        flags |= SO_ALLOW_PAGEMODE;
 
-	return rel->rd_tableam->scan_begin(rel, snapshot, nkeys, key, NULL, flags);
+    return rel->rd_tableam->scan_begin(rel, snapshot, nkeys, key, NULL, flags);
 }
 
 /*
@@ -818,11 +809,10 @@ table_beginscan_sampling(Relation rel, Snapshot snapshot,
  * the same data structure although the behavior is rather different.
  */
 static inline TableScanDesc
-table_beginscan_tid(Relation rel, Snapshot snapshot)
-{
-	uint32		flags = SO_TYPE_TIDSCAN;
+table_beginscan_tid(Relation rel, Snapshot snapshot) {
+    uint32 flags = SO_TYPE_TIDSCAN;
 
-	return rel->rd_tableam->scan_begin(rel, snapshot, 0, NULL, NULL, flags);
+    return rel->rd_tableam->scan_begin(rel, snapshot, 0, NULL, NULL, flags);
 }
 
 /*
@@ -831,20 +821,18 @@ table_beginscan_tid(Relation rel, Snapshot snapshot)
  * the same data structure although the behavior is rather different.
  */
 static inline TableScanDesc
-table_beginscan_analyze(Relation rel)
-{
-	uint32		flags = SO_TYPE_ANALYZE;
+table_beginscan_analyze(Relation rel) {
+    uint32 flags = SO_TYPE_ANALYZE;
 
-	return rel->rd_tableam->scan_begin(rel, NULL, 0, NULL, NULL, flags);
+    return rel->rd_tableam->scan_begin(rel, NULL, 0, NULL, NULL, flags);
 }
 
 /*
  * End relation scan.
  */
 static inline void
-table_endscan(TableScanDesc scan)
-{
-	scan->rs_rd->rd_tableam->scan_end(scan);
+table_endscan(TableScanDesc scan) {
+    scan->rs_rd->rd_tableam->scan_end(scan);
 }
 
 /*
@@ -852,9 +840,8 @@ table_endscan(TableScanDesc scan)
  */
 static inline void
 table_rescan(TableScanDesc scan,
-			 struct ScanKeyData *key)
-{
-	scan->rs_rd->rd_tableam->scan_rescan(scan, key, false, false, false, false);
+             struct ScanKeyData *key) {
+    scan->rs_rd->rd_tableam->scan_rescan(scan, key, false, false, false, false);
 }
 
 /*
@@ -867,11 +854,10 @@ table_rescan(TableScanDesc scan,
  */
 static inline void
 table_rescan_set_params(TableScanDesc scan, struct ScanKeyData *key,
-						bool allow_strat, bool allow_sync, bool allow_pagemode)
-{
-	scan->rs_rd->rd_tableam->scan_rescan(scan, key, true,
-										 allow_strat, allow_sync,
-										 allow_pagemode);
+                        bool allow_strat, bool allow_sync, bool allow_pagemode) {
+    scan->rs_rd->rd_tableam->scan_rescan(scan, key, true,
+                                         allow_strat, allow_sync,
+                                         allow_pagemode);
 }
 
 /*
@@ -886,7 +872,7 @@ static inline bool table_scan_getnextslot(TableScanDesc tableScanDesc,
                                           ScanDirection scanDirection,
                                           TupleTableSlot *tupleTableSlot) {
     tupleTableSlot->tts_tableOid = RelationGetRelid(tableScanDesc->rs_rd);
-	return tableScanDesc->rs_rd->rd_tableam->scan_getnextslot(tableScanDesc, scanDirection, tupleTableSlot);
+    return tableScanDesc->rs_rd->rd_tableam->scan_getnextslot(tableScanDesc, scanDirection, tupleTableSlot);
 }
 
 
@@ -908,8 +894,8 @@ extern Size table_parallelscan_estimate(Relation rel, Snapshot snapshot);
  * individual workers attach via table_beginscan_parallel.
  */
 extern void table_parallelscan_initialize(Relation rel,
-										  ParallelTableScanDesc pscan,
-										  Snapshot snapshot);
+                                          ParallelTableScanDesc pscan,
+                                          Snapshot snapshot);
 
 /*
  * Begin a parallel scan. `pscan` needs to have been initialized with
@@ -919,7 +905,7 @@ extern void table_parallelscan_initialize(Relation rel,
  * Caller must hold a suitable lock on the relation.
  */
 extern TableScanDesc table_beginscan_parallel(Relation rel,
-											  ParallelTableScanDesc pscan);
+                                              ParallelTableScanDesc pscan);
 
 /*
  * Restart a parallel scan.  Call this in the leader process.  Caller is
@@ -927,9 +913,8 @@ extern TableScanDesc table_beginscan_parallel(Relation rel,
  * beforehand.
  */
 static inline void
-table_parallelscan_reinitialize(Relation rel, ParallelTableScanDesc pscan)
-{
-	rel->rd_tableam->parallelscan_reinitialize(rel, pscan);
+table_parallelscan_reinitialize(Relation rel, ParallelTableScanDesc pscan) {
+    rel->rd_tableam->parallelscan_reinitialize(rel, pscan);
 }
 
 
@@ -945,9 +930,8 @@ table_parallelscan_reinitialize(Relation rel, ParallelTableScanDesc pscan)
  * Tuples for an index scan can then be fetched via table_index_fetch_tuple().
  */
 static inline IndexFetchTableData *
-table_index_fetch_begin(Relation rel)
-{
-	return rel->rd_tableam->index_fetch_begin(rel);
+table_index_fetch_begin(Relation rel) {
+    return rel->rd_tableam->index_fetch_begin(rel);
 }
 
 /*
@@ -955,18 +939,16 @@ table_index_fetch_begin(Relation rel)
  * held in IndexFetchTableData.
  */
 static inline void
-table_index_fetch_reset(struct IndexFetchTableData *scan)
-{
-	scan->rel->rd_tableam->index_fetch_reset(scan);
+table_index_fetch_reset(struct IndexFetchTableData *scan) {
+    scan->rel->rd_tableam->index_fetch_reset(scan);
 }
 
 /*
  * Release resources and deallocate index fetch.
  */
 static inline void
-table_index_fetch_end(struct IndexFetchTableData *scan)
-{
-	scan->rel->rd_tableam->index_fetch_end(scan);
+table_index_fetch_end(struct IndexFetchTableData *scan) {
+    scan->rel->rd_tableam->index_fetch_end(scan);
 }
 
 /*
@@ -993,15 +975,14 @@ table_index_fetch_end(struct IndexFetchTableData *scan)
  */
 static inline bool
 table_index_fetch_tuple(struct IndexFetchTableData *scan,
-						ItemPointer tid,
-						Snapshot snapshot,
-						TupleTableSlot *slot,
-						bool *call_again, bool *all_dead)
-{
+                        ItemPointer tid,
+                        Snapshot snapshot,
+                        TupleTableSlot *slot,
+                        bool *call_again, bool *all_dead) {
 
-	return scan->rel->rd_tableam->index_fetch_tuple(scan, tid, snapshot,
-													slot, call_again,
-													all_dead);
+    return scan->rel->rd_tableam->index_fetch_tuple(scan, tid, snapshot,
+                                                    slot, call_again,
+                                                    all_dead);
 }
 
 /*
@@ -1011,9 +992,9 @@ table_index_fetch_tuple(struct IndexFetchTableData *scan,
  * unique index.
  */
 extern bool table_index_fetch_tuple_check(Relation rel,
-										  ItemPointer tid,
-										  Snapshot snapshot,
-										  bool *all_dead);
+                                          ItemPointer tid,
+                                          Snapshot snapshot,
+                                          bool *all_dead);
 
 
 /* ------------------------------------------------------------------------
@@ -1033,11 +1014,10 @@ extern bool table_index_fetch_tuple_check(Relation rel,
  */
 static inline bool
 table_tuple_fetch_row_version(Relation rel,
-							  ItemPointer tid,
-							  Snapshot snapshot,
-							  TupleTableSlot *slot)
-{
-	return rel->rd_tableam->tuple_fetch_row_version(rel, tid, snapshot, slot);
+                              ItemPointer tid,
+                              Snapshot snapshot,
+                              TupleTableSlot *slot) {
+    return rel->rd_tableam->tuple_fetch_row_version(rel, tid, snapshot, slot);
 }
 
 /*
@@ -1050,9 +1030,8 @@ table_tuple_fetch_row_version(Relation rel,
  * `scan` needs to have been started via table_beginscan().
  */
 static inline bool
-table_tuple_tid_valid(TableScanDesc scan, ItemPointer tid)
-{
-	return scan->rs_rd->rd_tableam->tuple_tid_valid(scan, tid);
+table_tuple_tid_valid(TableScanDesc scan, ItemPointer tid) {
+    return scan->rs_rd->rd_tableam->tuple_tid_valid(scan, tid);
 }
 
 /*
@@ -1072,9 +1051,8 @@ extern void table_tuple_get_latest_tid(TableScanDesc scan, ItemPointer tid);
  */
 static inline bool
 table_tuple_satisfies_snapshot(Relation rel, TupleTableSlot *slot,
-							   Snapshot snapshot)
-{
-	return rel->rd_tableam->tuple_satisfies_snapshot(rel, slot, snapshot);
+                               Snapshot snapshot) {
+    return rel->rd_tableam->tuple_satisfies_snapshot(rel, slot, snapshot);
 }
 
 /*
@@ -1084,10 +1062,9 @@ table_tuple_satisfies_snapshot(Relation rel, TupleTableSlot *slot,
  */
 static inline TransactionId
 table_compute_xid_horizon_for_tuples(Relation rel,
-									 ItemPointerData *items,
-									 int nitems)
-{
-	return rel->rd_tableam->compute_xid_horizon_for_tuples(rel, items, nitems);
+                                     ItemPointerData *items,
+                                     int nitems) {
+    return rel->rd_tableam->compute_xid_horizon_for_tuples(rel, items, nitems);
 }
 
 
@@ -1136,10 +1113,9 @@ table_compute_xid_horizon_for_tuples(Relation rel,
  */
 static inline void
 table_tuple_insert(Relation rel, TupleTableSlot *slot, CommandId cid,
-				   int options, struct BulkInsertStateData *bistate)
-{
-	rel->rd_tableam->tuple_insert(rel, slot, cid, options,
-								  bistate);
+                   int options, struct BulkInsertStateData *bistate) {
+    rel->rd_tableam->tuple_insert(rel, slot, cid, options,
+                                  bistate);
 }
 
 /*
@@ -1155,12 +1131,11 @@ table_tuple_insert(Relation rel, TupleTableSlot *slot, CommandId cid,
  */
 static inline void
 table_tuple_insert_speculative(Relation rel, TupleTableSlot *slot,
-							   CommandId cid, int options,
-							   struct BulkInsertStateData *bistate,
-							   uint32 specToken)
-{
-	rel->rd_tableam->tuple_insert_speculative(rel, slot, cid, options,
-											  bistate, specToken);
+                               CommandId cid, int options,
+                               struct BulkInsertStateData *bistate,
+                               uint32 specToken) {
+    rel->rd_tableam->tuple_insert_speculative(rel, slot, cid, options,
+                                              bistate, specToken);
 }
 
 /*
@@ -1169,10 +1144,9 @@ table_tuple_insert_speculative(Relation rel, TupleTableSlot *slot,
  */
 static inline void
 table_tuple_complete_speculative(Relation rel, TupleTableSlot *slot,
-								 uint32 specToken, bool succeeded)
-{
-	rel->rd_tableam->tuple_complete_speculative(rel, slot, specToken,
-												succeeded);
+                                 uint32 specToken, bool succeeded) {
+    rel->rd_tableam->tuple_complete_speculative(rel, slot, specToken,
+                                                succeeded);
 }
 
 /*
@@ -1191,10 +1165,9 @@ table_tuple_complete_speculative(Relation rel, TupleTableSlot *slot,
  */
 static inline void
 table_multi_insert(Relation rel, TupleTableSlot **slots, int nslots,
-				   CommandId cid, int options, struct BulkInsertStateData *bistate)
-{
-	rel->rd_tableam->multi_insert(rel, slots, nslots,
-								  cid, options, bistate);
+                   CommandId cid, int options, struct BulkInsertStateData *bistate) {
+    rel->rd_tableam->multi_insert(rel, slots, nslots,
+                                  cid, options, bistate);
 }
 
 /*
@@ -1225,12 +1198,11 @@ table_multi_insert(Relation rel, TupleTableSlot **slots, int nslots,
  */
 static inline TM_Result
 table_tuple_delete(Relation rel, ItemPointer tid, CommandId cid,
-				   Snapshot snapshot, Snapshot crosscheck, bool wait,
-				   TM_FailureData *tmfd, bool changingPart)
-{
-	return rel->rd_tableam->tuple_delete(rel, tid, cid,
-										 snapshot, crosscheck,
-										 wait, tmfd, changingPart);
+                   Snapshot snapshot, Snapshot crosscheck, bool wait,
+                   TM_FailureData *tmfd, bool changingPart) {
+    return rel->rd_tableam->tuple_delete(rel, tid, cid,
+                                         snapshot, crosscheck,
+                                         wait, tmfd, changingPart);
 }
 
 /*
@@ -1269,14 +1241,13 @@ table_tuple_delete(Relation rel, ItemPointer tid, CommandId cid,
  */
 static inline TM_Result
 table_tuple_update(Relation rel, ItemPointer otid, TupleTableSlot *slot,
-				   CommandId cid, Snapshot snapshot, Snapshot crosscheck,
-				   bool wait, TM_FailureData *tmfd, LockTupleMode *lockmode,
-				   bool *update_indexes)
-{
-	return rel->rd_tableam->tuple_update(rel, otid, slot,
-										 cid, snapshot, crosscheck,
-										 wait, tmfd,
-										 lockmode, update_indexes);
+                   CommandId cid, Snapshot snapshot, Snapshot crosscheck,
+                   bool wait, TM_FailureData *tmfd, LockTupleMode *lockmode,
+                   bool *update_indexes) {
+    return rel->rd_tableam->tuple_update(rel, otid, slot,
+                                         cid, snapshot, crosscheck,
+                                         wait, tmfd,
+                                         lockmode, update_indexes);
 }
 
 /*
@@ -1314,13 +1285,12 @@ table_tuple_update(Relation rel, ItemPointer otid, TupleTableSlot *slot,
  */
 static inline TM_Result
 table_tuple_lock(Relation rel, ItemPointer tid, Snapshot snapshot,
-				 TupleTableSlot *slot, CommandId cid, LockTupleMode mode,
-				 LockWaitPolicy wait_policy, uint8 flags,
-				 TM_FailureData *tmfd)
-{
-	return rel->rd_tableam->tuple_lock(rel, tid, snapshot, slot,
-									   cid, mode, wait_policy,
-									   flags, tmfd);
+                 TupleTableSlot *slot, CommandId cid, LockTupleMode mode,
+                 LockWaitPolicy wait_policy, uint8 flags,
+                 TM_FailureData *tmfd) {
+    return rel->rd_tableam->tuple_lock(rel, tid, snapshot, slot,
+                                       cid, mode, wait_policy,
+                                       flags, tmfd);
 }
 
 /*
@@ -1330,11 +1300,10 @@ table_tuple_lock(Relation rel, ItemPointer tid, Snapshot snapshot,
  * TABLE_INSERT_SKIP_WAL specified.
  */
 static inline void
-table_finish_bulk_insert(Relation rel, int options)
-{
-	/* optional callback */
-	if (rel->rd_tableam && rel->rd_tableam->finish_bulk_insert)
-		rel->rd_tableam->finish_bulk_insert(rel, options);
+table_finish_bulk_insert(Relation rel, int options) {
+    /* optional callback */
+    if (rel->rd_tableam && rel->rd_tableam->finish_bulk_insert)
+        rel->rd_tableam->finish_bulk_insert(rel, options);
 }
 
 
@@ -1357,13 +1326,12 @@ table_finish_bulk_insert(Relation rel, int options)
  */
 static inline void
 table_relation_set_new_filenode(Relation rel,
-								const RelFileNode *newrnode,
-								char persistence,
-								TransactionId *freezeXid,
-								MultiXactId *minmulti)
-{
-	rel->rd_tableam->relation_set_new_filenode(rel, newrnode, persistence,
-											   freezeXid, minmulti);
+                                const RelFileNode *newrnode,
+                                char persistence,
+                                TransactionId *freezeXid,
+                                MultiXactId *minmulti) {
+    rel->rd_tableam->relation_set_new_filenode(rel, newrnode, persistence,
+                                               freezeXid, minmulti);
 }
 
 /*
@@ -1373,9 +1341,8 @@ table_relation_set_new_filenode(Relation rel,
  * current transaction.
  */
 static inline void
-table_relation_nontransactional_truncate(Relation rel)
-{
-	rel->rd_tableam->relation_nontransactional_truncate(rel);
+table_relation_nontransactional_truncate(Relation rel) {
+    rel->rd_tableam->relation_nontransactional_truncate(rel);
 }
 
 /*
@@ -1385,9 +1352,8 @@ table_relation_nontransactional_truncate(Relation rel)
  * changing a relation's tablespace.
  */
 static inline void
-table_relation_copy_data(Relation rel, const RelFileNode *newrnode)
-{
-	rel->rd_tableam->relation_copy_data(rel, newrnode);
+table_relation_copy_data(Relation rel, const RelFileNode *newrnode) {
+    rel->rd_tableam->relation_copy_data(rel, newrnode);
 }
 
 /*
@@ -1413,20 +1379,19 @@ table_relation_copy_data(Relation rel, const RelFileNode *newrnode)
  */
 static inline void
 table_relation_copy_for_cluster(Relation OldTable, Relation NewTable,
-								Relation OldIndex,
-								bool use_sort,
-								TransactionId OldestXmin,
-								TransactionId *xid_cutoff,
-								MultiXactId *multi_cutoff,
-								double *num_tuples,
-								double *tups_vacuumed,
-								double *tups_recently_dead)
-{
-	OldTable->rd_tableam->relation_copy_for_cluster(OldTable, NewTable, OldIndex,
-													use_sort, OldestXmin,
-													xid_cutoff, multi_cutoff,
-													num_tuples, tups_vacuumed,
-													tups_recently_dead);
+                                Relation OldIndex,
+                                bool use_sort,
+                                TransactionId OldestXmin,
+                                TransactionId *xid_cutoff,
+                                MultiXactId *multi_cutoff,
+                                double *num_tuples,
+                                double *tups_vacuumed,
+                                double *tups_recently_dead) {
+    OldTable->rd_tableam->relation_copy_for_cluster(OldTable, NewTable, OldIndex,
+                                                    use_sort, OldestXmin,
+                                                    xid_cutoff, multi_cutoff,
+                                                    num_tuples, tups_vacuumed,
+                                                    tups_recently_dead);
 }
 
 /*
@@ -1442,9 +1407,8 @@ table_relation_copy_for_cluster(Relation OldTable, Relation NewTable,
  */
 static inline void
 table_relation_vacuum(Relation rel, struct VacuumParams *params,
-					  BufferAccessStrategy bstrategy)
-{
-	rel->rd_tableam->relation_vacuum(rel, params, bstrategy);
+                      BufferAccessStrategy bstrategy) {
+    rel->rd_tableam->relation_vacuum(rel, params, bstrategy);
 }
 
 /*
@@ -1457,10 +1421,9 @@ table_relation_vacuum(Relation rel, struct VacuumParams *params,
  */
 static inline bool
 table_scan_analyze_next_block(TableScanDesc scan, BlockNumber blockno,
-							  BufferAccessStrategy bstrategy)
-{
-	return scan->rs_rd->rd_tableam->scan_analyze_next_block(scan, blockno,
-															bstrategy);
+                              BufferAccessStrategy bstrategy) {
+    return scan->rs_rd->rd_tableam->scan_analyze_next_block(scan, blockno,
+                                                            bstrategy);
 }
 
 /*
@@ -1475,12 +1438,11 @@ table_scan_analyze_next_block(TableScanDesc scan, BlockNumber blockno,
  */
 static inline bool
 table_scan_analyze_next_tuple(TableScanDesc scan, TransactionId OldestXmin,
-							  double *liverows, double *deadrows,
-							  TupleTableSlot *slot)
-{
-	return scan->rs_rd->rd_tableam->scan_analyze_next_tuple(scan, OldestXmin,
-															liverows, deadrows,
-															slot);
+                              double *liverows, double *deadrows,
+                              TupleTableSlot *slot) {
+    return scan->rs_rd->rd_tableam->scan_analyze_next_tuple(scan, OldestXmin,
+                                                            liverows, deadrows,
+                                                            slot);
 }
 
 /*
@@ -1512,25 +1474,24 @@ table_scan_analyze_next_tuple(TableScanDesc scan, TransactionId OldestXmin,
  */
 static inline double
 table_index_build_scan(Relation table_rel,
-					   Relation index_rel,
-					   struct IndexInfo *index_info,
-					   bool allow_sync,
-					   bool progress,
-					   IndexBuildCallback callback,
-					   void *callback_state,
-					   TableScanDesc scan)
-{
-	return table_rel->rd_tableam->index_build_range_scan(table_rel,
-														 index_rel,
-														 index_info,
-														 allow_sync,
-														 false,
-														 progress,
-														 0,
-														 InvalidBlockNumber,
-														 callback,
-														 callback_state,
-														 scan);
+                       Relation index_rel,
+                       struct IndexInfo *index_info,
+                       bool allow_sync,
+                       bool progress,
+                       IndexBuildCallback callback,
+                       void *callback_state,
+                       TableScanDesc scan) {
+    return table_rel->rd_tableam->index_build_range_scan(table_rel,
+                                                         index_rel,
+                                                         index_info,
+                                                         allow_sync,
+                                                         false,
+                                                         progress,
+                                                         0,
+                                                         InvalidBlockNumber,
+                                                         callback,
+                                                         callback_state,
+                                                         scan);
 }
 
 /*
@@ -1545,28 +1506,27 @@ table_index_build_scan(Relation table_rel,
  */
 static inline double
 table_index_build_range_scan(Relation table_rel,
-							 Relation index_rel,
-							 struct IndexInfo *index_info,
-							 bool allow_sync,
-							 bool anyvisible,
-							 bool progress,
-							 BlockNumber start_blockno,
-							 BlockNumber numblocks,
-							 IndexBuildCallback callback,
-							 void *callback_state,
-							 TableScanDesc scan)
-{
-	return table_rel->rd_tableam->index_build_range_scan(table_rel,
-														 index_rel,
-														 index_info,
-														 allow_sync,
-														 anyvisible,
-														 progress,
-														 start_blockno,
-														 numblocks,
-														 callback,
-														 callback_state,
-														 scan);
+                             Relation index_rel,
+                             struct IndexInfo *index_info,
+                             bool allow_sync,
+                             bool anyvisible,
+                             bool progress,
+                             BlockNumber start_blockno,
+                             BlockNumber numblocks,
+                             IndexBuildCallback callback,
+                             void *callback_state,
+                             TableScanDesc scan) {
+    return table_rel->rd_tableam->index_build_range_scan(table_rel,
+                                                         index_rel,
+                                                         index_info,
+                                                         allow_sync,
+                                                         anyvisible,
+                                                         progress,
+                                                         start_blockno,
+                                                         numblocks,
+                                                         callback,
+                                                         callback_state,
+                                                         scan);
 }
 
 /*
@@ -1576,16 +1536,15 @@ table_index_build_range_scan(Relation table_rel,
  */
 static inline void
 table_index_validate_scan(Relation table_rel,
-						  Relation index_rel,
-						  struct IndexInfo *index_info,
-						  Snapshot snapshot,
-						  struct ValidateIndexState *state)
-{
-	table_rel->rd_tableam->index_validate_scan(table_rel,
-											   index_rel,
-											   index_info,
-											   snapshot,
-											   state);
+                          Relation index_rel,
+                          struct IndexInfo *index_info,
+                          Snapshot snapshot,
+                          struct ValidateIndexState *state) {
+    table_rel->rd_tableam->index_validate_scan(table_rel,
+                                               index_rel,
+                                               index_info,
+                                               snapshot,
+                                               state);
 }
 
 
@@ -1604,18 +1563,16 @@ table_index_validate_scan(Relation table_rel,
  * not neatly map onto the builtin types of forks.
  */
 static inline uint64
-table_relation_size(Relation rel, ForkNumber forkNumber)
-{
-	return rel->rd_tableam->relation_size(rel, forkNumber);
+table_relation_size(Relation rel, ForkNumber forkNumber) {
+    return rel->rd_tableam->relation_size(rel, forkNumber);
 }
 
 /*
  * table_relation_needs_toast_table - does this relation need a toast table?
  */
 static inline bool
-table_relation_needs_toast_table(Relation rel)
-{
-	return rel->rd_tableam->relation_needs_toast_table(rel);
+table_relation_needs_toast_table(Relation rel) {
+    return rel->rd_tableam->relation_needs_toast_table(rel);
 }
 
 
@@ -1630,11 +1587,10 @@ table_relation_needs_toast_table(Relation rel)
  */
 static inline void
 table_relation_estimate_size(Relation rel, int32 *attr_widths,
-							 BlockNumber *pages, double *tuples,
-							 double *allvisfrac)
-{
-	rel->rd_tableam->relation_estimate_size(rel, attr_widths, pages, tuples,
-											allvisfrac);
+                             BlockNumber *pages, double *tuples,
+                             double *allvisfrac) {
+    rel->rd_tableam->relation_estimate_size(rel, attr_widths, pages, tuples,
+                                            allvisfrac);
 }
 
 
@@ -1654,10 +1610,9 @@ table_relation_estimate_size(Relation rel, int32 *attr_widths,
  */
 static inline bool
 table_scan_bitmap_next_block(TableScanDesc scan,
-							 struct TBMIterateResult *tbmres)
-{
-	return scan->rs_rd->rd_tableam->scan_bitmap_next_block(scan,
-														   tbmres);
+                             struct TBMIterateResult *tbmres) {
+    return scan->rs_rd->rd_tableam->scan_bitmap_next_block(scan,
+                                                           tbmres);
 }
 
 /*
@@ -1670,12 +1625,11 @@ table_scan_bitmap_next_block(TableScanDesc scan,
  */
 static inline bool
 table_scan_bitmap_next_tuple(TableScanDesc scan,
-							 struct TBMIterateResult *tbmres,
-							 TupleTableSlot *slot)
-{
-	return scan->rs_rd->rd_tableam->scan_bitmap_next_tuple(scan,
-														   tbmres,
-														   slot);
+                             struct TBMIterateResult *tbmres,
+                             TupleTableSlot *slot) {
+    return scan->rs_rd->rd_tableam->scan_bitmap_next_tuple(scan,
+                                                           tbmres,
+                                                           slot);
 }
 
 /*
@@ -1689,9 +1643,8 @@ table_scan_bitmap_next_tuple(TableScanDesc scan,
  */
 static inline bool
 table_scan_sample_next_block(TableScanDesc scan,
-							 struct SampleScanState *scanstate)
-{
-	return scan->rs_rd->rd_tableam->scan_sample_next_block(scan, scanstate);
+                             struct SampleScanState *scanstate) {
+    return scan->rs_rd->rd_tableam->scan_sample_next_block(scan, scanstate);
 }
 
 /*
@@ -1704,11 +1657,10 @@ table_scan_sample_next_block(TableScanDesc scan,
  */
 static inline bool
 table_scan_sample_next_tuple(TableScanDesc scan,
-							 struct SampleScanState *scanstate,
-							 TupleTableSlot *slot)
-{
-	return scan->rs_rd->rd_tableam->scan_sample_next_tuple(scan, scanstate,
-														   slot);
+                             struct SampleScanState *scanstate,
+                             TupleTableSlot *slot) {
+    return scan->rs_rd->rd_tableam->scan_sample_next_tuple(scan, scanstate,
+                                                           slot);
 }
 
 
@@ -1718,11 +1670,13 @@ table_scan_sample_next_tuple(TableScanDesc scan,
  */
 
 extern void simple_table_tuple_insert(Relation rel, TupleTableSlot *slot);
+
 extern void simple_table_tuple_delete(Relation rel, ItemPointer tid,
-									  Snapshot snapshot);
+                                      Snapshot snapshot);
+
 extern void simple_table_tuple_update(Relation rel, ItemPointer otid,
-									  TupleTableSlot *slot, Snapshot snapshot,
-									  bool *update_indexes);
+                                      TupleTableSlot *slot, Snapshot snapshot,
+                                      bool *update_indexes);
 
 
 /* ----------------------------------------------------------------------------
@@ -1731,14 +1685,18 @@ extern void simple_table_tuple_update(Relation rel, ItemPointer otid,
  */
 
 extern Size table_block_parallelscan_estimate(Relation rel);
+
 extern Size table_block_parallelscan_initialize(Relation rel,
-												ParallelTableScanDesc pscan);
+                                                ParallelTableScanDesc pscan);
+
 extern void table_block_parallelscan_reinitialize(Relation rel,
-												  ParallelTableScanDesc pscan);
+                                                  ParallelTableScanDesc pscan);
+
 extern BlockNumber table_block_parallelscan_nextpage(Relation rel,
-													 ParallelBlockTableScanDesc pbscan);
+                                                     ParallelBlockTableScanDesc pbscan);
+
 extern void table_block_parallelscan_startblock_init(Relation rel,
-													 ParallelBlockTableScanDesc pbscan);
+                                                     ParallelBlockTableScanDesc pbscan);
 
 
 /* ----------------------------------------------------------------------------
@@ -1747,8 +1705,10 @@ extern void table_block_parallelscan_startblock_init(Relation rel,
  */
 
 extern const TableAmRoutine *GetTableAmRoutine(Oid amhandler);
-extern const TableAmRoutine *GetHeapamTableAmRoutine(void);
-extern bool check_default_table_access_method(char **newval, void **extra,
-											  GucSource source);
 
-#endif							/* TABLEAM_H */
+extern const TableAmRoutine *GetHeapamTableAmRoutine(void);
+
+extern bool check_default_table_access_method(char **newval, void **extra,
+                                              GucSource source);
+
+#endif                            /* TABLEAM_H */

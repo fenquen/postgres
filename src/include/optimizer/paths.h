@@ -76,15 +76,15 @@ extern void debug_print_rel(PlannerInfo *root, RelOptInfo *rel);
  * indxpath.c
  *	  routines to generate index paths
  */
-extern void create_index_paths(PlannerInfo *root, RelOptInfo *rel);
+extern void create_index_paths(PlannerInfo *root, RelOptInfo *relOptInfo);
 extern bool relation_has_unique_index_for(PlannerInfo *root, RelOptInfo *rel,
 										  List *restrictlist,
 										  List *exprlist, List *oprlist);
 extern bool indexcol_is_bool_constant_for_query(PlannerInfo *root,
 												IndexOptInfo *index,
 												int indexcol);
-extern bool match_index_to_operand(Node *operand, int indexcol,
-								   IndexOptInfo *index);
+extern bool match_index_to_operand(Node *operand, int keyColIndexInIndex,
+								   IndexOptInfo *indexOptInfo);
 extern void check_index_predicates(PlannerInfo *root, RelOptInfo *rel);
 
 /*

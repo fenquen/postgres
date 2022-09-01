@@ -35,7 +35,7 @@
 
 /* static function decls */
 static void init_sexpr(Oid foid, Oid input_collation, Expr *node,
-                       SetExprState *sexpr, PlanState *parent,
+                       SetExprState *setExprState, PlanState *parent,
                        MemoryContext sexprCxt, bool allowSRF, bool needDescForSRF);
 
 static void ShutdownSetExpr(Datum arg);
@@ -56,14 +56,15 @@ static void tupledesc_match(TupleDesc dst_tupdesc, TupleDesc src_tupdesc);
  *
  * This is used by nodeFunctionscan.c.
  */
-SetExprState *
-ExecInitTableFunctionResult(Expr *expr,
-                            ExprContext *econtext, PlanState *parent) {
-    SetExprState *state = makeNode(SetExprState);
+SetExprState *ExecInitTableFunctionResult(Expr *expr,
+                                          ExprContext *econtext,
+                                          PlanState *planState) {
 
-    state->funcReturnsSet = false;
-    state->expr = expr;
-    state->func.fn_oid = InvalidOid;
+    SetExprState *setExprState = makeNode(SetExprState);
+
+    setExprState->funcReturnsSet = false;
+    setExprState->expr = expr;
+    setExprState->func.fn_oid = InvalidOid;
 
     /*
      * Normally the passed expression tree will be a FuncExpr, since the
@@ -75,18 +76,24 @@ ExecInitTableFunctionResult(Expr *expr,
      * support set-returning functions buried in the expression, though.
      */
     if (IsA(expr, FuncExpr)) {
-        FuncExpr *func = (FuncExpr *) expr;
+        FuncExpr *funcExpr = (FuncExpr *) expr;
 
-        state->funcReturnsSet = func->funcretset;
-        state->args = ExecInitExprList(func->args, parent);
+        setExprState->funcReturnsSet = funcExpr->funcretset;
+        setExprState->args = ExecInitExprList(funcExpr->args, planState);
 
-        init_sexpr(func->funcid, func->inputcollid, expr, state, parent,
-                   econtext->ecxt_per_query_memory, func->funcretset, false);
+        init_sexpr(funcExpr->funcid,
+                   funcExpr->inputcollid,
+                   expr,
+                   setExprState,
+                   planState,
+                   econtext->ecxt_per_query_memory,
+                   funcExpr->funcretset,
+                   false);
     } else {
-        state->elidedFuncState = ExecInitExpr(expr, parent);
+        setExprState->elidedFuncState = ExecInitExpr(expr, planState);
     }
 
-    return state;
+    return setExprState;
 }
 
 /*
@@ -146,8 +153,10 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
     rsinfo.econtext = econtext;
     rsinfo.expectedDesc = expectedDesc;
     rsinfo.allowedModes = (int) (SFRM_ValuePerCall | SFRM_Materialize | SFRM_Materialize_Preferred);
-    if (randomAccess)
+    if (randomAccess) {
         rsinfo.allowedModes |= (int) SFRM_Materialize_Random;
+    }
+    // 写自定义函数的累加函数的时候不用特意指明 SFRM_ValuePerCall
     rsinfo.returnMode = SFRM_ValuePerCall;
     /* isDone is filled below */
     rsinfo.setResult = NULL;
@@ -620,10 +629,10 @@ Datum ExecMakeFunctionResultSet(SetExprState *setExprState,
 
 // init_sexpr - initialize a SetExprState node during first use
 static void init_sexpr(Oid foid, Oid input_collation, Expr *node,
-                       SetExprState *sexpr, PlanState *parent,
+                       SetExprState *setExprState, PlanState *parent,
                        MemoryContext sexprCxt, bool allowSRF, bool needDescForSRF) {
     AclResult aclresult;
-    size_t numargs = list_length(sexpr->args);
+    size_t numargs = list_length(setExprState->args);
 
     /* Check permission to call function */
     aclresult = pg_proc_aclcheck(foid, GetUserId(), ACL_EXECUTE);
@@ -637,7 +646,7 @@ static void init_sexpr(Oid foid, Oid input_collation, Expr *node,
      * server has been compiled with FUNC_MAX_ARGS smaller than some functions
      * declared in pg_proc?
      */
-    if (list_length(sexpr->args) > FUNC_MAX_ARGS)
+    if (list_length(setExprState->args) > FUNC_MAX_ARGS)
         ereport(ERROR,
                 (errcode(ERRCODE_TOO_MANY_ARGUMENTS),
                         errmsg_plural("cannot pass more than %d argument to a function",
@@ -646,18 +655,18 @@ static void init_sexpr(Oid foid, Oid input_collation, Expr *node,
                                       FUNC_MAX_ARGS)));
 
     /* Set up the primary fmgr lookup information */
-    fmgr_info_cxt(foid, &(sexpr->func), sexprCxt);
-    fmgr_info_set_expr((Node *) sexpr->expr, &(sexpr->func));
+    fmgr_info_cxt(foid, &(setExprState->func), sexprCxt);
+    fmgr_info_set_expr((Node *) setExprState->expr, &(setExprState->func));
 
     /* Initialize the function call parameter struct as well */
-    sexpr->fcinfo =
+    setExprState->fcinfo =
             (FunctionCallInfo) palloc(SizeForFunctionCallInfo(numargs));
-    InitFunctionCallInfoData(*sexpr->fcinfo, &(sexpr->func),
+    InitFunctionCallInfoData(*setExprState->fcinfo, &(setExprState->func),
                              numargs,
                              input_collation, NULL, NULL);
 
     /* If function returns set, check if that's allowed by caller */
-    if (sexpr->func.fn_retset && !allowSRF)
+    if (setExprState->func.fn_retset && !allowSRF)
         ereport(ERROR,
                 (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                         errmsg("set-valued function called in context that cannot accept a set"),
@@ -665,16 +674,16 @@ static void init_sexpr(Oid foid, Oid input_collation, Expr *node,
                                                       exprLocation((Node *) node)) : 0));
 
     /* Otherwise, caller should have marked the sexpr correctly */
-    Assert(sexpr->func.fn_retset == sexpr->funcReturnsSet);
+    Assert(setExprState->func.fn_retset == setExprState->funcReturnsSet);
 
     /* If function returns set, prepare expected tuple descriptor */
-    if (sexpr->func.fn_retset && needDescForSRF) {
+    if (setExprState->func.fn_retset && needDescForSRF) {
         TypeFuncClass functypclass;
         Oid funcrettype;
         TupleDesc tupdesc;
         MemoryContext oldcontext;
 
-        functypclass = get_expr_result_type(sexpr->func.fn_expr,
+        functypclass = get_expr_result_type(setExprState->func.fn_expr,
                                             &funcrettype,
                                             &tupdesc);
 
@@ -686,8 +695,8 @@ static void init_sexpr(Oid foid, Oid input_collation, Expr *node,
             /* Composite data type, e.g. a table's row type */
             Assert(tupdesc);
             /* Must copy it out of typcache for safety */
-            sexpr->funcResultDesc = CreateTupleDescCopy(tupdesc);
-            sexpr->funcReturnsTuple = true;
+            setExprState->funcResultDesc = CreateTupleDescCopy(tupdesc);
+            setExprState->funcReturnsTuple = true;
         } else if (functypclass == TYPEFUNC_SCALAR) {
             /* Base data type, i.e. scalar */
             tupdesc = CreateTemplateTupleDesc(1);
@@ -697,25 +706,25 @@ static void init_sexpr(Oid foid, Oid input_collation, Expr *node,
                                funcrettype,
                                -1,
                                0);
-            sexpr->funcResultDesc = tupdesc;
-            sexpr->funcReturnsTuple = false;
+            setExprState->funcResultDesc = tupdesc;
+            setExprState->funcReturnsTuple = false;
         } else if (functypclass == TYPEFUNC_RECORD) {
             /* This will work if function doesn't need an expectedDesc */
-            sexpr->funcResultDesc = NULL;
-            sexpr->funcReturnsTuple = true;
+            setExprState->funcResultDesc = NULL;
+            setExprState->funcReturnsTuple = true;
         } else {
             /* Else, we will fail if function needs an expectedDesc */
-            sexpr->funcResultDesc = NULL;
+            setExprState->funcResultDesc = NULL;
         }
 
         MemoryContextSwitchTo(oldcontext);
     } else
-        sexpr->funcResultDesc = NULL;
+        setExprState->funcResultDesc = NULL;
 
     /* Initialize additional state */
-    sexpr->funcResultStore = NULL;
-    sexpr->funcResultSlot = NULL;
-    sexpr->shutdown_reg = false;
+    setExprState->funcResultStore = NULL;
+    setExprState->funcResultSlot = NULL;
+    setExprState->shutdown_reg = false;
 }
 
 /*

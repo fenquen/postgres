@@ -48,7 +48,7 @@
 
 
 // 默认是 mmap
-int	shared_memory_type = DEFAULT_SHARED_MEMORY_TYPE;
+int shared_memory_type = DEFAULT_SHARED_MEMORY_TYPE;
 
 shmem_startup_hook_type shmem_startup_hook = NULL;
 
@@ -68,11 +68,10 @@ static bool addin_request_allowed = true;
  * libraries containing such calls can be reloaded if needed.)
  */
 void
-RequestAddinShmemSpace(Size size)
-{
-	if (IsUnderPostmaster || !addin_request_allowed)
-		return;					/* too late */
-	total_addin_request = add_size(total_addin_request, size);
+RequestAddinShmemSpace(Size size) {
+    if (IsUnderPostmaster || !addin_request_allowed)
+        return;                    /* too late */
+    total_addin_request = add_size(total_addin_request, size);
 }
 
 
@@ -93,161 +92,161 @@ RequestAddinShmemSpace(Size size)
  */
 void CreateSharedMemoryAndSemaphores(int port) {
     // 它是真正的 PGShmemHeader,是位于共享内存上的
-	PGShmemHeader *pgshmemeHeaderInShareMem = NULL;
+    PGShmemHeader *pgshmemeHeaderInShareMem = NULL;
 
-	if (!IsUnderPostmaster) {
+    if (!IsUnderPostmaster) {
         // 这个是在mmap内存上的 是起始的时候共享内存上的header通过memcpy复制到mmap内存上的
-		PGShmemHeader *pgShmemHeaderInMmapMem;
-		Size		size;
-		int			numSemas;
+        PGShmemHeader *pgShmemHeaderInMmapMem;
+        Size size;
+        int numSemas;
 
-		/* Compute number of semaphores we'll need */
-		numSemas = ProcGlobalSemas();
-		numSemas += SpinlockSemas();
+        /* Compute number of semaphores we'll need */
+        numSemas = ProcGlobalSemas();
+        numSemas += SpinlockSemas();
 
-		/*
-		 * Size of the Postgres shared-memory block is estimated via
-		 * moderately-accurate estimates for the big hogs, plus 100K for the
-		 * stuff that's too small to bother with estimating.
-		 *
-		 * We take some care during this phase to ensure that the total size
-		 * request doesn't overflow size_t.  If this gets through, we don't
-		 * need to be so careful during the actual allocation phase.
-		 */
-		size = 100000;
-		size = add_size(size, PGSemaphoreShmemSize(numSemas));
-		size = add_size(size, SpinlockSemaSize());
-		size = add_size(size, hash_estimate_size(SHMEM_INDEX_SIZE, sizeof(ShmemIndexEnt)));
-		size = add_size(size, BufferShmemSize());
-		size = add_size(size, LockShmemSize());
-		size = add_size(size, PredicateLockShmemSize());
-		size = add_size(size, ProcGlobalShmemSize());
-		size = add_size(size, XLOGShmemSize());
-		size = add_size(size, CLOGShmemSize());
-		size = add_size(size, CommitTsShmemSize());
-		size = add_size(size, SUBTRANSShmemSize());
-		size = add_size(size, TwoPhaseShmemSize());
-		size = add_size(size, BackgroundWorkerShmemSize());
-		size = add_size(size, MultiXactShmemSize());
-		size = add_size(size, LWLockShmemSize());
-		size = add_size(size, ProcArrayShmemSize());
-		size = add_size(size, BackendStatusShmemSize());
-		size = add_size(size, SInvalShmemSize());
-		size = add_size(size, PMSignalShmemSize());
-		size = add_size(size, ProcSignalShmemSize());
-		size = add_size(size, CheckpointerShmemSize());
-		size = add_size(size, AutoVacuumShmemSize());
-		size = add_size(size, ReplicationSlotsShmemSize());
-		size = add_size(size, ReplicationOriginShmemSize());
-		size = add_size(size, WalSndShmemSize());
-		size = add_size(size, WalRcvShmemSize());
-		size = add_size(size, ApplyLauncherShmemSize());
-		size = add_size(size, SnapMgrShmemSize());
-		size = add_size(size, BTreeShmemSize());
-		size = add_size(size, SyncScanShmemSize());
-		size = add_size(size, AsyncShmemSize());
+        /*
+         * Size of the Postgres shared-memory block is estimated via
+         * moderately-accurate estimates for the big hogs, plus 100K for the
+         * stuff that's too small to bother with estimating.
+         *
+         * We take some care during this phase to ensure that the total size
+         * request doesn't overflow size_t.  If this gets through, we don't
+         * need to be so careful during the actual allocation phase.
+         */
+        size = 100000;
+        size = add_size(size, PGSemaphoreShmemSize(numSemas));
+        size = add_size(size, SpinlockSemaSize());
+        size = add_size(size, hash_estimate_size(SHMEM_INDEX_SIZE, sizeof(ShmemIndexEnt)));
+        size = add_size(size, BufferShmemSize());
+        size = add_size(size, LockShmemSize());
+        size = add_size(size, PredicateLockShmemSize());
+        size = add_size(size, ProcGlobalShmemSize());
+        size = add_size(size, XLOGShmemSize());
+        size = add_size(size, CLOGShmemSize());
+        size = add_size(size, CommitTsShmemSize());
+        size = add_size(size, SUBTRANSShmemSize());
+        size = add_size(size, TwoPhaseShmemSize());
+        size = add_size(size, BackgroundWorkerShmemSize());
+        size = add_size(size, MultiXactShmemSize());
+        size = add_size(size, LWLockShmemSize());
+        size = add_size(size, ProcArrayShmemSize());
+        size = add_size(size, BackendStatusShmemSize());
+        size = add_size(size, SInvalShmemSize());
+        size = add_size(size, PMSignalShmemSize());
+        size = add_size(size, ProcSignalShmemSize());
+        size = add_size(size, CheckpointerShmemSize());
+        size = add_size(size, AutoVacuumShmemSize());
+        size = add_size(size, ReplicationSlotsShmemSize());
+        size = add_size(size, ReplicationOriginShmemSize());
+        size = add_size(size, WalSndShmemSize());
+        size = add_size(size, WalRcvShmemSize());
+        size = add_size(size, ApplyLauncherShmemSize());
+        size = add_size(size, SnapMgrShmemSize());
+        size = add_size(size, BTreeShmemSize());
+        size = add_size(size, SyncScanShmemSize());
+        size = add_size(size, AsyncShmemSize());
 #ifdef EXEC_BACKEND
-		size = add_size(size, ShmemBackendArraySize());
+        size = add_size(size, ShmemBackendArraySize());
 #endif
-		/* freeze the addin request size and include it */
-		addin_request_allowed = false;
-		size = add_size(size, total_addin_request);
+        /* freeze the addin request size and include it */
+        addin_request_allowed = false;
+        size = add_size(size, total_addin_request);
 
-		/* might as well round it off to a multiple of a typical page size */
-		size = add_size(size, 8192 - (size % 8192));
+        /* might as well round it off to a multiple of a typical page size */
+        size = add_size(size, 8192 - (size % 8192));
 
-		elog(DEBUG3, "invoking IpcMemoryCreate(size=%zu)", size);
+        elog(DEBUG3, "invoking IpcMemoryCreate(size=%zu)", size);
 
-		// Create the shared memory segment 返回的是mmap内存的头部,mmap内存和共享内存的头部都用PGShmemHeader表达
-		pgShmemHeaderInMmapMem = PGSharedMemoryCreate(size, port, &pgshmemeHeaderInShareMem);
+        // Create the shared memory segment 返回的是mmap内存的头部,mmap内存和共享内存的头部都用PGShmemHeader表达
+        pgShmemHeaderInMmapMem = PGSharedMemoryCreate(size, port, &pgshmemeHeaderInShareMem);
 
-		InitShmemAccess(pgShmemHeaderInMmapMem);
+        InitShmemAccess(pgShmemHeaderInMmapMem);
 
-		// Create semaphores
-		PGReserveSemaphores(numSemas, port);
+        // Create semaphores
+        PGReserveSemaphores(numSemas, port);
 
-		/*
-		 * If spinlocks are disabled, initialize emulation layer (which
-		 * depends on semaphores, so the order is important here).
-		 */
+        /*
+         * If spinlocks are disabled, initialize emulation layer (which
+         * depends on semaphores, so the order is important here).
+         */
 #ifndef HAVE_SPINLOCKS
-		SpinlockSemaInit();
+        SpinlockSemaInit();
 #endif
-	} else {
-		// We are reattaching to an existing shared memory segment This should only be reached in the EXEC_BACKEND case.
+    } else {
+        // We are reattaching to an existing shared memory segment This should only be reached in the EXEC_BACKEND case.
 #ifndef EXEC_BACKEND
-		elog(PANIC, "should be attached to shared memory already");
+        elog(PANIC, "should be attached to shared memory already");
 #endif
-	}
+    }
 
-	// Set up shared memory allocation mechanism
-	if (!IsUnderPostmaster) {
+    // Set up shared memory allocation mechanism
+    if (!IsUnderPostmaster) {
         InitShmemAllocation();
     }
 
-	// Now initialize LWLocks, which do shared memory allocation and are needed for InitShmemIndex.
-	CreateLWLocks();
+    // Now initialize LWLocks, which do shared memory allocation and are needed for InitShmemIndex.
+    CreateLWLocks();
 
-	// Set up shmem.c index hashtable
-	InitShmemIndex();
+    // Set up shmem.c index hashtable
+    InitShmemIndex();
 
-	// Set up xlog, clog, and buffers
-	XLOGShmemInit();
-	CLOGShmemInit();
-	CommitTsShmemInit();
-	SUBTRANSShmemInit();
-	MultiXactShmemInit();
-	InitBufferPool();
+    // Set up xlog, clog, and buffers
+    XLOGShmemInit();
+    CLOGShmemInit();
+    CommitTsShmemInit();
+    SUBTRANSShmemInit();
+    MultiXactShmemInit();
+    InitBufferPool();
 
-	// Set up lock manager
-	InitLocks();
+    // Set up lock manager
+    InitLocks();
 
-	// Set up predicate lock manager
-	InitPredicateLocks();
+    // Set up predicate lock manager
+    InitPredicateLocks();
 
-	// Set up process table
-	if (!IsUnderPostmaster) {
-		InitProcGlobal();
+    // Set up process table
+    if (!IsUnderPostmaster) {
+        InitProcGlobal();
     }
 
-	CreateSharedProcArray();
-	CreateSharedBackendStatus();
-	TwoPhaseShmemInit();
-	BackgroundWorkerShmemInit();
+    CreateSharedProcArray();
+    CreateSharedBackendStatus();
+    TwoPhaseShmemInit();
+    BackgroundWorkerShmemInit();
 
-	// Set up shared-inval messaging
-	CreateSharedInvalidationState();
+    // Set up shared-inval messaging
+    CreateSharedInvalidationState();
 
-	// Set up interprocess signaling mechanisms
-	PMSignalShmemInit();
-	ProcSignalShmemInit();
-	CheckpointerShmemInit();
-	AutoVacuumShmemInit();
-	ReplicationSlotsShmemInit();
-	ReplicationOriginShmemInit();
-	WalSndShmemInit();
-	WalRcvShmemInit();
-	ApplyLauncherShmemInit();
+    // Set up interprocess signaling mechanisms
+    PMSignalShmemInit();
+    ProcSignalShmemInit();
+    CheckpointerShmemInit();
+    AutoVacuumShmemInit();
+    ReplicationSlotsShmemInit();
+    ReplicationOriginShmemInit();
+    WalSndShmemInit();
+    WalRcvShmemInit();
+    ApplyLauncherShmemInit();
 
-	// Set up other modules that need some shared memory space
-	SnapMgrInit();
-	BTreeShmemInit();
-	SyncScanShmemInit();
-	AsyncShmemInit();
+    // Set up other modules that need some shared memory space
+    SnapMgrInit();
+    BTreeShmemInit();
+    SyncScanShmemInit();
+    AsyncShmemInit();
 
 #ifdef EXEC_BACKEND
-	// Alloc the win32 shared backend array
-	if (!IsUnderPostmaster)
-		ShmemBackendArrayAllocation();
+    // Alloc the win32 shared backend array
+    if (!IsUnderPostmaster)
+        ShmemBackendArrayAllocation();
 #endif
 
-	/* Initialize dynamic shared memory facilities. */
-	if (!IsUnderPostmaster) {
-		dsm_postmaster_startup(pgshmemeHeaderInShareMem);
+    /* Initialize dynamic shared memory facilities. */
+    if (!IsUnderPostmaster) {
+        dsm_postmaster_startup(pgshmemeHeaderInShareMem);
     }
 
-	// Now give loadable modules a chance to set up their shmem allocations
-	if (shmem_startup_hook) {
-		shmem_startup_hook();
+    // Now give loadable modules a chance to set up their shmem allocations
+    if (shmem_startup_hook) {
+        shmem_startup_hook();
     }
 }

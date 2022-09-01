@@ -278,10 +278,10 @@ RelOptInfo *build_simple_rel(PlannerInfo *root,
             // Note: 0 is included in range to support whole-row Vars
             relOptInfo->min_attr = 0;
             relOptInfo->max_attr = list_length(rangeTblEntry->eref->colnames);
-            relOptInfo->attr_needed = (Relids *) palloc0(
-                    (relOptInfo->max_attr - relOptInfo->min_attr + 1) * sizeof(Relids));
-            relOptInfo->attr_widths = (int32 *)
-                    palloc0((relOptInfo->max_attr - relOptInfo->min_attr + 1) * sizeof(int32));
+            relOptInfo->attr_needed =
+                    (Relids *) palloc0((relOptInfo->max_attr - relOptInfo->min_attr + 1) * sizeof(Relids));
+            relOptInfo->attr_widths =
+                    (int32 *) palloc0((relOptInfo->max_attr - relOptInfo->min_attr + 1) * sizeof(int32));
             break;
         case RTE_RESULT:
             /* RTE_RESULT has no columns, nor could it have whole-row Var */
@@ -1091,7 +1091,9 @@ static List *subbuild_joinrel_joinlist(RelOptInfo *joinrel,
  * set here (though makeNode should ensure they're zeroes).  We basically only
  * care about fields that are of interest to add_path() and set_cheapest().
  */
-RelOptInfo *fetch_upper_rel(PlannerInfo *root, UpperRelationKind upperRelationKind, Relids relids) {
+RelOptInfo *fetch_upper_rel(PlannerInfo *root,
+                            UpperRelationKind upperRelationKind,
+                            Relids relids) {
     RelOptInfo *upperrel;
 
     /*

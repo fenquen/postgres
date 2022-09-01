@@ -545,7 +545,7 @@ typedef struct EState {
     /* Other working state: */
     MemoryContext es_query_cxt; /* per-query context in which EState lives */
 
-    List *es_tupleTable;    /* List of TupleTableSlots */
+    List *es_tupleTable;    /* List of TupleTableSlot */
 
     uint64 es_processed;    /* # of tuples processed */
 
@@ -943,7 +943,7 @@ typedef struct PlanState {
      * state trees parallel links in the associated plan tree (except for the
      * subPlan list, which does not exist in the plan tree).
      */
-    ExprState *qual;            /* boolean qual condition */
+    ExprState *qual;            /* boolean qual condition 对应了where */
     struct PlanState *lefttree; /* input plan tree(s) */
     struct PlanState *righttree;
 
@@ -1288,7 +1288,6 @@ typedef struct BitmapOrState {
  *				 Scan State Information
  * ----------------------------------------------------------------
  */
-
 /* ----------------
  *	 ScanState information
  *
@@ -1305,9 +1304,9 @@ typedef struct BitmapOrState {
  */
 typedef struct ScanState {
     PlanState ps;                /* its first field is NodeTag */
-    Relation ss_currentRelation;
+    Relation ss_currentRelation; // 当前对应表的oid
     struct TableScanDescData *ss_currentScanDesc;
-    TupleTableSlot *ss_ScanTupleSlot;
+    TupleTableSlot *ss_ScanTupleSlot;// 是ExecInit....Plan()注入
 } ScanState;
 
 /* ----------------

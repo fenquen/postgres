@@ -33,38 +33,24 @@
 #include "executor/nodeSeqscan.h"
 #include "utils/rel.h"
 
-static TupleTableSlot *SeqNext(SeqScanState *node);
+static TupleTableSlot *SeqNext(SeqScanState *seqScanState);
 
 /* ----------------------------------------------------------------
  *						Scan Support
  * ----------------------------------------------------------------
  */
-
-/* ----------------------------------------------------------------
- *		SeqNext
- *
- *		This is a workhorse for ExecSeqScan
- * ----------------------------------------------------------------
- */
-static TupleTableSlot *SeqNext(SeqScanState *node) {
-    TableScanDesc tableScanDesc;
-    EState *estate;
-    ScanDirection scanDirection;
-    TupleTableSlot *tupleTableSlot;
-
+// This is a workhorse for ExecSeqScan
+static TupleTableSlot *SeqNext(SeqScanState *seqScanState) {
     // get information from the estate and scan state
-    tableScanDesc = node->ss.ss_currentScanDesc;
-    estate = node->ss.ps.state;
-    scanDirection = estate->es_direction;
-    tupleTableSlot = node->ss.ss_ScanTupleSlot;
+    TableScanDesc tableScanDesc = seqScanState->ss.ss_currentScanDesc;
+    EState *estate = seqScanState->ss.ps.state;
+    ScanDirection scanDirection = estate->es_direction;
+    TupleTableSlot *tupleTableSlot = seqScanState->ss.ss_ScanTupleSlot;
 
-    if (tableScanDesc == NULL) {
-        /*
-         * We reach here if the scan is not parallel, or if we're serially
-         * executing a scan that was planned to be parallel.
-         */
-        tableScanDesc = table_beginscan(node->ss.ss_currentRelation, estate->es_snapshot, 0, NULL);
-        node->ss.ss_currentScanDesc = tableScanDesc;
+    if (tableScanDesc == NULL) { // 成立
+        // We reach here if the scan is not parallel, or if we're serially executing a scan that was planned to be parallel.
+        tableScanDesc = table_beginscan(seqScanState->ss.ss_currentRelation, estate->es_snapshot, 0, NULL);
+        seqScanState->ss.ss_currentScanDesc = tableScanDesc;
     }
 
     // get the next tuple from the table
@@ -75,94 +61,58 @@ static TupleTableSlot *SeqNext(SeqScanState *node) {
     return NULL;
 }
 
-/*
- * SeqRecheck -- access method routine to recheck a tuple in EvalPlanQual
- */
-static bool
-SeqRecheck(SeqScanState *node, TupleTableSlot *slot)
-{
-	/*
-	 * Note that unlike IndexScan, SeqScan never use keys in heap_beginscan
-	 * (and this is very bad) - so, here we do not check are keys ok or not.
-	 */
-	return true;
+// access method routine to recheck a tuple in EvalPlanQual
+static bool SeqRecheck(SeqScanState *node, TupleTableSlot *slot) {
+    /*
+     * Note that unlike IndexScan, SeqScan never use keys in heap_beginscan
+     * (and this is very bad) - so, here we do not check are keys ok or not.
+     */
+    return true;
 }
 
-/* ----------------------------------------------------------------
- *		ExecSeqScan(node)
- *
- *		Scans the relation sequentially and returns the next qualifying
- *		tuple.
- *		We call the ExecScan() routine and pass it the appropriate
- *		access method functions.
+/* ---------------------------------------------------------------
+ *		scan the relation sequentially and returns the next qualifying tuple.
+ *		We call the ExecScan() routine and pass it the appropriate access method functions.
  * ----------------------------------------------------------------
  */
-static TupleTableSlot *ExecSeqScan(PlanState *pstate) {
-	SeqScanState *seqScanState = castNode(SeqScanState, pstate);
-
-	return ExecScan(&seqScanState->ss,
-					(ExecScanAccessMtd) SeqNext,
-					(ExecScanRecheckMtd) SeqRecheck);
+static TupleTableSlot *ExecSeqScan(PlanState *planState) {
+    SeqScanState *seqScanState = castNode(SeqScanState, planState);
+    return ExecScan(&seqScanState->ss, (ExecScanAccessMtd) SeqNext, (ExecScanRecheckMtd) SeqRecheck);
 }
 
+// ExecInitSeqScan
+SeqScanState *ExecInitSeqScan(SeqScan *seqScan, EState *estate, int eflags) {
+    // once upon a time it was possible to have an outerPlan of a SeqScan, but not any more.
+    Assert(outerPlan(seqScan) == NULL);
+    Assert(innerPlan(seqScan) == NULL);
 
-/* ----------------------------------------------------------------
- *		ExecInitSeqScan
- * ----------------------------------------------------------------
- */
-SeqScanState *
-ExecInitSeqScan(SeqScan *node, EState *estate, int eflags)
-{
-	SeqScanState *scanstate;
+    SeqScanState *seqScanState = makeNode(SeqScanState);
 
-	/*
-	 * Once upon a time it was possible to have an outerPlan of a SeqScan, but
-	 * not any more.
-	 */
-	Assert(outerPlan(node) == NULL);
-	Assert(innerPlan(node) == NULL);
+    seqScanState->ss.ps.plan = (Plan *) seqScan;
+    seqScanState->ss.ps.state = estate;
+    seqScanState->ss.ps.ExecProcNode = ExecSeqScan;
 
-	/*
-	 * create state structure
-	 */
-	scanstate = makeNode(SeqScanState);
-	scanstate->ss.ps.plan = (Plan *) node;
-	scanstate->ss.ps.state = estate;
-	scanstate->ss.ps.ExecProcNode = ExecSeqScan;
+    // Miscellaneous initialization
+    // create expression context for node
+    ExecAssignExprContext(estate, &seqScanState->ss.ps);
 
-	/*
-	 * Miscellaneous initialization
-	 *
-	 * create expression context for node
-	 */
-	ExecAssignExprContext(estate, &scanstate->ss.ps);
+    // open the scan relation
+    seqScanState->ss.ss_currentRelation = ExecOpenScanRelation(estate, seqScan->scanrelid, eflags);
 
-	/*
-	 * open the scan relation
-	 */
-	scanstate->ss.ss_currentRelation =
-		ExecOpenScanRelation(estate,
-							 node->scanrelid,
-							 eflags);
+    // 生成tupleTableSlot注入scanstate的ss_ScanTupleSlot
+    ExecInitScanTupleSlot(estate,
+                          &seqScanState->ss,
+                          RelationGetDescr(seqScanState->ss.ss_currentRelation),
+                          table_slot_callbacks(seqScanState->ss.ss_currentRelation));
 
-	/* and create slot with the appropriate rowtype */
-	ExecInitScanTupleSlot(estate, &scanstate->ss,
-						  RelationGetDescr(scanstate->ss.ss_currentRelation),
-						  table_slot_callbacks(scanstate->ss.ss_currentRelation));
+    // Initialize result type and projection.
+    ExecInitResultTypeTL(&seqScanState->ss.ps);
+    ExecAssignScanProjectionInfo(&seqScanState->ss);
 
-	/*
-	 * Initialize result type and projection.
-	 */
-	ExecInitResultTypeTL(&scanstate->ss.ps);
-	ExecAssignScanProjectionInfo(&scanstate->ss);
+    // initialize child expressions
+    seqScanState->ss.ps.qual = ExecInitQual(seqScan->plan.qual, (PlanState *) seqScanState);
 
-	/*
-	 * initialize child expressions
-	 */
-	scanstate->ss.ps.qual =
-		ExecInitQual(node->plan.qual, (PlanState *) scanstate);
-
-	return scanstate;
+    return seqScanState;
 }
 
 /* ----------------------------------------------------------------
@@ -171,33 +121,31 @@ ExecInitSeqScan(SeqScan *node, EState *estate, int eflags)
  *		frees any storage allocated through C routines.
  * ----------------------------------------------------------------
  */
-void
-ExecEndSeqScan(SeqScanState *node)
-{
-	TableScanDesc scanDesc;
+void ExecEndSeqScan(SeqScanState *node) {
+    TableScanDesc scanDesc;
 
-	/*
-	 * get information from node
-	 */
-	scanDesc = node->ss.ss_currentScanDesc;
+    /*
+     * get information from node
+     */
+    scanDesc = node->ss.ss_currentScanDesc;
 
-	/*
-	 * Free the exprcontext
-	 */
-	ExecFreeExprContext(&node->ss.ps);
+    /*
+     * Free the exprcontext
+     */
+    ExecFreeExprContext(&node->ss.ps);
 
-	/*
-	 * clean out the tuple table
-	 */
-	if (node->ss.ps.ps_ResultTupleSlot)
-		ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
-	ExecClearTuple(node->ss.ss_ScanTupleSlot);
+    /*
+     * clean out the tuple table
+     */
+    if (node->ss.ps.ps_ResultTupleSlot)
+        ExecClearTuple(node->ss.ps.ps_ResultTupleSlot);
+    ExecClearTuple(node->ss.ss_ScanTupleSlot);
 
-	/*
-	 * close heap scan
-	 */
-	if (scanDesc != NULL)
-		table_endscan(scanDesc);
+    /*
+     * close heap scan
+     */
+    if (scanDesc != NULL)
+        table_endscan(scanDesc);
 }
 
 /* ----------------------------------------------------------------
@@ -212,17 +160,16 @@ ExecEndSeqScan(SeqScanState *node)
  * ----------------------------------------------------------------
  */
 void
-ExecReScanSeqScan(SeqScanState *node)
-{
-	TableScanDesc scan;
+ExecReScanSeqScan(SeqScanState *node) {
+    TableScanDesc scan;
 
-	scan = node->ss.ss_currentScanDesc;
+    scan = node->ss.ss_currentScanDesc;
 
-	if (scan != NULL)
-		table_rescan(scan,		/* scan desc */
-					 NULL);		/* new scan keys */
+    if (scan != NULL)
+        table_rescan(scan,        /* scan desc */
+                     NULL);        /* new scan keys */
 
-	ExecScanReScan((ScanState *) node);
+    ExecScanReScan((ScanState *) node);
 }
 
 /* ----------------------------------------------------------------
@@ -239,14 +186,13 @@ ExecReScanSeqScan(SeqScanState *node)
  */
 void
 ExecSeqScanEstimate(SeqScanState *node,
-					ParallelContext *pcxt)
-{
-	EState	   *estate = node->ss.ps.state;
+                    ParallelContext *pcxt) {
+    EState *estate = node->ss.ps.state;
 
-	node->pscan_len = table_parallelscan_estimate(node->ss.ss_currentRelation,
-												  estate->es_snapshot);
-	shm_toc_estimate_chunk(&pcxt->estimator, node->pscan_len);
-	shm_toc_estimate_keys(&pcxt->estimator, 1);
+    node->pscan_len = table_parallelscan_estimate(node->ss.ss_currentRelation,
+                                                  estate->es_snapshot);
+    shm_toc_estimate_chunk(&pcxt->estimator, node->pscan_len);
+    shm_toc_estimate_keys(&pcxt->estimator, 1);
 }
 
 /* ----------------------------------------------------------------
@@ -257,18 +203,17 @@ ExecSeqScanEstimate(SeqScanState *node,
  */
 void
 ExecSeqScanInitializeDSM(SeqScanState *node,
-						 ParallelContext *pcxt)
-{
-	EState	   *estate = node->ss.ps.state;
-	ParallelTableScanDesc pscan;
+                         ParallelContext *pcxt) {
+    EState *estate = node->ss.ps.state;
+    ParallelTableScanDesc pscan;
 
-	pscan = shm_toc_allocate(pcxt->toc, node->pscan_len);
-	table_parallelscan_initialize(node->ss.ss_currentRelation,
-								  pscan,
-								  estate->es_snapshot);
-	shm_toc_insert(pcxt->toc, node->ss.ps.plan->plan_node_id, pscan);
-	node->ss.ss_currentScanDesc =
-		table_beginscan_parallel(node->ss.ss_currentRelation, pscan);
+    pscan = shm_toc_allocate(pcxt->toc, node->pscan_len);
+    table_parallelscan_initialize(node->ss.ss_currentRelation,
+                                  pscan,
+                                  estate->es_snapshot);
+    shm_toc_insert(pcxt->toc, node->ss.ps.plan->plan_node_id, pscan);
+    node->ss.ss_currentScanDesc =
+            table_beginscan_parallel(node->ss.ss_currentRelation, pscan);
 }
 
 /* ----------------------------------------------------------------
@@ -279,12 +224,11 @@ ExecSeqScanInitializeDSM(SeqScanState *node,
  */
 void
 ExecSeqScanReInitializeDSM(SeqScanState *node,
-						   ParallelContext *pcxt)
-{
-	ParallelTableScanDesc pscan;
+                           ParallelContext *pcxt) {
+    ParallelTableScanDesc pscan;
 
-	pscan = node->ss.ss_currentScanDesc->rs_parallel;
-	table_parallelscan_reinitialize(node->ss.ss_currentRelation, pscan);
+    pscan = node->ss.ss_currentScanDesc->rs_parallel;
+    table_parallelscan_reinitialize(node->ss.ss_currentRelation, pscan);
 }
 
 /* ----------------------------------------------------------------
@@ -295,11 +239,10 @@ ExecSeqScanReInitializeDSM(SeqScanState *node,
  */
 void
 ExecSeqScanInitializeWorker(SeqScanState *node,
-							ParallelWorkerContext *pwcxt)
-{
-	ParallelTableScanDesc pscan;
+                            ParallelWorkerContext *pwcxt) {
+    ParallelTableScanDesc pscan;
 
-	pscan = shm_toc_lookup(pwcxt->toc, node->ss.ps.plan->plan_node_id, false);
-	node->ss.ss_currentScanDesc =
-		table_beginscan_parallel(node->ss.ss_currentRelation, pscan);
+    pscan = shm_toc_lookup(pwcxt->toc, node->ss.ps.plan->plan_node_id, false);
+    node->ss.ss_currentScanDesc =
+            table_beginscan_parallel(node->ss.ss_currentRelation, pscan);
 }

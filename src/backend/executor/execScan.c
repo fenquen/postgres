@@ -43,8 +43,7 @@ static inline TupleTableSlot *ExecScanFetch(ScanState *scanState,
 
         /*
          * We are inside an EvalPlanQual recheck.  Return the test tuple if
-         * one is available, after rechecking any access-method-specific
-         * conditions.
+         * one is available, after rechecking any access-method-specific conditions.
          */
         Index scanRelId = ((Scan *) scanState->ps.plan)->scanrelid;
 

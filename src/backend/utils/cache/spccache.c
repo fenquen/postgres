@@ -34,10 +34,9 @@
 /* Hash table for information about each tablespace */
 static HTAB *TableSpaceCacheHash = NULL;
 
-typedef struct
-{
-	Oid			oid;			/* lookup key - must be first */
-	TableSpaceOpts *opts;		/* options, or NULL if none */
+typedef struct {
+    Oid oid;            /* lookup key - must be first */
+    TableSpaceOpts *opts;        /* options, or NULL if none */
 } TableSpaceCacheEntry;
 
 
@@ -51,22 +50,20 @@ typedef struct
  * tablespaces, nor do we expect them to be frequently modified.
  */
 static void
-InvalidateTableSpaceCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
-{
-	HASH_SEQ_STATUS status;
-	TableSpaceCacheEntry *spc;
+InvalidateTableSpaceCacheCallback(Datum arg, int cacheid, uint32 hashvalue) {
+    HASH_SEQ_STATUS status;
+    TableSpaceCacheEntry *spc;
 
-	hash_seq_init(&status, TableSpaceCacheHash);
-	while ((spc = (TableSpaceCacheEntry *) hash_seq_search(&status)) != NULL)
-	{
-		if (spc->opts)
-			pfree(spc->opts);
-		if (hash_search(TableSpaceCacheHash,
-						(void *) &spc->oid,
-						HASH_REMOVE,
-						NULL) == NULL)
-			elog(ERROR, "hash table corrupted");
-	}
+    hash_seq_init(&status, TableSpaceCacheHash);
+    while ((spc = (TableSpaceCacheEntry *) hash_seq_search(&status)) != NULL) {
+        if (spc->opts)
+            pfree(spc->opts);
+        if (hash_search(TableSpaceCacheHash,
+                        (void *) &spc->oid,
+                        HASH_REMOVE,
+                        NULL) == NULL)
+            elog(ERROR, "hash table corrupted");
+    }
 }
 
 /*
@@ -74,26 +71,25 @@ InvalidateTableSpaceCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
  *		Initialize the tablespace cache.
  */
 static void
-InitializeTableSpaceCache(void)
-{
-	HASHCTL		ctl;
+InitializeTableSpaceCache(void) {
+    HASHCTL ctl;
 
-	/* Initialize the hash table. */
-	MemSet(&ctl, 0, sizeof(ctl));
-	ctl.keysize = sizeof(Oid);
-	ctl.entrysize = sizeof(TableSpaceCacheEntry);
-	TableSpaceCacheHash =
-		hash_create("TableSpace cache", 16, &ctl,
-					HASH_ELEM | HASH_BLOBS);
+    /* Initialize the hash table. */
+    MemSet(&ctl, 0, sizeof(ctl));
+    ctl.keysize = sizeof(Oid);
+    ctl.entrysize = sizeof(TableSpaceCacheEntry);
+    TableSpaceCacheHash =
+            hash_create("TableSpace cache", 16, &ctl,
+                        HASH_ELEM | HASH_BLOBS);
 
-	/* Make sure we've initialized CacheMemoryContext. */
-	if (!CacheMemoryContext)
-		CreateCacheMemoryContext();
+    /* Make sure we've initialized CacheMemoryContext. */
+    if (!CacheMemoryContext)
+        CreateCacheMemoryContext();
 
-	/* Watch for invalidation events. */
-	CacheRegisterSyscacheCallback(TABLESPACEOID,
-								  InvalidateTableSpaceCacheCallback,
-								  (Datum) 0);
+    /* Watch for invalidation events. */
+    CacheRegisterSyscacheCallback(TABLESPACEOID,
+                                  InvalidateTableSpaceCacheCallback,
+                                  (Datum) 0);
 }
 
 /*
@@ -103,71 +99,67 @@ InitializeTableSpaceCache(void)
  * Pointers returned by this function should not be stored, since a cache
  * flush will invalidate them.
  */
-static TableSpaceCacheEntry *
-get_tablespace(Oid spcid)
-{
-	TableSpaceCacheEntry *spc;
-	HeapTuple	tp;
-	TableSpaceOpts *opts;
+static TableSpaceCacheEntry *get_tablespace(Oid spcid) {
+    TableSpaceCacheEntry *spc;
+    HeapTuple tp;
+    TableSpaceOpts *opts;
 
-	/*
-	 * Since spcid is always from a pg_class tuple, InvalidOid implies the
-	 * default.
-	 */
-	if (spcid == InvalidOid)
-		spcid = MyDatabaseTableSpace;
+    /*
+     * Since spcid is always from a pg_class tuple, InvalidOid implies the
+     * default.
+     */
+    if (spcid == InvalidOid)
+        spcid = MyDatabaseTableSpace;
 
-	/* Find existing cache entry, if any. */
-	if (!TableSpaceCacheHash)
-		InitializeTableSpaceCache();
-	spc = (TableSpaceCacheEntry *) hash_search(TableSpaceCacheHash,
-											   (void *) &spcid,
-											   HASH_FIND,
-											   NULL);
-	if (spc)
-		return spc;
+    /* Find existing cache entry, if any. */
+    if (!TableSpaceCacheHash)
+        InitializeTableSpaceCache();
+    spc = (TableSpaceCacheEntry *) hash_search(TableSpaceCacheHash,
+                                               (void *) &spcid,
+                                               HASH_FIND,
+                                               NULL);
+    if (spc)
+        return spc;
 
-	/*
-	 * Not found in TableSpace cache.  Check catcache.  If we don't find a
-	 * valid HeapTuple, it must mean someone has managed to request tablespace
-	 * details for a non-existent tablespace.  We'll just treat that case as
-	 * if no options were specified.
-	 */
-	tp = SearchSysCache1(TABLESPACEOID, ObjectIdGetDatum(spcid));
-	if (!HeapTupleIsValid(tp))
-		opts = NULL;
-	else
-	{
-		Datum		datum;
-		bool		isNull;
+    /*
+     * Not found in TableSpace cache.  Check catcache.  If we don't find a
+     * valid HeapTuple, it must mean someone has managed to request tablespace
+     * details for a non-existent tablespace.  We'll just treat that case as
+     * if no options were specified.
+     */
+    tp = SearchSysCache1(TABLESPACEOID, ObjectIdGetDatum(spcid));
+    if (!HeapTupleIsValid(tp))
+        opts = NULL;
+    else {
+        Datum datum;
+        bool isNull;
 
-		datum = SysCacheGetAttr(TABLESPACEOID,
-								tp,
-								Anum_pg_tablespace_spcoptions,
-								&isNull);
-		if (isNull)
-			opts = NULL;
-		else
-		{
-			bytea	   *bytea_opts = tablespace_reloptions(datum, false);
+        datum = SysCacheGetAttr(TABLESPACEOID,
+                                tp,
+                                Anum_pg_tablespace_spcoptions,
+                                &isNull);
+        if (isNull)
+            opts = NULL;
+        else {
+            bytea *bytea_opts = tablespace_reloptions(datum, false);
 
-			opts = MemoryContextAlloc(CacheMemoryContext, VARSIZE(bytea_opts));
-			memcpy(opts, bytea_opts, VARSIZE(bytea_opts));
-		}
-		ReleaseSysCache(tp);
-	}
+            opts = MemoryContextAlloc(CacheMemoryContext, VARSIZE(bytea_opts));
+            memcpy(opts, bytea_opts, VARSIZE(bytea_opts));
+        }
+        ReleaseSysCache(tp);
+    }
 
-	/*
-	 * Now create the cache entry.  It's important to do this only after
-	 * reading the pg_tablespace entry, since doing so could cause a cache
-	 * flush.
-	 */
-	spc = (TableSpaceCacheEntry *) hash_search(TableSpaceCacheHash,
-											   (void *) &spcid,
-											   HASH_ENTER,
-											   NULL);
-	spc->opts = opts;
-	return spc;
+    /*
+     * Now create the cache entry.  It's important to do this only after
+     * reading the pg_tablespace entry, since doing so could cause a cache
+     * flush.
+     */
+    spc = (TableSpaceCacheEntry *) hash_search(TableSpaceCacheHash,
+                                               (void *) &spcid,
+                                               HASH_ENTER,
+                                               NULL);
+    spc->opts = opts;
+    return spc;
 }
 
 /*
@@ -178,30 +170,28 @@ get_tablespace(Oid spcid)
  *		be changed while a SELECT that has used these values for planning
  *		is still executing.
  */
-void
-get_tablespace_page_costs(Oid spcid,
-						  double *spc_random_page_cost,
-						  double *spc_seq_page_cost)
-{
-	TableSpaceCacheEntry *spc = get_tablespace(spcid);
+void get_tablespace_page_costs(Oid tablespaceOid,
+                               double *tablespaceRandomPageCost,
+                               double *tableSpaceSeqPageCost) {
+    TableSpaceCacheEntry *tablespaceCacheEntry = get_tablespace(tablespaceOid);
 
-	Assert(spc != NULL);
+    Assert(tablespaceCacheEntry != NULL);
 
-	if (spc_random_page_cost)
-	{
-		if (!spc->opts || spc->opts->random_page_cost < 0)
-			*spc_random_page_cost = random_page_cost;
-		else
-			*spc_random_page_cost = spc->opts->random_page_cost;
-	}
+    if (tablespaceRandomPageCost) {
+        if (!tablespaceCacheEntry->opts || tablespaceCacheEntry->opts->random_page_cost < 0) {
+            *tablespaceRandomPageCost = random_page_cost;
+        } else {
+            *tablespaceRandomPageCost = tablespaceCacheEntry->opts->random_page_cost;
+        }
+    }
 
-	if (spc_seq_page_cost)
-	{
-		if (!spc->opts || spc->opts->seq_page_cost < 0)
-			*spc_seq_page_cost = seq_page_cost;
-		else
-			*spc_seq_page_cost = spc->opts->seq_page_cost;
-	}
+    if (tableSpaceSeqPageCost) {
+        if (!tablespaceCacheEntry->opts || tablespaceCacheEntry->opts->seq_page_cost < 0) {
+            *tableSpaceSeqPageCost = seq_page_cost;
+        } else {
+            *tableSpaceSeqPageCost = tablespaceCacheEntry->opts->seq_page_cost;
+        }
+    }
 }
 
 /*
@@ -212,12 +202,11 @@ get_tablespace_page_costs(Oid spcid,
  *		is still executing.
  */
 int
-get_tablespace_io_concurrency(Oid spcid)
-{
-	TableSpaceCacheEntry *spc = get_tablespace(spcid);
+get_tablespace_io_concurrency(Oid spcid) {
+    TableSpaceCacheEntry *spc = get_tablespace(spcid);
 
-	if (!spc->opts || spc->opts->effective_io_concurrency < 0)
-		return effective_io_concurrency;
-	else
-		return spc->opts->effective_io_concurrency;
+    if (!spc->opts || spc->opts->effective_io_concurrency < 0)
+        return effective_io_concurrency;
+    else
+        return spc->opts->effective_io_concurrency;
 }

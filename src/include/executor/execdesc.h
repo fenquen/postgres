@@ -18,16 +18,11 @@
 #include "nodes/execnodes.h"
 #include "tcop/dest.h"
 
-
 /* ----------------
- *		query descriptor:
- *
- *	a QueryDesc encapsulates everything that the executor
- *	needs to execute the query.
+ *	a QueryDesc encapsulates everything that the executor needs to execute the query.
  *
  *	For the convenience of SQL-language functions, we also support QueryDescs
- *	containing utility statements; these must not be passed to the executor
- *	however.
+ *	containing utility statements; these must not be passed to the executor however.
  * ---------------------
  */
 typedef struct QueryDesc {

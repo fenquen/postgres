@@ -246,7 +246,8 @@ static PathTarget *make_sort_input_target(PlannerInfo *root,
 static void adjust_paths_for_srfs(PlannerInfo *root, RelOptInfo *rel,
                                   List *targets, List *targets_contain_srfs);
 
-static void add_paths_to_grouping_rel(PlannerInfo *root, RelOptInfo *input_rel,
+static void add_paths_to_grouping_rel(PlannerInfo *root,
+                                      RelOptInfo *input_rel,
                                       RelOptInfo *grouped_rel,
                                       RelOptInfo *partially_grouped_rel,
                                       const AggClauseCosts *agg_costs,
@@ -263,8 +264,7 @@ static RelOptInfo *create_partial_grouping_paths(PlannerInfo *root,
 
 static void gather_grouping_paths(PlannerInfo *root, RelOptInfo *rel);
 
-static bool can_partial_agg(PlannerInfo *root,
-                            const AggClauseCosts *agg_costs);
+static bool can_partial_agg(PlannerInfo *root, const AggClauseCosts *agg_costs);
 
 static void apply_scanjoin_target_to_paths(PlannerInfo *root,
                                            RelOptInfo *rel,
@@ -416,23 +416,25 @@ PlannedStmt *standard_planner(Query *query,
 		 * means the edge cases 0 and 1 have to be treated specially here.  We
 		 * convert 1 to 0 ("all the tuples") and 0 to a very small fraction.
 		 */
-        if (tuple_fraction >= 1.0)
+        if (tuple_fraction >= 1.0) {
             tuple_fraction = 0.0;
-        else if (tuple_fraction <= 0.0)
+        } else if (tuple_fraction <= 0.0) {
             tuple_fraction = 1e-10;
+        }
     } else {
         /* Default assumption is we need all the tuples */
         tuple_fraction = 0.0;
     }
 
-    // primary planning entry point (may recurse for subqueries)  逻辑优化
+    // primary planning entry point (may recurse for subqueries)  逻辑优化 迭代的子查询优化
     // root 的 simple_rel_array 已包含了 relOptInfo
     // relOptInfo 又包含了 pathlist
     PlannerInfo *root = subquery_planner(plannerGlobal, query, NULL, false, tuple_fraction);
 
-    // select best Path and turn it into plan
-    RelOptInfo *final_rel = fetch_upper_rel(root, UPPERREL_FINAL, NULL);
-    Path *bestPath = get_cheapest_fractional_path(final_rel, tuple_fraction);
+    // select best Path and turn it into plan 读取root->upper_rels[upperRelationKind]
+    RelOptInfo *finalRelOptInfo = fetch_upper_rel(root, UPPERREL_FINAL, NULL);
+    // 读取 relOptInfo->cheapest_total_path
+    Path *bestPath = get_cheapest_fractional_path(finalRelOptInfo, tuple_fraction);
     Plan *topPlan = create_plan(root, bestPath);
 
     /*
@@ -492,12 +494,14 @@ PlannedStmt *standard_planner(Query *query,
 	 */
     if (plannerGlobal->paramExecTypes != NIL) {
         Assert(list_length(plannerGlobal->subplans) == list_length(plannerGlobal->subroots));
+
         forboth(lp, plannerGlobal->subplans, lr, plannerGlobal->subroots) {
             Plan *subplan = (Plan *) lfirst(lp);
             PlannerInfo *subroot = lfirst_node(PlannerInfo, lr);
 
             SS_finalize_plan(subroot, subplan);
         }
+
         SS_finalize_plan(root, topPlan);
     }
 
@@ -506,9 +510,12 @@ PlannedStmt *standard_planner(Query *query,
     Assert(plannerGlobal->finalrowmarks == NIL);
     Assert(plannerGlobal->resultRelations == NIL);
     Assert(plannerGlobal->rootResultRelations == NIL);
+
     topPlan = set_plan_references(root, topPlan);
+
     /* ... and the subplans (both regular subplans and initplans) */
     Assert(list_length(plannerGlobal->subplans) == list_length(plannerGlobal->subroots));
+
     forboth(lp, plannerGlobal->subplans, lr, plannerGlobal->subroots) {
         Plan *subplan = (Plan *) lfirst(lp);
         PlannerInfo *subroot = lfirst_node(PlannerInfo, lr);
@@ -558,6 +565,7 @@ PlannedStmt *standard_planner(Query *query,
         if (jit_expressions) {
             plannedStmt->jitFlags |= PGJIT_EXPR;
         }
+
         if (jit_tuple_deforming) {
             plannedStmt->jitFlags |= PGJIT_DEFORM;
         }
@@ -655,13 +663,16 @@ PlannerInfo *subquery_planner(PlannerGlobal *plannerGlobal,
     replace_empty_jointree(query);
 
     /*
+     * 用来 de-correlation
+     *
 	 * Look for ANY and EXISTS SubLinks in WHERE and JOIN/ON clauses, and try
 	 * to transform them into joins.  Note that this step does not descend
 	 * into subqueries; if we pull up any subqueries below, their SubLinks are
 	 * processed just before pulling them up.
 	 */
-    if (query->hasSubLinks)
+    if (query->hasSubLinks) {
         pull_up_sublinks(root);
+    }
 
     /*
 	 * Scan the range table for set-returning functions, and inline them if
@@ -670,6 +681,7 @@ PlannerInfo *subquery_planner(PlannerGlobal *plannerGlobal,
 	 */
     inline_set_returning_functions(root);
 
+    // 子查询上拉
     // check to see if any subqueries in the jointree can be merged into this query.
     pull_up_subqueries(root);
 
@@ -760,14 +772,14 @@ PlannerInfo *subquery_planner(PlannerGlobal *plannerGlobal,
     root->hasPseudoConstantQuals = false;
 
     /*
+     * Query/PlannerInfo 结构解析，常量折叠
+     * targetList是要得的column
 	 * Do expression preprocessing on targetlist and quals, as well as other
 	 * random expressions in the querytree.  Note that we do not need to
 	 * handle sort/group expressions explicitly, because they are actually
 	 * part of the target list.
 	 */
-    query->targetList = (List *) // 要得的column
-            preprocess_expression(root, (Node *) query->targetList,
-                                  EXPRKIND_TARGET);
+    query->targetList = (List *) preprocess_expression(root, (Node *) query->targetList, EXPRKIND_TARGET);
 
     /* Constant-folding might have removed all set-returning functions */
     if (query->hasTargetSRFs)
@@ -2184,7 +2196,7 @@ static void grouping_planner(PlannerInfo *root,
     }
 
     // Now we are prepared to build the final-output upperrel.
-    RelOptInfo *final_rel = fetch_upper_rel(root, UPPERREL_FINAL, NULL);
+    RelOptInfo *finalRelOptInfo = fetch_upper_rel(root, UPPERREL_FINAL, NULL);
 
     /*
 	 * If the input rel is marked consider_parallel and there's nothing that's
@@ -2195,14 +2207,14 @@ static void grouping_planner(PlannerInfo *root,
     if (currentRelOptInfo->consider_parallel &&
         is_parallel_safe(root, query->limitOffset) &&
         is_parallel_safe(root, query->limitCount)) {
-        final_rel->consider_parallel = true;
+        finalRelOptInfo->consider_parallel = true;
     }
 
     // if the current_rel belongs to a single FDW, so does the final_rel.
-    final_rel->serverid = currentRelOptInfo->serverid;
-    final_rel->userid = currentRelOptInfo->userid;
-    final_rel->useridiscurrent = currentRelOptInfo->useridiscurrent;
-    final_rel->fdwroutine = currentRelOptInfo->fdwroutine;
+    finalRelOptInfo->serverid = currentRelOptInfo->serverid;
+    finalRelOptInfo->userid = currentRelOptInfo->userid;
+    finalRelOptInfo->useridiscurrent = currentRelOptInfo->useridiscurrent;
+    finalRelOptInfo->fdwroutine = currentRelOptInfo->fdwroutine;
 
     /*
 	 * Generate paths for the final_rel.  Insert all surviving paths, with
@@ -2219,14 +2231,14 @@ static void grouping_planner(PlannerInfo *root,
 		 * is what goes into the LockRows node.)
 		 */
         if (query->rowMarks) {
-            path = (Path *) create_lockrows_path(root, final_rel, path,
+            path = (Path *) create_lockrows_path(root, finalRelOptInfo, path,
                                                  root->rowMarks,
                                                  assign_special_exec_param(root));
         }
 
         // 应对 select from a limit 1 offset 0
         if (limit_needed(query)) {
-            path = (Path *) create_limit_path(root, final_rel, path,
+            path = (Path *) create_limit_path(root, finalRelOptInfo, path,
                                               query->limitOffset,
                                               query->limitCount,
                                               limitOffset_est,
@@ -2275,7 +2287,7 @@ static void grouping_planner(PlannerInfo *root,
                 rowMarks = root->rowMarks;
             }
 
-            path = (Path *) create_modifytable_path(root, final_rel,
+            path = (Path *) create_modifytable_path(root, finalRelOptInfo,
                                                     query->commandType,
                                                     query->canSetTag,
                                                     query->resultRelation,
@@ -2292,20 +2304,20 @@ static void grouping_planner(PlannerInfo *root,
         }
 
         /* And shove it into final_rel */
-        add_path(final_rel, path);
+        add_path(finalRelOptInfo, path);
     }
 
     /*
 	 * Generate partial paths for final_rel, too, if outer query levels might
 	 * be able to make use of them.
 	 */
-    if (final_rel->consider_parallel && root->query_level > 1 &&
+    if (finalRelOptInfo->consider_parallel && root->query_level > 1 &&
         !limit_needed(query)) {
         Assert(!query->rowMarks && query->commandType == CMD_SELECT);
         foreach(lc, currentRelOptInfo->partial_pathlist) {
             Path *partial_path = (Path *) lfirst(lc);
 
-            add_partial_path(final_rel, partial_path);
+            add_partial_path(finalRelOptInfo, partial_path);
         }
     }
 
@@ -2315,18 +2327,18 @@ static void grouping_planner(PlannerInfo *root,
     extra.offset_est = limitOffset_est;
 
     // If there is an FDW that's responsible for all baserels of the query,let it consider adding ForeignPaths.
-    if (final_rel->fdwroutine &&
-        final_rel->fdwroutine->GetForeignUpperPaths) {
-        final_rel->fdwroutine->GetForeignUpperPaths(root,
-                                                    UPPERREL_FINAL,
-                                                    currentRelOptInfo,
-                                                    final_rel,
-                                                    &extra);
+    if (finalRelOptInfo->fdwroutine &&
+        finalRelOptInfo->fdwroutine->GetForeignUpperPaths) {
+        finalRelOptInfo->fdwroutine->GetForeignUpperPaths(root,
+                                                          UPPERREL_FINAL,
+                                                          currentRelOptInfo,
+                                                          finalRelOptInfo,
+                                                          &extra);
     }
 
     // Let extensions possibly add some more paths
     if (create_upper_paths_hook)
-        (*create_upper_paths_hook)(root, UPPERREL_FINAL, currentRelOptInfo, final_rel, &extra);
+        (*create_upper_paths_hook)(root, UPPERREL_FINAL, currentRelOptInfo, finalRelOptInfo, &extra);
 
     /* Note: currently, we leave it to callers to do set_cheapest() */
 }

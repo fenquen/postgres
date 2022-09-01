@@ -22,11 +22,10 @@
  * storage on the page.  By convention, lp_len == 0 in every line pointer
  * that does not have storage, independently of its lp_flags state.
  */
-typedef struct ItemIdData
-{
-	unsigned	lp_off:15,		/* offset to tuple (from start of page) */
-				lp_flags:2,		/* state of line pointer, see below */
-				lp_len:15;		/* byte length of tuple */
+typedef struct ItemIdData {// https://zhmin.github.io/posts/postgresql-buffer-page/
+    unsigned lp_off: 15,        /* offset to tuple (from start of page) */
+    lp_flags: 2,        /* state of line pointer, see below */
+    lp_len: 15;        /* byte length of tuple */
 } ItemIdData;
 
 typedef ItemIdData *ItemId;
@@ -35,10 +34,10 @@ typedef ItemIdData *ItemId;
  * lp_flags has these possible states.  An UNUSED line pointer is available
  * for immediate re-use, the other states are not.
  */
-#define LP_UNUSED		0		/* unused (should always have lp_len=0) */
-#define LP_NORMAL		1		/* used (should always have lp_len>0) */
-#define LP_REDIRECT		2		/* HOT redirect (should have lp_len=0) */
-#define LP_DEAD			3		/* dead, may or may not have storage */
+#define LP_UNUSED        0        /* unused (should always have lp_len=0) */
+#define LP_NORMAL        1        /* used (should always have lp_len>0) */
+#define LP_REDIRECT        2        /* HOT redirect (should have lp_len=0) */
+#define LP_DEAD            3        /* dead, may or may not have storage */
 
 /*
  * Item offsets and lengths are represented by these types when
@@ -83,42 +82,42 @@ typedef uint16 ItemLength;
  *		True iff item identifier is valid.
  *		This is a pretty weak test, probably useful only in Asserts.
  */
-#define ItemIdIsValid(itemId)	PointerIsValid(itemId)
+#define ItemIdIsValid(itemId)    PointerIsValid(itemId)
 
 /*
  * ItemIdIsUsed
  *		True iff item identifier is in use.
  */
 #define ItemIdIsUsed(itemId) \
-	((itemId)->lp_flags != LP_UNUSED)
+    ((itemId)->lp_flags != LP_UNUSED)
 
 /*
  * ItemIdIsNormal
  *		True iff item identifier is in state NORMAL.
  */
 #define ItemIdIsNormal(itemId) \
-	((itemId)->lp_flags == LP_NORMAL)
+    ((itemId)->lp_flags == LP_NORMAL)
 
 /*
  * ItemIdIsRedirected
  *		True iff item identifier is in state REDIRECT.
  */
 #define ItemIdIsRedirected(itemId) \
-	((itemId)->lp_flags == LP_REDIRECT)
+    ((itemId)->lp_flags == LP_REDIRECT)
 
 /*
  * ItemIdIsDead
  *		True iff item identifier is in state DEAD.
  */
 #define ItemIdIsDead(itemId) \
-	((itemId)->lp_flags == LP_DEAD)
+    ((itemId)->lp_flags == LP_DEAD)
 
 /*
  * ItemIdHasStorage
  *		True iff item identifier has associated storage.
  */
 #define ItemIdHasStorage(itemId) \
-	((itemId)->lp_len != 0)
+    ((itemId)->lp_len != 0)
 
 /*
  * ItemIdSetUnused
@@ -127,9 +126,9 @@ typedef uint16 ItemLength;
  */
 #define ItemIdSetUnused(itemId) \
 ( \
-	(itemId)->lp_flags = LP_UNUSED, \
-	(itemId)->lp_off = 0, \
-	(itemId)->lp_len = 0 \
+    (itemId)->lp_flags = LP_UNUSED, \
+    (itemId)->lp_off = 0, \
+    (itemId)->lp_len = 0 \
 )
 
 /*
@@ -139,9 +138,9 @@ typedef uint16 ItemLength;
  */
 #define ItemIdSetNormal(itemId, off, len) \
 ( \
-	(itemId)->lp_flags = LP_NORMAL, \
-	(itemId)->lp_off = (off), \
-	(itemId)->lp_len = (len) \
+    (itemId)->lp_flags = LP_NORMAL, \
+    (itemId)->lp_off = (off), \
+    (itemId)->lp_len = (len) \
 )
 
 /*
@@ -151,9 +150,9 @@ typedef uint16 ItemLength;
  */
 #define ItemIdSetRedirect(itemId, link) \
 ( \
-	(itemId)->lp_flags = LP_REDIRECT, \
-	(itemId)->lp_off = (link), \
-	(itemId)->lp_len = 0 \
+    (itemId)->lp_flags = LP_REDIRECT, \
+    (itemId)->lp_off = (link), \
+    (itemId)->lp_len = 0 \
 )
 
 /*
@@ -163,9 +162,9 @@ typedef uint16 ItemLength;
  */
 #define ItemIdSetDead(itemId) \
 ( \
-	(itemId)->lp_flags = LP_DEAD, \
-	(itemId)->lp_off = 0, \
-	(itemId)->lp_len = 0 \
+    (itemId)->lp_flags = LP_DEAD, \
+    (itemId)->lp_off = 0, \
+    (itemId)->lp_len = 0 \
 )
 
 /*
@@ -178,7 +177,7 @@ typedef uint16 ItemLength;
  */
 #define ItemIdMarkDead(itemId) \
 ( \
-	(itemId)->lp_flags = LP_DEAD \
+    (itemId)->lp_flags = LP_DEAD \
 )
 
-#endif							/* ITEMID_H */
+#endif                            /* ITEMID_H */

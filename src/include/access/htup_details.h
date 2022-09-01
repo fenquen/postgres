@@ -119,8 +119,8 @@
  */
 
 typedef struct HeapTupleFields {
-    TransactionId t_xmin;        /* inserting xact ID */
-    TransactionId t_xmax;        /* deleting or locking xact ID */
+    TransactionId t_xmin;        /* inserting transaction ID */
+    TransactionId t_xmax;        /* deleting or locking transaction ID */
 
     union {
         CommandId t_cid;        /* inserting or deleting command ID, or both */
@@ -160,7 +160,7 @@ struct HeapTupleHeaderData {
     uint16 t_infomask2;    /* number of attributes + various flags */
 
 #define FIELDNO_HEAPTUPLEHEADERDATA_INFOMASK 3
-    uint16 t_infomask;        /* various flag bits, see below */
+    uint16 t_infomask;        /* various flag bits, see below 和 SetHintBits() */
 
 #define FIELDNO_HEAPTUPLEHEADERDATA_HOFF 4
     uint8 t_hoff;            /* sizeof header incl. bitmap, padding */
@@ -192,8 +192,7 @@ struct HeapTupleHeaderData {
 /* xmax is a shared locker */
 #define HEAP_XMAX_SHR_LOCK    (HEAP_XMAX_EXCL_LOCK | HEAP_XMAX_KEYSHR_LOCK)
 
-#define HEAP_LOCK_MASK    (HEAP_XMAX_SHR_LOCK | HEAP_XMAX_EXCL_LOCK | \
-                         HEAP_XMAX_KEYSHR_LOCK)
+#define HEAP_LOCK_MASK    (HEAP_XMAX_SHR_LOCK | HEAP_XMAX_EXCL_LOCK | HEAP_XMAX_KEYSHR_LOCK)
 #define HEAP_XMIN_COMMITTED        0x0100    /* t_xmin committed */
 #define HEAP_XMIN_INVALID        0x0200    /* t_xmin invalid/aborted */
 #define HEAP_XMIN_FROZEN        (HEAP_XMIN_COMMITTED|HEAP_XMIN_INVALID)
@@ -201,12 +200,8 @@ struct HeapTupleHeaderData {
 #define HEAP_XMAX_INVALID        0x0800    /* t_xmax invalid/aborted */
 #define HEAP_XMAX_IS_MULTI        0x1000    /* t_xmax is a MultiXactId */
 #define HEAP_UPDATED            0x2000    /* this is UPDATEd version of row */
-#define HEAP_MOVED_OFF            0x4000    /* moved to another place by pre-9.0
-										 * VACUUM FULL; kept for binary
-										 * upgrade support */
-#define HEAP_MOVED_IN            0x8000    /* moved from another place by pre-9.0
-										 * VACUUM FULL; kept for binary
-										 * upgrade support */
+#define HEAP_MOVED_OFF            0x4000    /* moved to another place by pre-9.0 VACUUM FULL; kept for binary upgrade support */
+#define HEAP_MOVED_IN            0x8000    /* moved from another place by pre-9.0 VACUUM FULL; kept for binary upgrade support */
 #define HEAP_MOVED (HEAP_MOVED_OFF | HEAP_MOVED_IN)
 
 #define HEAP_XACT_MASK            0xFFF0    /* visibility-related bits */

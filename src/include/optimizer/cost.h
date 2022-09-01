@@ -68,8 +68,8 @@ extern PGDLLIMPORT int constraint_exclusion;
 
 extern double index_pages_fetched(double tuples_fetched, BlockNumber pages,
 								  double index_pages, PlannerInfo *root);
-extern void cost_seqscan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
-						 ParamPathInfo *param_info);
+extern void cost_seqscan(Path *path, PlannerInfo *root, RelOptInfo *relOptInfo,
+						 ParamPathInfo *paramPathInfo);
 extern void cost_samplescan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 							ParamPathInfo *param_info);
 extern void cost_index(IndexPath *path, PlannerInfo *root,

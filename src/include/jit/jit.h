@@ -86,9 +86,9 @@ extern bool jit_dump_bitcode;
 extern bool jit_expressions;
 extern bool jit_profiling_support;
 extern bool jit_tuple_deforming;
-extern double jit_above_cost;
-extern double jit_inline_above_cost;
-extern double jit_optimize_above_cost;
+extern double jit_above_cost; // 对应 PGJIT_PERFORM
+extern double jit_inline_above_cost; // 对应 PGJIT_OPT3
+extern double jit_optimize_above_cost; // 对应 PGJIT_INLINE
 
 
 extern void jit_reset_after_error(void);

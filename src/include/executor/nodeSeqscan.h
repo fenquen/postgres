@@ -17,7 +17,7 @@
 #include "access/parallel.h"
 #include "nodes/execnodes.h"
 
-extern SeqScanState *ExecInitSeqScan(SeqScan *node, EState *estate, int eflags);
+extern SeqScanState *ExecInitSeqScan(SeqScan *seqScan, EState *estate, int eflags);
 extern void ExecEndSeqScan(SeqScanState *node);
 extern void ExecReScanSeqScan(SeqScanState *node);
 

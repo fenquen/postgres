@@ -218,45 +218,43 @@ clamp_row_est(double nrows) {
  * 'baserel' is the relation to be scanned
  * 'param_info' is the ParamPathInfo if this is a parameterized path, else NULL
  */
-void
-cost_seqscan(Path *path, PlannerInfo *root,
-             RelOptInfo *baserel, ParamPathInfo *param_info) {
-    Cost startup_cost = 0;
-    Cost cpu_run_cost;
-    Cost disk_run_cost;
-    double spc_seq_page_cost;
-    QualCost qpqual_cost;
-    Cost cpu_per_tuple;
-
+void cost_seqscan(Path *path,
+                  PlannerInfo *root,
+                  RelOptInfo *relOptInfo,
+                  ParamPathInfo *paramPathInfo) {
     /* Should only be applied to base relations */
-    Assert(baserel->relid > 0);
-    Assert(baserel->rtekind == RTE_RELATION);
+    Assert(relOptInfo->relid > 0);
+    Assert(relOptInfo->rtekind == RTE_RELATION);
 
     /* Mark the path with the correct row estimate */
-    if (param_info)
-        path->rows = param_info->ppi_rows;
-    else
-        path->rows = baserel->rows;
+    if (paramPathInfo) {
+        path->rows = paramPathInfo->ppi_rows;
+    } else {
+        path->rows = relOptInfo->rows;
+    }
 
-    if (!enable_seqscan)
+    Cost startup_cost = 0;
+
+    if (!enable_seqscan) {
         startup_cost += disable_cost;
+    }
 
     /* fetch estimated page cost for tablespace containing table */
-    get_tablespace_page_costs(baserel->reltablespace,
-                              NULL,
-                              &spc_seq_page_cost);
+    double spc_seq_page_cost;
+    get_tablespace_page_costs(relOptInfo->reltablespace, NULL, &spc_seq_page_cost);
 
-    /*
-	 * disk costs
-	 */
-    disk_run_cost = spc_seq_page_cost * baserel->pages;
+    // disk cost
+    Cost disk_run_cost = spc_seq_page_cost * relOptInfo->pages;
 
-    /* CPU costs */
-    get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
+    // CPU cost
+    QualCost qpqual_cost;
+    get_restriction_qual_cost(root, relOptInfo, paramPathInfo, &qpqual_cost);
 
     startup_cost += qpqual_cost.startup;
-    cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
-    cpu_run_cost = cpu_per_tuple * baserel->tuples;
+
+    Cost cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
+    Cost cpu_run_cost = cpu_per_tuple * relOptInfo->tuples;
+
     /* tlist eval costs are paid per output row, not per tuple scanned */
     startup_cost += path->pathtarget->cost.startup;
     cpu_run_cost += path->pathtarget->cost.per_tuple * path->rows;
@@ -478,9 +476,10 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
  * number of returned tuples, but they won't reduce the number of tuples
  * we have to fetch from the table, so they don't reduce the scan cost.
  */
-void
-cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
-           bool partial_path) {
+void cost_index(IndexPath *path,
+                PlannerInfo *root,
+                double loop_count,
+                bool partial_path) {
     IndexOptInfo *index = path->indexinfo;
     RelOptInfo *baserel = index->rel;
     bool indexonly = (path->path.pathtype == T_IndexOnlyScan);
@@ -5212,8 +5211,7 @@ page_size(double tuples, int width) {
  * Estimate the fraction of the work that each worker will do given the
  * number of workers budgeted for the path.
  */
-static double
-get_parallel_divisor(Path *path) {
+static double get_parallel_divisor(Path *path) {
     double parallel_divisor = path->parallel_workers;
 
     /*
@@ -5228,11 +5226,10 @@ get_parallel_divisor(Path *path) {
 	 * parallel plan.
 	 */
     if (parallel_leader_participation) {
-        double leader_contribution;
-
-        leader_contribution = 1.0 - (0.3 * path->parallel_workers);
-        if (leader_contribution > 0)
+        double leader_contribution = 1.0 - (0.3 * path->parallel_workers);
+        if (leader_contribution > 0) {
             parallel_divisor += leader_contribution;
+        }
     }
 
     return parallel_divisor;
