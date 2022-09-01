@@ -413,8 +413,7 @@ index_parallelscan_estimate(Relation indexRelation, Snapshot snapshot) {
  * initialize am specific information.  Call this just once in the leader
  * process; then, individual workers attach via index_beginscan_parallel.
  */
-void
-index_parallelscan_initialize(Relation heapRelation, Relation indexRelation,
+void index_parallelscan_initialize(Relation heapRelation, Relation indexRelation,
                               Snapshot snapshot, ParallelIndexScanDesc target) {
     Size offset;
 
