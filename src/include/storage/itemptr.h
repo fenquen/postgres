@@ -33,18 +33,17 @@
  * possible.  If your compiler can't be made to play along, you'll waste
  * lots of space.
  */
-typedef struct ItemPointerData
-{
-	BlockIdData ip_blkid;
-	OffsetNumber ip_posid;
+typedef struct ItemPointerData {
+    BlockIdData ip_blkid;
+    OffsetNumber ip_posid;
 }
 
 /* If compiler understands packed and aligned pragmas, use those */
 #if defined(pg_attribute_packed) && defined(pg_attribute_aligned)
-			pg_attribute_packed()
-			pg_attribute_aligned(2)
+    pg_attribute_packed()
+    pg_attribute_aligned(2)
 #endif
-ItemPointerData;
+        ItemPointerData;
 
 typedef ItemPointerData *ItemPointer;
 
@@ -60,14 +59,14 @@ typedef ItemPointerData *ItemPointer;
  * that it can be distinguished from a valid offset number in a regular item
  * pointer.
  */
-#define SpecTokenOffsetNumber		0xfffe
+#define SpecTokenOffsetNumber        0xfffe
 
 /*
  * When a tuple is moved to a different partition by UPDATE, the t_ctid of
  * the old tuple version is set to this magic value.
  */
 #define MovedPartitionsOffsetNumber 0xfffd
-#define MovedPartitionsBlockNumber	InvalidBlockNumber
+#define MovedPartitionsBlockNumber    InvalidBlockNumber
 
 
 /* ----------------
@@ -80,7 +79,7 @@ typedef ItemPointerData *ItemPointer;
  *		True iff the disk item pointer is not NULL.
  */
 #define ItemPointerIsValid(pointer) \
-	((bool) (PointerIsValid(pointer) && ((pointer)->ip_posid != 0)))
+    ((bool) (PointerIsValid(pointer) && ((pointer)->ip_posid != 0)))
 
 /*
  * ItemPointerGetBlockNumberNoCheck
@@ -88,7 +87,7 @@ typedef ItemPointerData *ItemPointer;
  */
 #define ItemPointerGetBlockNumberNoCheck(pointer) \
 ( \
-	BlockIdGetBlockNumber(&(pointer)->ip_blkid) \
+    BlockIdGetBlockNumber(&(pointer)->ip_blkid) \
 )
 
 /*
@@ -97,8 +96,8 @@ typedef ItemPointerData *ItemPointer;
  */
 #define ItemPointerGetBlockNumber(pointer) \
 ( \
-	AssertMacro(ItemPointerIsValid(pointer)), \
-	ItemPointerGetBlockNumberNoCheck(pointer) \
+    AssertMacro(ItemPointerIsValid(pointer)), \
+    ItemPointerGetBlockNumberNoCheck(pointer) \
 )
 
 /*
@@ -107,7 +106,7 @@ typedef ItemPointerData *ItemPointer;
  */
 #define ItemPointerGetOffsetNumberNoCheck(pointer) \
 ( \
-	(pointer)->ip_posid \
+    (pointer)->ip_posid \
 )
 
 /*
@@ -116,8 +115,8 @@ typedef ItemPointerData *ItemPointer;
  */
 #define ItemPointerGetOffsetNumber(pointer) \
 ( \
-	AssertMacro(ItemPointerIsValid(pointer)), \
-	ItemPointerGetOffsetNumberNoCheck(pointer) \
+    AssertMacro(ItemPointerIsValid(pointer)), \
+    ItemPointerGetOffsetNumberNoCheck(pointer) \
 )
 
 /*
@@ -126,9 +125,9 @@ typedef ItemPointerData *ItemPointer;
  */
 #define ItemPointerSet(pointer, blockNumber, offNum) \
 ( \
-	AssertMacro(PointerIsValid(pointer)), \
-	BlockIdSet(&((pointer)->ip_blkid), blockNumber), \
-	(pointer)->ip_posid = offNum \
+    AssertMacro(PointerIsValid(pointer)), \
+    BlockIdSet(&((pointer)->ip_blkid), blockNumber), \
+    (pointer)->ip_posid = offNum \
 )
 
 /*
@@ -137,8 +136,8 @@ typedef ItemPointerData *ItemPointer;
  */
 #define ItemPointerSetBlockNumber(pointer, blockNumber) \
 ( \
-	AssertMacro(PointerIsValid(pointer)), \
-	BlockIdSet(&((pointer)->ip_blkid), blockNumber) \
+    AssertMacro(PointerIsValid(pointer)), \
+    BlockIdSet(&((pointer)->ip_blkid), blockNumber) \
 )
 
 /*
@@ -147,8 +146,8 @@ typedef ItemPointerData *ItemPointer;
  */
 #define ItemPointerSetOffsetNumber(pointer, offsetNumber) \
 ( \
-	AssertMacro(PointerIsValid(pointer)), \
-	(pointer)->ip_posid = (offsetNumber) \
+    AssertMacro(PointerIsValid(pointer)), \
+    (pointer)->ip_posid = (offsetNumber) \
 )
 
 /*
@@ -160,9 +159,9 @@ typedef ItemPointerData *ItemPointer;
  */
 #define ItemPointerCopy(fromPointer, toPointer) \
 ( \
-	AssertMacro(PointerIsValid(toPointer)), \
-	AssertMacro(PointerIsValid(fromPointer)), \
-	*(toPointer) = *(fromPointer) \
+    AssertMacro(PointerIsValid(toPointer)), \
+    AssertMacro(PointerIsValid(fromPointer)), \
+    *(toPointer) = *(fromPointer) \
 )
 
 /*
@@ -171,9 +170,9 @@ typedef ItemPointerData *ItemPointer;
  */
 #define ItemPointerSetInvalid(pointer) \
 ( \
-	AssertMacro(PointerIsValid(pointer)), \
-	BlockIdSet(&((pointer)->ip_blkid), InvalidBlockNumber), \
-	(pointer)->ip_posid = InvalidOffsetNumber \
+    AssertMacro(PointerIsValid(pointer)), \
+    BlockIdSet(&((pointer)->ip_blkid), InvalidBlockNumber), \
+    (pointer)->ip_posid = InvalidOffsetNumber \
 )
 
 /*
@@ -183,8 +182,8 @@ typedef ItemPointerData *ItemPointer;
  */
 #define ItemPointerIndicatesMovedPartitions(pointer) \
 ( \
-	ItemPointerGetOffsetNumber(pointer) == MovedPartitionsOffsetNumber && \
-	ItemPointerGetBlockNumberNoCheck(pointer) == MovedPartitionsBlockNumber \
+    ItemPointerGetOffsetNumber(pointer) == MovedPartitionsOffsetNumber && \
+    ItemPointerGetBlockNumberNoCheck(pointer) == MovedPartitionsBlockNumber \
 )
 
 /*
@@ -193,7 +192,7 @@ typedef ItemPointerData *ItemPointer;
  *		different partition.
  */
 #define ItemPointerSetMovedPartitions(pointer) \
-	ItemPointerSet((pointer), MovedPartitionsBlockNumber, MovedPartitionsOffsetNumber)
+    ItemPointerSet((pointer), MovedPartitionsBlockNumber, MovedPartitionsOffsetNumber)
 
 /* ----------------
  *		externs
@@ -201,6 +200,7 @@ typedef ItemPointerData *ItemPointer;
  */
 
 extern bool ItemPointerEquals(ItemPointer pointer1, ItemPointer pointer2);
+
 extern int32 ItemPointerCompare(ItemPointer arg1, ItemPointer arg2);
 
-#endif							/* ITEMPTR_H */
+#endif                            /* ITEMPTR_H */

@@ -30,9 +30,9 @@
  */
 typedef uint32 BlockNumber;
 
-#define InvalidBlockNumber		((BlockNumber) 0xFFFFFFFF)
+#define InvalidBlockNumber        ((BlockNumber) 0xFFFFFFFF)
 
-#define MaxBlockNumber			((BlockNumber) 0xFFFFFFFE)
+#define MaxBlockNumber            ((BlockNumber) 0xFFFFFFFE)
 
 /*
  * BlockId:
@@ -50,13 +50,12 @@ typedef uint32 BlockNumber;
  * page and the header of each heap or index tuple, so it doesn't seem
  * wise to change this without good reason.
  */
-typedef struct BlockIdData
-{
-	uint16		bi_hi;
-	uint16		bi_lo;
+typedef struct BlockIdData {
+    uint16 bi_hi;
+    uint16 bi_lo;
 } BlockIdData;
 
-typedef BlockIdData *BlockId;	/* block identifier */
+typedef BlockIdData *BlockId;    /* block identifier */
 
 /* ----------------
  *		support macros
@@ -68,14 +67,14 @@ typedef BlockIdData *BlockId;	/* block identifier */
  *		True iff blockNumber is valid.
  */
 #define BlockNumberIsValid(blockNumber) \
-	((bool) ((BlockNumber) (blockNumber) != InvalidBlockNumber))
+    ((bool) ((BlockNumber) (blockNumber) != InvalidBlockNumber))
 
 /*
  * BlockIdIsValid
  *		True iff the block identifier is valid.
  */
 #define BlockIdIsValid(blockId) \
-	((bool) PointerIsValid(blockId))
+    ((bool) PointerIsValid(blockId))
 
 /*
  * BlockIdSet
@@ -83,9 +82,9 @@ typedef BlockIdData *BlockId;	/* block identifier */
  */
 #define BlockIdSet(blockId, blockNumber) \
 ( \
-	AssertMacro(PointerIsValid(blockId)), \
-	(blockId)->bi_hi = (blockNumber) >> 16, \
-	(blockId)->bi_lo = (blockNumber) & 0xffff \
+    AssertMacro(PointerIsValid(blockId)), \
+    (blockId)->bi_hi = (blockNumber) >> 16, \
+    (blockId)->bi_lo = (blockNumber) & 0xffff \
 )
 
 /*
@@ -94,10 +93,10 @@ typedef BlockIdData *BlockId;	/* block identifier */
  */
 #define BlockIdCopy(toBlockId, fromBlockId) \
 ( \
-	AssertMacro(PointerIsValid(toBlockId)), \
-	AssertMacro(PointerIsValid(fromBlockId)), \
-	(toBlockId)->bi_hi = (fromBlockId)->bi_hi, \
-	(toBlockId)->bi_lo = (fromBlockId)->bi_lo \
+    AssertMacro(PointerIsValid(toBlockId)), \
+    AssertMacro(PointerIsValid(fromBlockId)), \
+    (toBlockId)->bi_hi = (fromBlockId)->bi_hi, \
+    (toBlockId)->bi_lo = (fromBlockId)->bi_lo \
 )
 
 /*
@@ -105,8 +104,8 @@ typedef BlockIdData *BlockId;	/* block identifier */
  *		Check for block number equality.
  */
 #define BlockIdEquals(blockId1, blockId2) \
-	((blockId1)->bi_hi == (blockId2)->bi_hi && \
-	 (blockId1)->bi_lo == (blockId2)->bi_lo)
+    ((blockId1)->bi_hi == (blockId2)->bi_hi && \
+     (blockId1)->bi_lo == (blockId2)->bi_lo)
 
 /*
  * BlockIdGetBlockNumber
@@ -114,8 +113,8 @@ typedef BlockIdData *BlockId;	/* block identifier */
  */
 #define BlockIdGetBlockNumber(blockId) \
 ( \
-	AssertMacro(BlockIdIsValid(blockId)), \
-	((((BlockNumber) (blockId)->bi_hi) << 16) | ((BlockNumber) (blockId)->bi_lo)) \
+    AssertMacro(BlockIdIsValid(blockId)), \
+    ((((BlockNumber) (blockId)->bi_hi) << 16) | ((BlockNumber) (blockId)->bi_lo)) \
 )
 
-#endif							/* BLOCK_H */
+#endif                            /* BLOCK_H */

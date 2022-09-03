@@ -24,22 +24,21 @@
 typedef void *Block;
 
 /* Possible arguments for GetAccessStrategy() */
-typedef enum BufferAccessStrategyType
-{
-	BAS_NORMAL,					/* Normal random access */
-	BAS_BULKREAD,				/* Large read-only scan (hint bit updates are
+typedef enum BufferAccessStrategyType {
+    BAS_NORMAL,                    /* Normal random access */
+    BAS_BULKREAD,                /* Large read-only scan (hint bit updates are
 								 * ok) */
-	BAS_BULKWRITE,				/* Large multi-block write (e.g. COPY IN) */
-	BAS_VACUUM					/* VACUUM */
+    BAS_BULKWRITE,                /* Large multi-block write (e.g. COPY IN) */
+    BAS_VACUUM                    /* VACUUM */
 } BufferAccessStrategyType;
 
 /* Possible modes for ReadBufferExtended() */
 typedef enum {
-	RBM_NORMAL,					/* Normal read */
-	RBM_ZERO_AND_LOCK,			/* Don't read from disk, caller will initialize. Also locks the page. */
-	RBM_ZERO_AND_CLEANUP_LOCK,	/* Like RBM_ZERO_AND_LOCK, but locks the page in "cleanup" mode */
-	RBM_ZERO_ON_ERROR,			/* Read, but return an all-zeros page on error */
-	RBM_NORMAL_NO_LOG			/* Don't log page as invalid during WAL replay; otherwise same as RBM_NORMAL */
+    RBM_NORMAL,                    /* Normal read */
+    RBM_ZERO_AND_LOCK,            /* Don't read from disk, caller will initialize. Also locks the page. */
+    RBM_ZERO_AND_CLEANUP_LOCK,    /* Like RBM_ZERO_AND_LOCK, but locks the page in "cleanup" mode */
+    RBM_ZERO_ON_ERROR,            /* Read, but return an all-zeros page on error */
+    RBM_NORMAL_NO_LOG            /* Don't log page as invalid during WAL replay; otherwise same as RBM_NORMAL */
 } ReadBufferMode;
 
 /* forward declared, to avoid having to expose buf_internals.h here */
@@ -50,20 +49,20 @@ extern PGDLLIMPORT int NBuffers;
 
 /* in bufmgr.c */
 extern bool zero_damaged_pages;
-extern int	bgwriter_lru_maxpages;
+extern int bgwriter_lru_maxpages;
 extern double bgwriter_lru_multiplier;
 extern bool track_io_timing;
-extern int	target_prefetch_pages;
+extern int target_prefetch_pages;
 
-extern int	checkpoint_flush_after;
-extern int	backend_flush_after;
-extern int	bgwriter_flush_after;
+extern int checkpoint_flush_after;
+extern int backend_flush_after;
+extern int bgwriter_flush_after;
 
 /* in buf_init.c */
 extern PGDLLIMPORT char *BufferBlocks;
 
 /* in guc.c */
-extern int	effective_io_concurrency;
+extern int effective_io_concurrency;
 
 /* in localbuf.c */
 extern PGDLLIMPORT int NLocBuffer;
@@ -75,14 +74,14 @@ extern PGDLLIMPORT int32 *LocalRefCount;
 
 // grow the file to get a new page
 // citus 的 ColumnarStorageReserveData() 用到
-#define P_NEW	InvalidBlockNumber
+#define P_NEW    InvalidBlockNumber
 
 /*
  * Buffer content lock modes (mode argument for LockBuffer())
  */
-#define BUFFER_LOCK_UNLOCK		0
-#define BUFFER_LOCK_SHARE		1
-#define BUFFER_LOCK_EXCLUSIVE	2
+#define BUFFER_LOCK_UNLOCK        0
+#define BUFFER_LOCK_SHARE        1
+#define BUFFER_LOCK_EXCLUSIVE    2
 
 /*
  * These routines are beaten on quite heavily, hence the macroization.
@@ -109,8 +108,8 @@ extern PGDLLIMPORT int32 *LocalRefCount;
  */
 #define BufferIsValid(bufnum) \
 ( \
-	AssertMacro((bufnum) <= NBuffers && (bufnum) >= -NLocBuffer), \
-	(bufnum) != InvalidBuffer  \
+    AssertMacro((bufnum) <= NBuffers && (bufnum) >= -NLocBuffer), \
+    (bufnum) != InvalidBuffer  \
 )
 
 /*
@@ -122,11 +121,11 @@ extern PGDLLIMPORT int32 *LocalRefCount;
  */
 #define BufferGetBlock(buffer) \
 ( \
-	AssertMacro(BufferIsValid(buffer)), \
-	BufferIsLocal(buffer) ? \
-		LocalBufferBlockPointers[-(buffer) - 1] \
-	: \
-		(Block) (BufferBlocks + ((Size) ((buffer) - 1)) * BLCKSZ) \
+    AssertMacro(BufferIsValid(buffer)), \
+    BufferIsLocal(buffer) ? \
+        LocalBufferBlockPointers[-(buffer) - 1] \
+    : \
+        (Block) (BufferBlocks + ((Size) ((buffer) - 1)) * BLCKSZ) \
 )
 
 /*
@@ -142,8 +141,8 @@ extern PGDLLIMPORT int32 *LocalRefCount;
 /* XXX should dig out of buffer descriptor */
 #define BufferGetPageSize(buffer) \
 ( \
-	AssertMacro(BufferIsValid(buffer)), \
-	(Size)BLCKSZ \
+    AssertMacro(BufferIsValid(buffer)), \
+    (Size)BLCKSZ \
 )
 
 /*
@@ -159,65 +158,97 @@ extern PGDLLIMPORT int32 *LocalRefCount;
  * prototypes for functions in bufmgr.c
  */
 extern bool ComputeIoConcurrency(int io_concurrency, double *target);
+
 extern void PrefetchBuffer(Relation reln, ForkNumber forkNum,
-						   BlockNumber blockNum);
+                           BlockNumber blockNum);
+
 extern Buffer ReadBuffer(Relation relation, BlockNumber blockNum);
+
 extern Buffer ReadBufferExtended(Relation relation, ForkNumber forkNumber,
                                  BlockNumber blockNumber, ReadBufferMode readBufferMode,
                                  BufferAccessStrategy bufferAccessStrategy);
+
 extern Buffer ReadBufferWithoutRelcache(RelFileNode rnode,
-										ForkNumber forkNum, BlockNumber blockNum,
-										ReadBufferMode mode, BufferAccessStrategy strategy);
+                                        ForkNumber forkNum, BlockNumber blockNum,
+                                        ReadBufferMode mode, BufferAccessStrategy strategy);
+
 extern void ReleaseBuffer(Buffer buffer);
+
 extern void UnlockReleaseBuffer(Buffer buffer);
+
 extern void MarkBufferDirty(Buffer buffer);
+
 extern void IncrBufferRefCount(Buffer buffer);
+
 extern Buffer ReleaseAndReadBuffer(Buffer buffer, Relation relation,
-								   BlockNumber blockNum);
+                                   BlockNumber targetBlockNumber);
 
 extern void InitBufferPool(void);
+
 extern void InitBufferPoolAccess(void);
+
 extern void InitBufferPoolBackend(void);
+
 extern void AtEOXact_Buffers(bool isCommit);
+
 extern void PrintBufferLeakWarning(Buffer buffer);
+
 extern void CheckPointBuffers(int flags);
+
 extern BlockNumber BufferGetBlockNumber(Buffer buffer);
+
 extern BlockNumber RelationGetNumberOfBlocksInFork(Relation relation,
-												   ForkNumber forkNum);
+                                                   ForkNumber forkNum);
+
 extern void FlushOneBuffer(Buffer buffer);
+
 extern void FlushRelationBuffers(Relation rel);
+
 extern void FlushDatabaseBuffers(Oid dbid);
+
 extern void DropRelFileNodeBuffers(RelFileNodeBackend rnode,
-								   ForkNumber forkNum, BlockNumber firstDelBlock);
+                                   ForkNumber forkNum, BlockNumber firstDelBlock);
+
 extern void DropRelFileNodesAllBuffers(RelFileNodeBackend *rnodes, int nnodes);
+
 extern void DropDatabaseBuffers(Oid dbid);
 
 #define RelationGetNumberOfBlocks(reln) \
-	RelationGetNumberOfBlocksInFork(reln, MAIN_FORKNUM)
+    RelationGetNumberOfBlocksInFork(reln, MAIN_FORKNUM)
 
 extern bool BufferIsPermanent(Buffer buffer);
+
 extern XLogRecPtr BufferGetLSNAtomic(Buffer buffer);
 
 #ifdef NOT_USED
 extern void PrintPinnedBufs(void);
 #endif
+
 extern Size BufferShmemSize(void);
+
 extern void BufferGetTag(Buffer buffer, RelFileNode *rnode,
-						 ForkNumber *forknum, BlockNumber *blknum);
+                         ForkNumber *forknum, BlockNumber *blknum);
 
 extern void MarkBufferDirtyHint(Buffer buffer, bool buffer_std);
 
 extern void UnlockBuffers(void);
+
 extern void LockBuffer(Buffer buffer, int mode);
+
 extern bool ConditionalLockBuffer(Buffer buffer);
+
 extern void LockBufferForCleanup(Buffer buffer);
+
 extern bool ConditionalLockBufferForCleanup(Buffer buffer);
+
 extern bool IsBufferCleanupOK(Buffer buffer);
+
 extern bool HoldingBufferPinThatDelaysRecovery(void);
 
 extern void AbortBufferIO(void);
 
 extern void BufmgrCommit(void);
+
 extern bool BgBufferSync(struct WritebackContext *writebackContext);
 
 extern void AtProcExit_LocalBuffers(void);
@@ -226,6 +257,7 @@ extern void TestForOldSnapshot_impl(Snapshot snapshot, Relation relation);
 
 /* in freelist.c */
 extern BufferAccessStrategy GetAccessStrategy(BufferAccessStrategyType btype);
+
 extern void FreeAccessStrategy(BufferAccessStrategy strategy);
 
 
@@ -258,19 +290,18 @@ extern void FreeAccessStrategy(BufferAccessStrategy strategy);
  * exclude a page from old snapshot testing near the front.
  */
 static inline void
-TestForOldSnapshot(Snapshot snapshot, Relation relation, Page page)
-{
-	Assert(relation != NULL);
+TestForOldSnapshot(Snapshot snapshot, Relation relation, Page page) {
+    Assert(relation != NULL);
 
-	if (old_snapshot_threshold >= 0
-		&& (snapshot) != NULL
-		&& ((snapshot)->snapshot_type == SNAPSHOT_MVCC
-			|| (snapshot)->snapshot_type == SNAPSHOT_TOAST)
-		&& !XLogRecPtrIsInvalid((snapshot)->lsn)
-		&& PageGetLSN(page) > (snapshot)->lsn)
-		TestForOldSnapshot_impl(snapshot, relation);
+    if (old_snapshot_threshold >= 0
+        && (snapshot) != NULL
+        && ((snapshot)->snapshot_type == SNAPSHOT_MVCC
+            || (snapshot)->snapshot_type == SNAPSHOT_TOAST)
+        && !XLogRecPtrIsInvalid((snapshot)->lsn)
+        && PageGetLSN(page) > (snapshot)->lsn)
+        TestForOldSnapshot_impl(snapshot, relation);
 }
 
-#endif							/* FRONTEND */
+#endif                            /* FRONTEND */
 
-#endif							/* BUFMGR_H */
+#endif                            /* BUFMGR_H */

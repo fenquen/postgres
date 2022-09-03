@@ -180,7 +180,7 @@ typedef struct RelationData {
 	 * relation.  A relcache reset will include freeing that chunk and setting
 	 * rd_amcache = NULL.
 	 */
-	void	   *rd_amcache;		/* available for use by index/table AM */
+	void	   *rd_amcache;		/* 对应 BTMetaPageData,available for use by index/table AM */
 
 	/*
 	 * foreign-table support

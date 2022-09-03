@@ -100,7 +100,7 @@ do { \
 
 static IndexScanDesc index_beginscan_internal(Relation indexRelation,
                                               int nkeys, int norderbys, Snapshot snapshot,
-                                              ParallelIndexScanDesc pscan, bool temp_snap);
+                                              ParallelIndexScanDesc parallelIndexScanDesc, bool temp_snap);
 
 
 /* ----------------------------------------------------------------
@@ -190,28 +190,25 @@ index_insert(Relation indexRelation,
  *
  * Caller must be holding suitable locks on the heap and the index.
  */
-IndexScanDesc index_beginscan(Relation heapRelation,
-                              Relation indexRelation,
+IndexScanDesc index_beginscan(Relation heapRelation, // 表
+                              Relation indexRelation,// index本身
                               Snapshot snapshot,
                               int nkeys, int norderbys) {
-    IndexScanDesc scan = index_beginscan_internal(indexRelation,
-                                                  nkeys,
-                                                  norderbys,
-                                                  snapshot,
-                                                  NULL,
-                                                  false);
+    IndexScanDesc indexScanDesc = index_beginscan_internal(indexRelation,
+                                                           nkeys,
+                                                           norderbys,
+                                                           snapshot,
+                                                           NULL,
+                                                           false);
 
-    /*
-     * Save additional parameters into the scandesc.  Everything else was set
-     * up by RelationGetIndexScan.
-     */
-    scan->heapRelation = heapRelation;
-    scan->xs_snapshot = snapshot;
+    // save additional parameters into the scandesc,Everything else was set up by RelationGetIndexScan.
+    indexScanDesc->heapRelation = heapRelation;
+    indexScanDesc->xs_snapshot = snapshot;
 
     /* prepare to fetch index matches from table */
-    scan->xs_heapfetch = table_index_fetch_begin(heapRelation);
+    indexScanDesc->xs_heapfetch = table_index_fetch_begin(heapRelation);
 
-    return scan;
+    return indexScanDesc;
 }
 
 /*
@@ -237,36 +234,32 @@ index_beginscan_bitmap(Relation indexRelation,
     return scan;
 }
 
-/*
- * index_beginscan_internal --- common code for index_beginscan variants
- */
-static IndexScanDesc
-index_beginscan_internal(Relation indexRelation,
-                         int nkeys, int norderbys, Snapshot snapshot,
-                         ParallelIndexScanDesc pscan, bool temp_snap) {
-    IndexScanDesc scan;
-
+// common code for index_beginscan variants
+static IndexScanDesc index_beginscan_internal(Relation indexRelation,
+                                              int nkeys,
+                                              int norderbys,
+                                              Snapshot snapshot,
+                                              ParallelIndexScanDesc parallelIndexScanDesc,
+                                              bool temp_snap) {
     RELATION_CHECKS;
     CHECK_REL_PROCEDURE(ambeginscan);
 
-    if (!(indexRelation->rd_indam->ampredlocks))
+    if (!(indexRelation->rd_indam->ampredlocks)) {
         PredicateLockRelation(indexRelation, snapshot);
+    }
 
-    /*
-     * We hold a reference count to the relcache entry throughout the scan.
-     */
+    // hold a reference count to the relcache entry throughout the scan.
     RelationIncrementReferenceCount(indexRelation);
 
     /*
-     * Tell the AM to open a scan.
+     * Tell the index 对应 AM to open a scan.
      */
-    scan = indexRelation->rd_indam->ambeginscan(indexRelation, nkeys,
-                                                norderbys);
+    IndexScanDesc indexScanDesc = indexRelation->rd_indam->ambeginscan(indexRelation, nkeys, norderbys);
     /* Initialize information for parallel scan. */
-    scan->parallel_scan = pscan;
-    scan->xs_temp_snap = temp_snap;
+    indexScanDesc->parallel_scan = parallelIndexScanDesc;
+    indexScanDesc->xs_temp_snap = temp_snap;
 
-    return scan;
+    return indexScanDesc;
 }
 
 /* ----------------
@@ -414,7 +407,7 @@ index_parallelscan_estimate(Relation indexRelation, Snapshot snapshot) {
  * process; then, individual workers attach via index_beginscan_parallel.
  */
 void index_parallelscan_initialize(Relation heapRelation, Relation indexRelation,
-                              Snapshot snapshot, ParallelIndexScanDesc target) {
+                                   Snapshot snapshot, ParallelIndexScanDesc target) {
     Size offset;
 
     RELATION_CHECKS;
@@ -490,10 +483,8 @@ index_beginscan_parallel(Relation heaprel, Relation indexrel, int nkeys,
  * or NULL if no more matching tuples exist.
  * ----------------
  */
-ItemPointer
-index_getnext_tid(IndexScanDesc scan, ScanDirection direction) {
-    bool found;
-
+ItemPointer index_getnext_tid(IndexScanDesc scan,
+                              ScanDirection scanDirection) {
     SCAN_CHECKS;
     CHECK_SCAN_PROCEDURE(amgettuple);
 
@@ -505,7 +496,7 @@ index_getnext_tid(IndexScanDesc scan, ScanDirection direction) {
      * scan->xs_recheck and possibly scan->xs_itup/scan->xs_hitup, though we
      * pay no attention to those fields here.
      */
-    found = scan->indexRelation->rd_indam->amgettuple(scan, direction);
+    bool found = scan->indexRelation->rd_indam->amgettuple(scan, scanDirection);
 
     /* Reset kill flag immediately for safety */
     scan->kill_prior_tuple = false;
@@ -514,11 +505,13 @@ index_getnext_tid(IndexScanDesc scan, ScanDirection direction) {
     /* If we're out of index entries, we're done */
     if (!found) {
         /* release resources (like buffer pins) from table accesses */
-        if (scan->xs_heapfetch)
+        if (scan->xs_heapfetch) {
             table_index_fetch_reset(scan->xs_heapfetch);
+        }
 
         return NULL;
     }
+
     Assert(ItemPointerIsValid(&scan->xs_heaptid));
 
     pgstat_count_index_tuples(scan->indexRelation, 1);
@@ -545,14 +538,14 @@ index_getnext_tid(IndexScanDesc scan, ScanDirection direction) {
  * enough information to do it efficiently in the general case.
  * ----------------
  */
-bool
-index_fetch_heap(IndexScanDesc scan, TupleTableSlot *slot) {
+bool index_fetch_heap(IndexScanDesc scan, TupleTableSlot *slot) {
     bool all_dead = false;
-    bool found;
-
-    found = table_index_fetch_tuple(scan->xs_heapfetch, &scan->xs_heaptid,
-                                    scan->xs_snapshot, slot,
-                                    &scan->xs_heap_continue, &all_dead);
+    bool found = table_index_fetch_tuple(scan->xs_heapfetch,
+                                         &scan->xs_heaptid,
+                                         scan->xs_snapshot,
+                                         slot,
+                                         &scan->xs_heap_continue,
+                                         &all_dead);
 
     if (found)
         pgstat_count_heap_fetch(scan->indexRelation);
@@ -585,30 +578,31 @@ index_fetch_heap(IndexScanDesc scan, TupleTableSlot *slot) {
  * enough information to do it efficiently in the general case.
  * ----------------
  */
-bool
-index_getnext_slot(IndexScanDesc scan, ScanDirection direction, TupleTableSlot *slot) {
+bool index_getnext_slot(IndexScanDesc indexScanDesc,
+                        ScanDirection scanDirection,
+                        TupleTableSlot *tupleTableSlot) {
     for (;;) {
-        if (!scan->xs_heap_continue) {
-            ItemPointer tid;
-
+        if (!indexScanDesc->xs_heap_continue) {
             /* Time to fetch the next TID from the index */
-            tid = index_getnext_tid(scan, direction);
+            ItemPointer tid = index_getnext_tid(indexScanDesc, scanDirection);// indexRelation上的indexAm函数指针
 
             /* If we're out of index entries, we're done */
-            if (tid == NULL)
+            if (tid == NULL) {
                 break;
+            }
 
-            Assert(ItemPointerEquals(tid, &scan->xs_heaptid));
+            Assert(ItemPointerEquals(tid, &indexScanDesc->xs_heaptid));
         }
 
         /*
          * Fetch the next (or only) visible heap tuple for this index entry.
-         * If we don't find anything, loop around and grab the next TID from
-         * the index.
+         * If we don't find anything, loop around and grab the next TID from the index.
          */
-        Assert(ItemPointerIsValid(&scan->xs_heaptid));
-        if (index_fetch_heap(scan, slot))
+        Assert(ItemPointerIsValid(&indexScanDesc->xs_heaptid));
+
+        if (index_fetch_heap(indexScanDesc, tupleTableSlot)) { // tableRelation上的tableAm函数
             return true;
+        }
     }
 
     return false;

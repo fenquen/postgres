@@ -917,21 +917,17 @@ table_parallelscan_reinitialize(Relation rel, ParallelTableScanDesc pscan) {
     rel->rd_tableam->parallelscan_reinitialize(rel, pscan);
 }
 
-
 /* ----------------------------------------------------------------------------
  *  Index scan related functions.
  * ----------------------------------------------------------------------------
  */
 
 /*
- * Prepare to fetch tuples from the relation, as needed when fetching tuples
- * for an index scan.
- *
+ * Prepare to fetch tuples from the relation, as needed when fetching tuples for an index scan.
  * Tuples for an index scan can then be fetched via table_index_fetch_tuple().
  */
-static inline IndexFetchTableData *
-table_index_fetch_begin(Relation rel) {
-    return rel->rd_tableam->index_fetch_begin(rel);
+static inline IndexFetchTableData *table_index_fetch_begin(Relation tableRelation) {
+    return tableRelation->rd_tableam->index_fetch_begin(tableRelation);
 }
 
 /*
@@ -973,15 +969,18 @@ table_index_fetch_end(struct IndexFetchTableData *scan) {
  * evaluates the tuple exactly at `tid`. Outside of index entry ->table tuple
  * lookups, table_tuple_fetch_row_version() is what's usually needed.
  */
-static inline bool
-table_index_fetch_tuple(struct IndexFetchTableData *scan,
-                        ItemPointer tid,
-                        Snapshot snapshot,
-                        TupleTableSlot *slot,
-                        bool *call_again, bool *all_dead) {
+static inline bool table_index_fetch_tuple(struct IndexFetchTableData *scan,
+                                           ItemPointer tid,
+                                           Snapshot snapshot,
+                                           TupleTableSlot *slot,
+                                           bool *call_again,
+                                           bool *all_dead) {
 
-    return scan->rel->rd_tableam->index_fetch_tuple(scan, tid, snapshot,
-                                                    slot, call_again,
+    return scan->rel->rd_tableam->index_fetch_tuple(scan,
+                                                    tid,
+                                                    snapshot,
+                                                    slot,
+                                                    call_again,
                                                     all_dead);
 }
 

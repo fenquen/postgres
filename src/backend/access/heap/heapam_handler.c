@@ -78,12 +78,10 @@ heapam_slot_callbacks(Relation relation) {
  * Index Scan Callbacks for heap AM
  * ------------------------------------------------------------------------
  */
-
-static IndexFetchTableData *
-heapam_index_fetch_begin(Relation rel) {
+static IndexFetchTableData *heapam_index_fetch_begin(Relation tableRelation) {
     IndexFetchHeapData *hscan = palloc0(sizeof(IndexFetchHeapData));
 
-    hscan->xs_base.rel = rel;
+    hscan->xs_base.rel = tableRelation;
     hscan->xs_cbuf = InvalidBuffer;
 
     return &hscan->xs_base;
@@ -2504,7 +2502,7 @@ static const TableAmRoutine heapam_methods = {
         .parallelscan_initialize = table_block_parallelscan_initialize,
         .parallelscan_reinitialize = table_block_parallelscan_reinitialize,
 
-        .index_fetch_begin = heapam_index_fetch_begin,
+        .index_fetch_begin = heapam_index_fetch_begin, // 生成 IndexFetchHeapData
         .index_fetch_reset = heapam_index_fetch_reset,
         .index_fetch_end = heapam_index_fetch_end,
         .index_fetch_tuple = heapam_index_fetch_tuple,

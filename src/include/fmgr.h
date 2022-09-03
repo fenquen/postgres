@@ -54,7 +54,7 @@ typedef Datum (*PGFunction)(FunctionCallInfo fcinfo);
  * should be treated as read-only after the struct is created.
  */
 typedef struct FmgrInfo {
-    PGFunction fn_addr;        /* pointer to function or handler to be called */
+    PGFunction fn_addr;        /* 函数指针例如 bitint4cmp*/
     Oid fn_oid;            /* OID of function (NOT of handler, if any) */
     short fn_nargs;        /* number of input args (0..FUNC_MAX_ARGS) */
     bool fn_strict;        /* function is "strict" (NULL in => NULL out) */

@@ -1471,35 +1471,34 @@ void MarkBufferDirty(Buffer buffer) {
  * buffer actually needs to be released.  This case is the same as ReadBuffer,
  * but can save some tests in the caller.
  */
-Buffer
-ReleaseAndReadBuffer(Buffer buffer,
-                     Relation relation,
-                     BlockNumber blockNum) {
+Buffer ReleaseAndReadBuffer(Buffer buffer,
+                            Relation relation,
+                            BlockNumber targetBlockNumber) {
     ForkNumber forkNum = MAIN_FORKNUM;
-    BufferDesc *bufHdr;
+    BufferDesc *bufferDesc;
 
     if (BufferIsValid(buffer)) {
         Assert(BufferIsPinned(buffer));
         if (BufferIsLocal(buffer)) {
-            bufHdr = GetLocalBufferDescriptor(-buffer - 1);
-            if (bufHdr->tag.blockNum == blockNum &&
-                RelFileNodeEquals(bufHdr->tag.rnode, relation->rd_node) &&
-                bufHdr->tag.forkNum == forkNum)
+            bufferDesc = GetLocalBufferDescriptor(-buffer - 1);
+            if (bufferDesc->tag.blockNum == targetBlockNumber &&
+                RelFileNodeEquals(bufferDesc->tag.rnode, relation->rd_node) &&
+                bufferDesc->tag.forkNum == forkNum)
                 return buffer;
             ResourceOwnerForgetBuffer(CurrentResourceOwner, buffer);
             LocalRefCount[-buffer - 1]--;
         } else {
-            bufHdr = GetBufferDescriptor(buffer - 1);
+            bufferDesc = GetBufferDescriptor(buffer - 1);
             /* we have pin, so it's ok to examine tag without spinlock */
-            if (bufHdr->tag.blockNum == blockNum &&
-                RelFileNodeEquals(bufHdr->tag.rnode, relation->rd_node) &&
-                bufHdr->tag.forkNum == forkNum)
+            if (bufferDesc->tag.blockNum == targetBlockNumber &&
+                RelFileNodeEquals(bufferDesc->tag.rnode, relation->rd_node) &&
+                bufferDesc->tag.forkNum == forkNum)
                 return buffer;
-            UnpinBuffer(bufHdr, true);
+            UnpinBuffer(bufferDesc, true);
         }
     }
 
-    return ReadBuffer(relation, blockNum);
+    return ReadBuffer(relation, targetBlockNumber);
 }
 
 /*
@@ -2472,8 +2471,7 @@ BufmgrCommit(void) {
  *		Assumes that the buffer is valid and pinned, else the
  *		value may be obsolete immediately...
  */
-BlockNumber
-BufferGetBlockNumber(Buffer buffer) {
+BlockNumber BufferGetBlockNumber(Buffer buffer) {
     BufferDesc *bufHdr;
 
     Assert(BufferIsPinned(buffer));

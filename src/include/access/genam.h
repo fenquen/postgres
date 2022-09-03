@@ -172,14 +172,14 @@ extern IndexScanDesc index_beginscan_parallel(Relation heaprel,
                                               ParallelIndexScanDesc pscan);
 
 extern ItemPointer index_getnext_tid(IndexScanDesc scan,
-                                     ScanDirection direction);
+                                     ScanDirection scanDirection);
 
 struct TupleTableSlot;
 
 extern bool index_fetch_heap(IndexScanDesc scan, struct TupleTableSlot *slot);
 
-extern bool index_getnext_slot(IndexScanDesc scan, ScanDirection direction,
-                               struct TupleTableSlot *slot);
+extern bool index_getnext_slot(IndexScanDesc indexScanDesc, ScanDirection scanDirection,
+                               struct TupleTableSlot *tupleTableSlot);
 
 extern int64 index_getbitmap(IndexScanDesc scan, TIDBitmap *bitmap);
 

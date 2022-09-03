@@ -39,26 +39,29 @@ PGDLLIMPORT fmgr_hook_type fmgr_hook = NULL;
 /*
  * Hashtable for fast lookup of external C functions
  */
-typedef struct
-{
-	/* fn_oid is the hash key and so must be first! */
-	Oid			fn_oid;			/* OID of an external C function */
-	TransactionId fn_xmin;		/* for checking up-to-dateness */
-	ItemPointerData fn_tid;
-	PGFunction	user_fn;		/* the function's address */
-	const Pg_finfo_record *inforec; /* address of its info record */
+typedef struct {
+    /* fn_oid is the hash key and so must be first! */
+    Oid fn_oid;            /* OID of an external C function */
+    TransactionId fn_xmin;        /* for checking up-to-dateness */
+    ItemPointerData fn_tid;
+    PGFunction user_fn;        /* the function's address */
+    const Pg_finfo_record *inforec; /* address of its info record */
 } CFuncHashTabEntry;
 
 static HTAB *CFuncHash = NULL;
 
 
 static void fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
-								   bool ignore_security);
+                                   bool ignore_security);
+
 static void fmgr_info_C_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple);
+
 static void fmgr_info_other_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple);
+
 static CFuncHashTabEntry *lookup_C_func(HeapTuple procedureTuple);
+
 static void record_C_func(HeapTuple procedureTuple,
-						  PGFunction user_fn, const Pg_finfo_record *inforec);
+                          PGFunction user_fn, const Pg_finfo_record *inforec);
 
 /* extern so it's callable via JIT */
 extern Datum fmgr_security_definer(PG_FUNCTION_ARGS);
@@ -70,23 +73,22 @@ extern Datum fmgr_security_definer(PG_FUNCTION_ARGS);
  */
 
 static const FmgrBuiltin *
-fmgr_isbuiltin(Oid id)
-{
-	uint16		index;
+fmgr_isbuiltin(Oid id) {
+    uint16 index;
 
-	/* fast lookup only possible if original oid still assigned */
-	if (id > fmgr_last_builtin_oid)
-		return NULL;
+    /* fast lookup only possible if original oid still assigned */
+    if (id > fmgr_last_builtin_oid)
+        return NULL;
 
-	/*
-	 * Lookup function data. If there's a miss in that range it's likely a
-	 * nonexistent function, returning NULL here will trigger an ERROR later.
-	 */
-	index = fmgr_builtin_oid_index[id];
-	if (index == InvalidOidBuiltinMapping)
-		return NULL;
+    /*
+     * Lookup function data. If there's a miss in that range it's likely a
+     * nonexistent function, returning NULL here will trigger an ERROR later.
+     */
+    index = fmgr_builtin_oid_index[id];
+    if (index == InvalidOidBuiltinMapping)
+        return NULL;
 
-	return &fmgr_builtins[index];
+    return &fmgr_builtins[index];
 }
 
 /*
@@ -95,16 +97,14 @@ fmgr_isbuiltin(Oid id)
  * routine.
  */
 static const FmgrBuiltin *
-fmgr_lookupByName(const char *name)
-{
-	int			i;
+fmgr_lookupByName(const char *name) {
+    int i;
 
-	for (i = 0; i < fmgr_nbuiltins; i++)
-	{
-		if (strcmp(name, fmgr_builtins[i].funcName) == 0)
-			return fmgr_builtins + i;
-	}
-	return NULL;
+    for (i = 0; i < fmgr_nbuiltins; i++) {
+        if (strcmp(name, fmgr_builtins[i].funcName) == 0)
+            return fmgr_builtins + i;
+    }
+    return NULL;
 }
 
 /*
@@ -121,9 +121,8 @@ fmgr_lookupByName(const char *name)
  * struct in a long-lived table, it's better to use fmgr_info_cxt.
  */
 void
-fmgr_info(Oid functionId, FmgrInfo *finfo)
-{
-	fmgr_info_cxt_security(functionId, finfo, CurrentMemoryContext, false);
+fmgr_info(Oid functionId, FmgrInfo *finfo) {
+    fmgr_info_cxt_security(functionId, finfo, CurrentMemoryContext, false);
 }
 
 /*
@@ -131,9 +130,8 @@ fmgr_info(Oid functionId, FmgrInfo *finfo)
  * subsidiary data should go.
  */
 void
-fmgr_info_cxt(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt)
-{
-	fmgr_info_cxt_security(functionId, finfo, mcxt, false);
+fmgr_info_cxt(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt) {
+    fmgr_info_cxt_security(functionId, finfo, mcxt, false);
 }
 
 /*
@@ -142,124 +140,120 @@ fmgr_info_cxt(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt)
  */
 static void
 fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
-					   bool ignore_security)
-{
-	const FmgrBuiltin *fbp;
-	HeapTuple	procedureTuple;
-	Form_pg_proc procedureStruct;
-	Datum		prosrcdatum;
-	bool		isnull;
-	char	   *prosrc;
+                       bool ignore_security) {
+    const FmgrBuiltin *fbp;
+    HeapTuple procedureTuple;
+    Form_pg_proc procedureStruct;
+    Datum prosrcdatum;
+    bool isnull;
+    char *prosrc;
 
-	/*
-	 * fn_oid *must* be filled in last.  Some code assumes that if fn_oid is
-	 * valid, the whole struct is valid.  Some FmgrInfo struct's do survive
-	 * elogs.
-	 */
-	finfo->fn_oid = InvalidOid;
-	finfo->fn_extra = NULL;
-	finfo->fn_mcxt = mcxt;
-	finfo->fn_expr = NULL;		/* caller may set this later */
+    /*
+     * fn_oid *must* be filled in last.  Some code assumes that if fn_oid is
+     * valid, the whole struct is valid.  Some FmgrInfo struct's do survive
+     * elogs.
+     */
+    finfo->fn_oid = InvalidOid;
+    finfo->fn_extra = NULL;
+    finfo->fn_mcxt = mcxt;
+    finfo->fn_expr = NULL;        /* caller may set this later */
 
-	if ((fbp = fmgr_isbuiltin(functionId)) != NULL)
-	{
-		/*
-		 * Fast path for builtin functions: don't bother consulting pg_proc
-		 */
-		finfo->fn_nargs = fbp->nargs;
-		finfo->fn_strict = fbp->strict;
-		finfo->fn_retset = fbp->retset;
-		finfo->fn_stats = TRACK_FUNC_ALL;	/* ie, never track */
-		finfo->fn_addr = fbp->func;
-		finfo->fn_oid = functionId;
-		return;
-	}
+    if ((fbp = fmgr_isbuiltin(functionId)) != NULL) {
+        /*
+         * Fast path for builtin functions: don't bother consulting pg_proc
+         */
+        finfo->fn_nargs = fbp->nargs;
+        finfo->fn_strict = fbp->strict;
+        finfo->fn_retset = fbp->retset;
+        finfo->fn_stats = TRACK_FUNC_ALL;    /* ie, never track */
+        finfo->fn_addr = fbp->func;
+        finfo->fn_oid = functionId;
+        return;
+    }
 
-	/* Otherwise we need the pg_proc entry */
-	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
-	if (!HeapTupleIsValid(procedureTuple))
-		elog(ERROR, "cache lookup failed for function %u", functionId);
-	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
+    /* Otherwise we need the pg_proc entry */
+    procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
+    if (!HeapTupleIsValid(procedureTuple))
+        elog(ERROR, "cache lookup failed for function %u", functionId);
+    procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
 
-	finfo->fn_nargs = procedureStruct->pronargs;
-	finfo->fn_strict = procedureStruct->proisstrict;
-	finfo->fn_retset = procedureStruct->proretset;
+    finfo->fn_nargs = procedureStruct->pronargs;
+    finfo->fn_strict = procedureStruct->proisstrict;
+    finfo->fn_retset = procedureStruct->proretset;
 
-	/*
-	 * If it has prosecdef set, non-null proconfig, or if a plugin wants to
-	 * hook function entry/exit, use fmgr_security_definer call handler ---
-	 * unless we are being called again by fmgr_security_definer or
-	 * fmgr_info_other_lang.
-	 *
-	 * When using fmgr_security_definer, function stats tracking is always
-	 * disabled at the outer level, and instead we set the flag properly in
-	 * fmgr_security_definer's private flinfo and implement the tracking
-	 * inside fmgr_security_definer.  This loses the ability to charge the
-	 * overhead of fmgr_security_definer to the function, but gains the
-	 * ability to set the track_functions GUC as a local GUC parameter of an
-	 * interesting function and have the right things happen.
-	 */
-	if (!ignore_security &&
-		(procedureStruct->prosecdef ||
-		 !heap_attisnull(procedureTuple, Anum_pg_proc_proconfig, NULL) ||
-		 FmgrHookIsNeeded(functionId)))
-	{
-		finfo->fn_addr = fmgr_security_definer;
-		finfo->fn_stats = TRACK_FUNC_ALL;	/* ie, never track */
-		finfo->fn_oid = functionId;
-		ReleaseSysCache(procedureTuple);
-		return;
-	}
+    /*
+     * If it has prosecdef set, non-null proconfig, or if a plugin wants to
+     * hook function entry/exit, use fmgr_security_definer call handler ---
+     * unless we are being called again by fmgr_security_definer or
+     * fmgr_info_other_lang.
+     *
+     * When using fmgr_security_definer, function stats tracking is always
+     * disabled at the outer level, and instead we set the flag properly in
+     * fmgr_security_definer's private flinfo and implement the tracking
+     * inside fmgr_security_definer.  This loses the ability to charge the
+     * overhead of fmgr_security_definer to the function, but gains the
+     * ability to set the track_functions GUC as a local GUC parameter of an
+     * interesting function and have the right things happen.
+     */
+    if (!ignore_security &&
+        (procedureStruct->prosecdef ||
+         !heap_attisnull(procedureTuple, Anum_pg_proc_proconfig, NULL) ||
+         FmgrHookIsNeeded(functionId))) {
+        finfo->fn_addr = fmgr_security_definer;
+        finfo->fn_stats = TRACK_FUNC_ALL;    /* ie, never track */
+        finfo->fn_oid = functionId;
+        ReleaseSysCache(procedureTuple);
+        return;
+    }
 
-	switch (procedureStruct->prolang)
-	{
-		case INTERNALlanguageId:
+    switch (procedureStruct->prolang) {
+        case INTERNALlanguageId:
 
-			/*
-			 * For an ordinary builtin function, we should never get here
-			 * because the isbuiltin() search above will have succeeded.
-			 * However, if the user has done a CREATE FUNCTION to create an
-			 * alias for a builtin function, we can end up here.  In that case
-			 * we have to look up the function by name.  The name of the
-			 * internal function is stored in prosrc (it doesn't have to be
-			 * the same as the name of the alias!)
-			 */
-			prosrcdatum = SysCacheGetAttr(PROCOID, procedureTuple,
-										  Anum_pg_proc_prosrc, &isnull);
-			if (isnull)
-				elog(ERROR, "null prosrc");
-			prosrc = TextDatumGetCString(prosrcdatum);
-			fbp = fmgr_lookupByName(prosrc);
-			if (fbp == NULL)
-				ereport(ERROR,
-						(errcode(ERRCODE_UNDEFINED_FUNCTION),
-						 errmsg("internal function \"%s\" is not in internal lookup table",
-								prosrc)));
-			pfree(prosrc);
-			/* Should we check that nargs, strict, retset match the table? */
-			finfo->fn_addr = fbp->func;
-			/* note this policy is also assumed in fast path above */
-			finfo->fn_stats = TRACK_FUNC_ALL;	/* ie, never track */
-			break;
+            /*
+             * For an ordinary builtin function, we should never get here
+             * because the isbuiltin() search above will have succeeded.
+             * However, if the user has done a CREATE FUNCTION to create an
+             * alias for a builtin function, we can end up here.  In that case
+             * we have to look up the function by name.  The name of the
+             * internal function is stored in prosrc (it doesn't have to be
+             * the same as the name of the alias!)
+             */
+            prosrcdatum = SysCacheGetAttr(PROCOID, procedureTuple,
+                                          Anum_pg_proc_prosrc, &isnull);
+            if (isnull)
+                elog(ERROR, "null prosrc");
+            prosrc = TextDatumGetCString(prosrcdatum);
+            fbp = fmgr_lookupByName(prosrc);
+            if (fbp == NULL)
+                ereport(ERROR,
+                        (errcode(ERRCODE_UNDEFINED_FUNCTION),
+                                errmsg("internal function \"%s\" is not in internal lookup table",
+                                       prosrc)));
+            pfree(prosrc);
+            /* Should we check that nargs, strict, retset match the table? */
+            finfo->fn_addr = fbp->func;
+            /* note this policy is also assumed in fast path above */
+            finfo->fn_stats = TRACK_FUNC_ALL;    /* ie, never track */
+            break;
 
-		case ClanguageId:
-			fmgr_info_C_lang(functionId, finfo, procedureTuple);
-			finfo->fn_stats = TRACK_FUNC_PL;	/* ie, track if ALL */
-			break;
+        case ClanguageId:
+            fmgr_info_C_lang(functionId, finfo, procedureTuple);
+            finfo->fn_stats = TRACK_FUNC_PL;    /* ie, track if ALL */
+            break;
 
-		case SQLlanguageId:
-			finfo->fn_addr = fmgr_sql;
-			finfo->fn_stats = TRACK_FUNC_PL;	/* ie, track if ALL */
-			break;
+        case SQLlanguageId:
+            finfo->fn_addr = fmgr_sql;
+            finfo->fn_stats = TRACK_FUNC_PL;    /* ie, track if ALL */
+            break;
 
-		default:
-			fmgr_info_other_lang(functionId, finfo, procedureTuple);
-			finfo->fn_stats = TRACK_FUNC_OFF;	/* ie, track if not OFF */
-			break;
-	}
+        default:
+            fmgr_info_other_lang(functionId, finfo, procedureTuple);
+            finfo->fn_stats = TRACK_FUNC_OFF;    /* ie, track if not OFF */
+            break;
+    }
 
-	finfo->fn_oid = functionId;
-	ReleaseSysCache(procedureTuple);
+    finfo->fn_oid = functionId;
+    ReleaseSysCache(procedureTuple);
 }
 
 /*
@@ -278,76 +272,73 @@ fmgr_info_cxt_security(Oid functionId, FmgrInfo *finfo, MemoryContext mcxt,
  * memory context.
  */
 void
-fmgr_symbol(Oid functionId, char **mod, char **fn)
-{
-	HeapTuple	procedureTuple;
-	Form_pg_proc procedureStruct;
-	bool		isnull;
-	Datum		prosrcattr;
-	Datum		probinattr;
+fmgr_symbol(Oid functionId, char **mod, char **fn) {
+    HeapTuple procedureTuple;
+    Form_pg_proc procedureStruct;
+    bool isnull;
+    Datum prosrcattr;
+    Datum probinattr;
 
-	/* Otherwise we need the pg_proc entry */
-	procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
-	if (!HeapTupleIsValid(procedureTuple))
-		elog(ERROR, "cache lookup failed for function %u", functionId);
-	procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
+    /* Otherwise we need the pg_proc entry */
+    procedureTuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionId));
+    if (!HeapTupleIsValid(procedureTuple))
+        elog(ERROR, "cache lookup failed for function %u", functionId);
+    procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
 
-	/*
-	 */
-	if (procedureStruct->prosecdef ||
-		!heap_attisnull(procedureTuple, Anum_pg_proc_proconfig, NULL) ||
-		FmgrHookIsNeeded(functionId))
-	{
-		*mod = NULL;			/* core binary */
-		*fn = pstrdup("fmgr_security_definer");
-		ReleaseSysCache(procedureTuple);
-		return;
-	}
+    /*
+     */
+    if (procedureStruct->prosecdef ||
+        !heap_attisnull(procedureTuple, Anum_pg_proc_proconfig, NULL) ||
+        FmgrHookIsNeeded(functionId)) {
+        *mod = NULL;            /* core binary */
+        *fn = pstrdup("fmgr_security_definer");
+        ReleaseSysCache(procedureTuple);
+        return;
+    }
 
-	/* see fmgr_info_cxt_security for the individual cases */
-	switch (procedureStruct->prolang)
-	{
-		case INTERNALlanguageId:
-			prosrcattr = SysCacheGetAttr(PROCOID, procedureTuple,
-										 Anum_pg_proc_prosrc, &isnull);
-			if (isnull)
-				elog(ERROR, "null prosrc");
+    /* see fmgr_info_cxt_security for the individual cases */
+    switch (procedureStruct->prolang) {
+        case INTERNALlanguageId:
+            prosrcattr = SysCacheGetAttr(PROCOID, procedureTuple,
+                                         Anum_pg_proc_prosrc, &isnull);
+            if (isnull)
+                elog(ERROR, "null prosrc");
 
-			*mod = NULL;		/* core binary */
-			*fn = TextDatumGetCString(prosrcattr);
-			break;
+            *mod = NULL;        /* core binary */
+            *fn = TextDatumGetCString(prosrcattr);
+            break;
 
-		case ClanguageId:
-			prosrcattr = SysCacheGetAttr(PROCOID, procedureTuple,
-										 Anum_pg_proc_prosrc, &isnull);
-			if (isnull)
-				elog(ERROR, "null prosrc for C function %u", functionId);
+        case ClanguageId:
+            prosrcattr = SysCacheGetAttr(PROCOID, procedureTuple,
+                                         Anum_pg_proc_prosrc, &isnull);
+            if (isnull)
+                elog(ERROR, "null prosrc for C function %u", functionId);
 
-			probinattr = SysCacheGetAttr(PROCOID, procedureTuple,
-										 Anum_pg_proc_probin, &isnull);
-			if (isnull)
-				elog(ERROR, "null probin for C function %u", functionId);
+            probinattr = SysCacheGetAttr(PROCOID, procedureTuple,
+                                         Anum_pg_proc_probin, &isnull);
+            if (isnull)
+                elog(ERROR, "null probin for C function %u", functionId);
 
-			/*
-			 * No need to check symbol presence / API version here, already
-			 * checked in fmgr_info_cxt_security.
-			 */
-			*mod = TextDatumGetCString(probinattr);
-			*fn = TextDatumGetCString(prosrcattr);
-			break;
+            /*
+             * No need to check symbol presence / API version here, already
+             * checked in fmgr_info_cxt_security.
+             */
+            *mod = TextDatumGetCString(probinattr);
+            *fn = TextDatumGetCString(prosrcattr);
+            break;
 
-		case SQLlanguageId:
-			*mod = NULL;		/* core binary */
-			*fn = pstrdup("fmgr_sql");
-			break;
+        case SQLlanguageId:
+            *mod = NULL;        /* core binary */
+            *fn = pstrdup("fmgr_sql");
+            break;
 
-		default:
-			*mod = NULL;
-			*fn = NULL;			/* unknown, pass pointer */
-			break;
-	}
+        default:
+            *mod = NULL;
+            *fn = NULL;            /* unknown, pass pointer */
+            break;
+    }
 
-	ReleaseSysCache(procedureTuple);
+    ReleaseSysCache(procedureTuple);
 }
 
 
@@ -356,73 +347,68 @@ fmgr_symbol(Oid functionId, char **mod, char **fn)
  * finfo->fn_oid is not valid yet.
  */
 static void
-fmgr_info_C_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
-{
-	CFuncHashTabEntry *hashentry;
-	PGFunction	user_fn;
-	const Pg_finfo_record *inforec;
-	bool		isnull;
+fmgr_info_C_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple) {
+    CFuncHashTabEntry *hashentry;
+    PGFunction user_fn;
+    const Pg_finfo_record *inforec;
+    bool isnull;
 
-	/*
-	 * See if we have the function address cached already
-	 */
-	hashentry = lookup_C_func(procedureTuple);
-	if (hashentry)
-	{
-		user_fn = hashentry->user_fn;
-		inforec = hashentry->inforec;
-	}
-	else
-	{
-		Datum		prosrcattr,
-					probinattr;
-		char	   *prosrcstring,
-				   *probinstring;
-		void	   *libraryhandle;
+    /*
+     * See if we have the function address cached already
+     */
+    hashentry = lookup_C_func(procedureTuple);
+    if (hashentry) {
+        user_fn = hashentry->user_fn;
+        inforec = hashentry->inforec;
+    } else {
+        Datum prosrcattr,
+                probinattr;
+        char *prosrcstring,
+                *probinstring;
+        void *libraryhandle;
 
-		/*
-		 * Get prosrc and probin strings (link symbol and library filename).
-		 * While in general these columns might be null, that's not allowed
-		 * for C-language functions.
-		 */
-		prosrcattr = SysCacheGetAttr(PROCOID, procedureTuple,
-									 Anum_pg_proc_prosrc, &isnull);
-		if (isnull)
-			elog(ERROR, "null prosrc for C function %u", functionId);
-		prosrcstring = TextDatumGetCString(prosrcattr);
+        /*
+         * Get prosrc and probin strings (link symbol and library filename).
+         * While in general these columns might be null, that's not allowed
+         * for C-language functions.
+         */
+        prosrcattr = SysCacheGetAttr(PROCOID, procedureTuple,
+                                     Anum_pg_proc_prosrc, &isnull);
+        if (isnull)
+            elog(ERROR, "null prosrc for C function %u", functionId);
+        prosrcstring = TextDatumGetCString(prosrcattr);
 
-		probinattr = SysCacheGetAttr(PROCOID, procedureTuple,
-									 Anum_pg_proc_probin, &isnull);
-		if (isnull)
-			elog(ERROR, "null probin for C function %u", functionId);
-		probinstring = TextDatumGetCString(probinattr);
+        probinattr = SysCacheGetAttr(PROCOID, procedureTuple,
+                                     Anum_pg_proc_probin, &isnull);
+        if (isnull)
+            elog(ERROR, "null probin for C function %u", functionId);
+        probinstring = TextDatumGetCString(probinattr);
 
-		/* Look up the function itself */
-		user_fn = load_external_function(probinstring, prosrcstring, true,
-										 &libraryhandle);
+        /* Look up the function itself */
+        user_fn = load_external_function(probinstring, prosrcstring, true,
+                                         &libraryhandle);
 
-		/* Get the function information record (real or default) */
-		inforec = fetch_finfo_record(libraryhandle, prosrcstring);
+        /* Get the function information record (real or default) */
+        inforec = fetch_finfo_record(libraryhandle, prosrcstring);
 
-		/* Cache the addresses for later calls */
-		record_C_func(procedureTuple, user_fn, inforec);
+        /* Cache the addresses for later calls */
+        record_C_func(procedureTuple, user_fn, inforec);
 
-		pfree(prosrcstring);
-		pfree(probinstring);
-	}
+        pfree(prosrcstring);
+        pfree(probinstring);
+    }
 
-	switch (inforec->api_version)
-	{
-		case 1:
-			/* New style: call directly */
-			finfo->fn_addr = user_fn;
-			break;
-		default:
-			/* Shouldn't get here if fetch_finfo_record did its job */
-			elog(ERROR, "unrecognized function API version: %d",
-				 inforec->api_version);
-			break;
-	}
+    switch (inforec->api_version) {
+        case 1:
+            /* New style: call directly */
+            finfo->fn_addr = user_fn;
+            break;
+        default:
+            /* Shouldn't get here if fetch_finfo_record did its job */
+            elog(ERROR, "unrecognized function API version: %d",
+                 inforec->api_version);
+            break;
+    }
 }
 
 /*
@@ -430,29 +416,28 @@ fmgr_info_C_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
  * that finfo->fn_oid is not valid yet.
  */
 static void
-fmgr_info_other_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
-{
-	Form_pg_proc procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
-	Oid			language = procedureStruct->prolang;
-	HeapTuple	languageTuple;
-	Form_pg_language languageStruct;
-	FmgrInfo	plfinfo;
+fmgr_info_other_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple) {
+    Form_pg_proc procedureStruct = (Form_pg_proc) GETSTRUCT(procedureTuple);
+    Oid language = procedureStruct->prolang;
+    HeapTuple languageTuple;
+    Form_pg_language languageStruct;
+    FmgrInfo plfinfo;
 
-	languageTuple = SearchSysCache1(LANGOID, ObjectIdGetDatum(language));
-	if (!HeapTupleIsValid(languageTuple))
-		elog(ERROR, "cache lookup failed for language %u", language);
-	languageStruct = (Form_pg_language) GETSTRUCT(languageTuple);
+    languageTuple = SearchSysCache1(LANGOID, ObjectIdGetDatum(language));
+    if (!HeapTupleIsValid(languageTuple))
+        elog(ERROR, "cache lookup failed for language %u", language);
+    languageStruct = (Form_pg_language) GETSTRUCT(languageTuple);
 
-	/*
-	 * Look up the language's call handler function, ignoring any attributes
-	 * that would normally cause insertion of fmgr_security_definer.  We need
-	 * to get back a bare pointer to the actual C-language function.
-	 */
-	fmgr_info_cxt_security(languageStruct->lanplcallfoid, &plfinfo,
-						   CurrentMemoryContext, true);
-	finfo->fn_addr = plfinfo.fn_addr;
+    /*
+     * Look up the language's call handler function, ignoring any attributes
+     * that would normally cause insertion of fmgr_security_definer.  We need
+     * to get back a bare pointer to the actual C-language function.
+     */
+    fmgr_info_cxt_security(languageStruct->lanplcallfoid, &plfinfo,
+                           CurrentMemoryContext, true);
+    finfo->fn_addr = plfinfo.fn_addr;
 
-	ReleaseSysCache(languageTuple);
+    ReleaseSysCache(languageTuple);
 }
 
 /*
@@ -467,48 +452,45 @@ fmgr_info_other_lang(Oid functionId, FmgrInfo *finfo, HeapTuple procedureTuple)
  * pg_proc.
  */
 const Pg_finfo_record *
-fetch_finfo_record(void *filehandle, const char *funcname)
-{
-	char	   *infofuncname;
-	PGFInfoFunction infofunc;
-	const Pg_finfo_record *inforec;
+fetch_finfo_record(void *filehandle, const char *funcname) {
+    char *infofuncname;
+    PGFInfoFunction infofunc;
+    const Pg_finfo_record *inforec;
 
-	infofuncname = psprintf("pg_finfo_%s", funcname);
+    infofuncname = psprintf("pg_finfo_%s", funcname);
 
-	/* Try to look up the info function */
-	infofunc = (PGFInfoFunction) lookup_external_function(filehandle,
-														  infofuncname);
-	if (infofunc == NULL)
-	{
-		ereport(ERROR,
-				(errcode(ERRCODE_UNDEFINED_FUNCTION),
-				 errmsg("could not find function information for function \"%s\"",
-						funcname),
-				 errhint("SQL-callable functions need an accompanying PG_FUNCTION_INFO_V1(funcname).")));
-		return NULL;			/* silence compiler */
-	}
+    /* Try to look up the info function */
+    infofunc = (PGFInfoFunction) lookup_external_function(filehandle,
+                                                          infofuncname);
+    if (infofunc == NULL) {
+        ereport(ERROR,
+                (errcode(ERRCODE_UNDEFINED_FUNCTION),
+                        errmsg("could not find function information for function \"%s\"",
+                               funcname),
+                        errhint("SQL-callable functions need an accompanying PG_FUNCTION_INFO_V1(funcname).")));
+        return NULL;            /* silence compiler */
+    }
 
-	/* Found, so call it */
-	inforec = (*infofunc) ();
+    /* Found, so call it */
+    inforec = (*infofunc)();
 
-	/* Validate result as best we can */
-	if (inforec == NULL)
-		elog(ERROR, "null result from info function \"%s\"", infofuncname);
-	switch (inforec->api_version)
-	{
-		case 1:
-			/* OK, no additional fields to validate */
-			break;
-		default:
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("unrecognized API version %d reported by info function \"%s\"",
-							inforec->api_version, infofuncname)));
-			break;
-	}
+    /* Validate result as best we can */
+    if (inforec == NULL)
+        elog(ERROR, "null result from info function \"%s\"", infofuncname);
+    switch (inforec->api_version) {
+        case 1:
+            /* OK, no additional fields to validate */
+            break;
+        default:
+            ereport(ERROR,
+                    (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                            errmsg("unrecognized API version %d reported by info function \"%s\"",
+                                   inforec->api_version, infofuncname)));
+            break;
+    }
 
-	pfree(infofuncname);
-	return inforec;
+    pfree(infofuncname);
+    return inforec;
 }
 
 
@@ -527,24 +509,23 @@ fetch_finfo_record(void *filehandle, const char *funcname)
  * If an entry exists and is up to date, return it; else return NULL
  */
 static CFuncHashTabEntry *
-lookup_C_func(HeapTuple procedureTuple)
-{
-	Oid			fn_oid = ((Form_pg_proc) GETSTRUCT(procedureTuple))->oid;
-	CFuncHashTabEntry *entry;
+lookup_C_func(HeapTuple procedureTuple) {
+    Oid fn_oid = ((Form_pg_proc) GETSTRUCT(procedureTuple))->oid;
+    CFuncHashTabEntry *entry;
 
-	if (CFuncHash == NULL)
-		return NULL;			/* no table yet */
-	entry = (CFuncHashTabEntry *)
-		hash_search(CFuncHash,
-					&fn_oid,
-					HASH_FIND,
-					NULL);
-	if (entry == NULL)
-		return NULL;			/* no such entry */
-	if (entry->fn_xmin == HeapTupleHeaderGetRawXmin(procedureTuple->t_data) &&
-		ItemPointerEquals(&entry->fn_tid, &procedureTuple->t_self))
-		return entry;			/* OK */
-	return NULL;				/* entry is out of date */
+    if (CFuncHash == NULL)
+        return NULL;            /* no table yet */
+    entry = (CFuncHashTabEntry *)
+            hash_search(CFuncHash,
+                        &fn_oid,
+                        HASH_FIND,
+                        NULL);
+    if (entry == NULL)
+        return NULL;            /* no such entry */
+    if (entry->fn_xmin == HeapTupleHeaderGetRawXmin(procedureTuple->t_data) &&
+        ItemPointerEquals(&entry->fn_tid, &procedureTuple->t_self))
+        return entry;            /* OK */
+    return NULL;                /* entry is out of date */
 }
 
 /*
@@ -552,36 +533,34 @@ lookup_C_func(HeapTuple procedureTuple)
  */
 static void
 record_C_func(HeapTuple procedureTuple,
-			  PGFunction user_fn, const Pg_finfo_record *inforec)
-{
-	Oid			fn_oid = ((Form_pg_proc) GETSTRUCT(procedureTuple))->oid;
-	CFuncHashTabEntry *entry;
-	bool		found;
+              PGFunction user_fn, const Pg_finfo_record *inforec) {
+    Oid fn_oid = ((Form_pg_proc) GETSTRUCT(procedureTuple))->oid;
+    CFuncHashTabEntry *entry;
+    bool found;
 
-	/* Create the hash table if it doesn't exist yet */
-	if (CFuncHash == NULL)
-	{
-		HASHCTL		hash_ctl;
+    /* Create the hash table if it doesn't exist yet */
+    if (CFuncHash == NULL) {
+        HASHCTL hash_ctl;
 
-		MemSet(&hash_ctl, 0, sizeof(hash_ctl));
-		hash_ctl.keysize = sizeof(Oid);
-		hash_ctl.entrysize = sizeof(CFuncHashTabEntry);
-		CFuncHash = hash_create("CFuncHash",
-								100,
-								&hash_ctl,
-								HASH_ELEM | HASH_BLOBS);
-	}
+        MemSet(&hash_ctl, 0, sizeof(hash_ctl));
+        hash_ctl.keysize = sizeof(Oid);
+        hash_ctl.entrysize = sizeof(CFuncHashTabEntry);
+        CFuncHash = hash_create("CFuncHash",
+                                100,
+                                &hash_ctl,
+                                HASH_ELEM | HASH_BLOBS);
+    }
 
-	entry = (CFuncHashTabEntry *)
-		hash_search(CFuncHash,
-					&fn_oid,
-					HASH_ENTER,
-					&found);
-	/* OID is already filled in */
-	entry->fn_xmin = HeapTupleHeaderGetRawXmin(procedureTuple->t_data);
-	entry->fn_tid = procedureTuple->t_self;
-	entry->user_fn = user_fn;
-	entry->inforec = inforec;
+    entry = (CFuncHashTabEntry *)
+            hash_search(CFuncHash,
+                        &fn_oid,
+                        HASH_ENTER,
+                        &found);
+    /* OID is already filled in */
+    entry->fn_xmin = HeapTupleHeaderGetRawXmin(procedureTuple->t_data);
+    entry->fn_tid = procedureTuple->t_self;
+    entry->user_fn = user_fn;
+    entry->inforec = inforec;
 }
 
 /*
@@ -591,11 +570,10 @@ record_C_func(HeapTuple procedureTuple,
  * the effort to remove only the entries associated with the given handle.
  */
 void
-clear_external_function_hash(void *filehandle)
-{
-	if (CFuncHash)
-		hash_destroy(CFuncHash);
-	CFuncHash = NULL;
+clear_external_function_hash(void *filehandle) {
+    if (CFuncHash)
+        hash_destroy(CFuncHash);
+    CFuncHash = NULL;
 }
 
 
@@ -608,11 +586,10 @@ clear_external_function_hash(void *filehandle)
  */
 void
 fmgr_info_copy(FmgrInfo *dstinfo, FmgrInfo *srcinfo,
-			   MemoryContext destcxt)
-{
-	memcpy(dstinfo, srcinfo, sizeof(FmgrInfo));
-	dstinfo->fn_mcxt = destcxt;
-	dstinfo->fn_extra = NULL;
+               MemoryContext destcxt) {
+    memcpy(dstinfo, srcinfo, sizeof(FmgrInfo));
+    dstinfo->fn_mcxt = destcxt;
+    dstinfo->fn_extra = NULL;
 }
 
 
@@ -622,13 +599,12 @@ fmgr_info_copy(FmgrInfo *dstinfo, FmgrInfo *srcinfo,
  * If the name is not recognized, return InvalidOid.
  */
 Oid
-fmgr_internal_function(const char *proname)
-{
-	const FmgrBuiltin *fbp = fmgr_lookupByName(proname);
+fmgr_internal_function(const char *proname) {
+    const FmgrBuiltin *fbp = fmgr_lookupByName(proname);
 
-	if (fbp == NULL)
-		return InvalidOid;
-	return fbp->foid;
+    if (fbp == NULL)
+        return InvalidOid;
+    return fbp->foid;
 }
 
 
@@ -638,12 +614,11 @@ fmgr_internal_function(const char *proname)
  * often used together and it would be inefficient (as well as notationally
  * messy) to have two levels of call handler involved.
  */
-struct fmgr_security_definer_cache
-{
-	FmgrInfo	flinfo;			/* lookup info for target function */
-	Oid			userid;			/* userid to set, or InvalidOid */
-	ArrayType  *proconfig;		/* GUC values to set, or NULL */
-	Datum		arg;			/* passthrough argument for plugin modules */
+struct fmgr_security_definer_cache {
+    FmgrInfo flinfo;            /* lookup info for target function */
+    Oid userid;            /* userid to set, or InvalidOid */
+    ArrayType *proconfig;        /* GUC values to set, or NULL */
+    Datum arg;            /* passthrough argument for plugin modules */
 };
 
 /*
@@ -657,124 +632,119 @@ struct fmgr_security_definer_cache
  * the fcinfo itself can't be used reentrantly anyway.
  */
 extern Datum
-fmgr_security_definer(PG_FUNCTION_ARGS)
-{
-	Datum		result;
-	struct fmgr_security_definer_cache *volatile fcache;
-	FmgrInfo   *save_flinfo;
-	Oid			save_userid;
-	int			save_sec_context;
-	volatile int save_nestlevel;
-	PgStat_FunctionCallUsage fcusage;
+fmgr_security_definer(PG_FUNCTION_ARGS) {
+    Datum result;
+    struct fmgr_security_definer_cache *volatile fcache;
+    FmgrInfo *save_flinfo;
+    Oid save_userid;
+    int save_sec_context;
+    volatile int save_nestlevel;
+    PgStat_FunctionCallUsage fcusage;
 
-	if (!fcinfo->flinfo->fn_extra)
-	{
-		HeapTuple	tuple;
-		Form_pg_proc procedureStruct;
-		Datum		datum;
-		bool		isnull;
-		MemoryContext oldcxt;
+    if (!fcinfo->flinfo->fn_extra) {
+        HeapTuple tuple;
+        Form_pg_proc procedureStruct;
+        Datum datum;
+        bool isnull;
+        MemoryContext oldcxt;
 
-		fcache = MemoryContextAllocZero(fcinfo->flinfo->fn_mcxt,
-										sizeof(*fcache));
+        fcache = MemoryContextAllocZero(fcinfo->flinfo->fn_mcxt,
+                                        sizeof(*fcache));
 
-		fmgr_info_cxt_security(fcinfo->flinfo->fn_oid, &fcache->flinfo,
-							   fcinfo->flinfo->fn_mcxt, true);
-		fcache->flinfo.fn_expr = fcinfo->flinfo->fn_expr;
+        fmgr_info_cxt_security(fcinfo->flinfo->fn_oid, &fcache->flinfo,
+                               fcinfo->flinfo->fn_mcxt, true);
+        fcache->flinfo.fn_expr = fcinfo->flinfo->fn_expr;
 
-		tuple = SearchSysCache1(PROCOID,
-								ObjectIdGetDatum(fcinfo->flinfo->fn_oid));
-		if (!HeapTupleIsValid(tuple))
-			elog(ERROR, "cache lookup failed for function %u",
-				 fcinfo->flinfo->fn_oid);
-		procedureStruct = (Form_pg_proc) GETSTRUCT(tuple);
+        tuple = SearchSysCache1(PROCOID,
+                                ObjectIdGetDatum(fcinfo->flinfo->fn_oid));
+        if (!HeapTupleIsValid(tuple))
+            elog(ERROR, "cache lookup failed for function %u",
+                 fcinfo->flinfo->fn_oid);
+        procedureStruct = (Form_pg_proc) GETSTRUCT(tuple);
 
-		if (procedureStruct->prosecdef)
-			fcache->userid = procedureStruct->proowner;
+        if (procedureStruct->prosecdef)
+            fcache->userid = procedureStruct->proowner;
 
-		datum = SysCacheGetAttr(PROCOID, tuple, Anum_pg_proc_proconfig,
-								&isnull);
-		if (!isnull)
-		{
-			oldcxt = MemoryContextSwitchTo(fcinfo->flinfo->fn_mcxt);
-			fcache->proconfig = DatumGetArrayTypePCopy(datum);
-			MemoryContextSwitchTo(oldcxt);
-		}
+        datum = SysCacheGetAttr(PROCOID, tuple, Anum_pg_proc_proconfig,
+                                &isnull);
+        if (!isnull) {
+            oldcxt = MemoryContextSwitchTo(fcinfo->flinfo->fn_mcxt);
+            fcache->proconfig = DatumGetArrayTypePCopy(datum);
+            MemoryContextSwitchTo(oldcxt);
+        }
 
-		ReleaseSysCache(tuple);
+        ReleaseSysCache(tuple);
 
-		fcinfo->flinfo->fn_extra = fcache;
-	}
-	else
-		fcache = fcinfo->flinfo->fn_extra;
+        fcinfo->flinfo->fn_extra = fcache;
+    } else
+        fcache = fcinfo->flinfo->fn_extra;
 
-	/* GetUserIdAndSecContext is cheap enough that no harm in a wasted call */
-	GetUserIdAndSecContext(&save_userid, &save_sec_context);
-	if (fcache->proconfig)		/* Need a new GUC nesting level */
-		save_nestlevel = NewGUCNestLevel();
-	else
-		save_nestlevel = 0;		/* keep compiler quiet */
+    /* GetUserIdAndSecContext is cheap enough that no harm in a wasted call */
+    GetUserIdAndSecContext(&save_userid, &save_sec_context);
+    if (fcache->proconfig)        /* Need a new GUC nesting level */
+        save_nestlevel = NewGUCNestLevel();
+    else
+        save_nestlevel = 0;        /* keep compiler quiet */
 
-	if (OidIsValid(fcache->userid))
-		SetUserIdAndSecContext(fcache->userid,
-							   save_sec_context | SECURITY_LOCAL_USERID_CHANGE);
+    if (OidIsValid(fcache->userid))
+        SetUserIdAndSecContext(fcache->userid,
+                               save_sec_context | SECURITY_LOCAL_USERID_CHANGE);
 
-	if (fcache->proconfig)
-	{
-		ProcessGUCArray(fcache->proconfig,
-						(superuser() ? PGC_SUSET : PGC_USERSET),
-						PGC_S_SESSION,
-						GUC_ACTION_SAVE);
-	}
+    if (fcache->proconfig) {
+        ProcessGUCArray(fcache->proconfig,
+                        (superuser() ? PGC_SUSET : PGC_USERSET),
+                        PGC_S_SESSION,
+                        GUC_ACTION_SAVE);
+    }
 
-	/* function manager hook */
-	if (fmgr_hook)
-		(*fmgr_hook) (FHET_START, &fcache->flinfo, &fcache->arg);
+    /* function manager hook */
+    if (fmgr_hook)
+        (*fmgr_hook)(FHET_START, &fcache->flinfo, &fcache->arg);
 
-	/*
-	 * We don't need to restore GUC or userid settings on error, because the
-	 * ensuing xact or subxact abort will do that.  The PG_TRY block is only
-	 * needed to clean up the flinfo link.
-	 */
-	save_flinfo = fcinfo->flinfo;
+    /*
+     * We don't need to restore GUC or userid settings on error, because the
+     * ensuing xact or subxact abort will do that.  The PG_TRY block is only
+     * needed to clean up the flinfo link.
+     */
+    save_flinfo = fcinfo->flinfo;
 
-	PG_TRY();
-	{
-		fcinfo->flinfo = &fcache->flinfo;
+    PG_TRY();
+            {
+                fcinfo->flinfo = &fcache->flinfo;
 
-		/* See notes in fmgr_info_cxt_security */
-		pgstat_init_function_usage(fcinfo, &fcusage);
+                /* See notes in fmgr_info_cxt_security */
+                pgstat_init_function_usage(fcinfo, &fcusage);
 
-		result = FunctionCallInvoke(fcinfo);
+                result = FunctionCallInvoke(fcinfo);
 
-		/*
-		 * We could be calling either a regular or a set-returning function,
-		 * so we have to test to see what finalize flag to use.
-		 */
-		pgstat_end_function_usage(&fcusage,
-								  (fcinfo->resultinfo == NULL ||
-								   !IsA(fcinfo->resultinfo, ReturnSetInfo) ||
-								   ((ReturnSetInfo *) fcinfo->resultinfo)->isDone != ExprMultipleResult));
-	}
-	PG_CATCH();
-	{
-		fcinfo->flinfo = save_flinfo;
-		if (fmgr_hook)
-			(*fmgr_hook) (FHET_ABORT, &fcache->flinfo, &fcache->arg);
-		PG_RE_THROW();
-	}
-	PG_END_TRY();
+                /*
+                 * We could be calling either a regular or a set-returning function,
+                 * so we have to test to see what finalize flag to use.
+                 */
+                pgstat_end_function_usage(&fcusage,
+                                          (fcinfo->resultinfo == NULL ||
+                                           !IsA(fcinfo->resultinfo, ReturnSetInfo) ||
+                                           ((ReturnSetInfo *) fcinfo->resultinfo)->isDone != ExprMultipleResult));
+            }
+        PG_CATCH();
+            {
+                fcinfo->flinfo = save_flinfo;
+                if (fmgr_hook)
+                    (*fmgr_hook)(FHET_ABORT, &fcache->flinfo, &fcache->arg);
+                PG_RE_THROW();
+            }
+    PG_END_TRY();
 
-	fcinfo->flinfo = save_flinfo;
+    fcinfo->flinfo = save_flinfo;
 
-	if (fcache->proconfig)
-		AtEOXact_GUC(true, save_nestlevel);
-	if (OidIsValid(fcache->userid))
-		SetUserIdAndSecContext(save_userid, save_sec_context);
-	if (fmgr_hook)
-		(*fmgr_hook) (FHET_END, &fcache->flinfo, &fcache->arg);
+    if (fcache->proconfig)
+        AtEOXact_GUC(true, save_nestlevel);
+    if (OidIsValid(fcache->userid))
+        SetUserIdAndSecContext(save_userid, save_sec_context);
+    if (fmgr_hook)
+        (*fmgr_hook)(FHET_END, &fcache->flinfo, &fcache->arg);
 
-	return result;
+    return result;
 }
 
 
@@ -790,267 +760,258 @@ fmgr_security_definer(PG_FUNCTION_ARGS)
  * look at FmgrInfo, since there won't be any.
  */
 Datum
-DirectFunctionCall1Coll(PGFunction func, Oid collation, Datum arg1)
-{
-	LOCAL_FCINFO(fcinfo, 1);
-	Datum		result;
+DirectFunctionCall1Coll(PGFunction func, Oid collation, Datum arg1) {
+    LOCAL_FCINFO(fcinfo, 1);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, NULL, 1, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, NULL, 1, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
 
-	result = (*func) (fcinfo);
+    result = (*func)(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %p returned NULL", (void *) func);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %p returned NULL", (void *) func);
 
-	return result;
+    return result;
 }
 
 Datum
-DirectFunctionCall2Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2)
-{
-	LOCAL_FCINFO(fcinfo, 2);
-	Datum		result;
+DirectFunctionCall2Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2) {
+    LOCAL_FCINFO(fcinfo, 2);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, NULL, 2, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, NULL, 2, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
 
-	result = (*func) (fcinfo);
+    result = (*func)(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %p returned NULL", (void *) func);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %p returned NULL", (void *) func);
 
-	return result;
+    return result;
 }
 
 Datum
 DirectFunctionCall3Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
-						Datum arg3)
-{
-	LOCAL_FCINFO(fcinfo, 3);
-	Datum		result;
+                        Datum arg3) {
+    LOCAL_FCINFO(fcinfo, 3);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, NULL, 3, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, NULL, 3, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
 
-	result = (*func) (fcinfo);
+    result = (*func)(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %p returned NULL", (void *) func);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %p returned NULL", (void *) func);
 
-	return result;
+    return result;
 }
 
 Datum
 DirectFunctionCall4Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
-						Datum arg3, Datum arg4)
-{
-	LOCAL_FCINFO(fcinfo, 4);
-	Datum		result;
+                        Datum arg3, Datum arg4) {
+    LOCAL_FCINFO(fcinfo, 4);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, NULL, 4, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, NULL, 4, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
 
-	result = (*func) (fcinfo);
+    result = (*func)(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %p returned NULL", (void *) func);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %p returned NULL", (void *) func);
 
-	return result;
+    return result;
 }
 
 Datum
 DirectFunctionCall5Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
-						Datum arg3, Datum arg4, Datum arg5)
-{
-	LOCAL_FCINFO(fcinfo, 5);
-	Datum		result;
+                        Datum arg3, Datum arg4, Datum arg5) {
+    LOCAL_FCINFO(fcinfo, 5);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, NULL, 5, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, NULL, 5, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
-	fcinfo->args[4].value = arg5;
-	fcinfo->args[4].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
+    fcinfo->args[4].value = arg5;
+    fcinfo->args[4].isnull = false;
 
-	result = (*func) (fcinfo);
+    result = (*func)(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %p returned NULL", (void *) func);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %p returned NULL", (void *) func);
 
-	return result;
+    return result;
 }
 
 Datum
 DirectFunctionCall6Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
-						Datum arg3, Datum arg4, Datum arg5,
-						Datum arg6)
-{
-	LOCAL_FCINFO(fcinfo, 6);
-	Datum		result;
+                        Datum arg3, Datum arg4, Datum arg5,
+                        Datum arg6) {
+    LOCAL_FCINFO(fcinfo, 6);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, NULL, 6, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, NULL, 6, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
-	fcinfo->args[4].value = arg5;
-	fcinfo->args[4].isnull = false;
-	fcinfo->args[5].value = arg6;
-	fcinfo->args[5].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
+    fcinfo->args[4].value = arg5;
+    fcinfo->args[4].isnull = false;
+    fcinfo->args[5].value = arg6;
+    fcinfo->args[5].isnull = false;
 
-	result = (*func) (fcinfo);
+    result = (*func)(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %p returned NULL", (void *) func);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %p returned NULL", (void *) func);
 
-	return result;
+    return result;
 }
 
 Datum
 DirectFunctionCall7Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
-						Datum arg3, Datum arg4, Datum arg5,
-						Datum arg6, Datum arg7)
-{
-	LOCAL_FCINFO(fcinfo, 7);
-	Datum		result;
+                        Datum arg3, Datum arg4, Datum arg5,
+                        Datum arg6, Datum arg7) {
+    LOCAL_FCINFO(fcinfo, 7);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, NULL, 7, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, NULL, 7, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
-	fcinfo->args[4].value = arg5;
-	fcinfo->args[4].isnull = false;
-	fcinfo->args[5].value = arg6;
-	fcinfo->args[5].isnull = false;
-	fcinfo->args[6].value = arg7;
-	fcinfo->args[6].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
+    fcinfo->args[4].value = arg5;
+    fcinfo->args[4].isnull = false;
+    fcinfo->args[5].value = arg6;
+    fcinfo->args[5].isnull = false;
+    fcinfo->args[6].value = arg7;
+    fcinfo->args[6].isnull = false;
 
-	result = (*func) (fcinfo);
+    result = (*func)(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %p returned NULL", (void *) func);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %p returned NULL", (void *) func);
 
-	return result;
+    return result;
 }
 
 Datum
 DirectFunctionCall8Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
-						Datum arg3, Datum arg4, Datum arg5,
-						Datum arg6, Datum arg7, Datum arg8)
-{
-	LOCAL_FCINFO(fcinfo, 8);
-	Datum		result;
+                        Datum arg3, Datum arg4, Datum arg5,
+                        Datum arg6, Datum arg7, Datum arg8) {
+    LOCAL_FCINFO(fcinfo, 8);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, NULL, 8, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, NULL, 8, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
-	fcinfo->args[4].value = arg5;
-	fcinfo->args[4].isnull = false;
-	fcinfo->args[5].value = arg6;
-	fcinfo->args[5].isnull = false;
-	fcinfo->args[6].value = arg7;
-	fcinfo->args[6].isnull = false;
-	fcinfo->args[7].value = arg8;
-	fcinfo->args[7].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
+    fcinfo->args[4].value = arg5;
+    fcinfo->args[4].isnull = false;
+    fcinfo->args[5].value = arg6;
+    fcinfo->args[5].isnull = false;
+    fcinfo->args[6].value = arg7;
+    fcinfo->args[6].isnull = false;
+    fcinfo->args[7].value = arg8;
+    fcinfo->args[7].isnull = false;
 
-	result = (*func) (fcinfo);
+    result = (*func)(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %p returned NULL", (void *) func);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %p returned NULL", (void *) func);
 
-	return result;
+    return result;
 }
 
 Datum
 DirectFunctionCall9Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
-						Datum arg3, Datum arg4, Datum arg5,
-						Datum arg6, Datum arg7, Datum arg8,
-						Datum arg9)
-{
-	LOCAL_FCINFO(fcinfo, 9);
-	Datum		result;
+                        Datum arg3, Datum arg4, Datum arg5,
+                        Datum arg6, Datum arg7, Datum arg8,
+                        Datum arg9) {
+    LOCAL_FCINFO(fcinfo, 9);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, NULL, 9, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, NULL, 9, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
-	fcinfo->args[4].value = arg5;
-	fcinfo->args[4].isnull = false;
-	fcinfo->args[5].value = arg6;
-	fcinfo->args[5].isnull = false;
-	fcinfo->args[6].value = arg7;
-	fcinfo->args[6].isnull = false;
-	fcinfo->args[7].value = arg8;
-	fcinfo->args[7].isnull = false;
-	fcinfo->args[8].value = arg9;
-	fcinfo->args[8].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
+    fcinfo->args[4].value = arg5;
+    fcinfo->args[4].isnull = false;
+    fcinfo->args[5].value = arg6;
+    fcinfo->args[5].isnull = false;
+    fcinfo->args[6].value = arg7;
+    fcinfo->args[6].isnull = false;
+    fcinfo->args[7].value = arg8;
+    fcinfo->args[7].isnull = false;
+    fcinfo->args[8].value = arg9;
+    fcinfo->args[8].isnull = false;
 
-	result = (*func) (fcinfo);
+    result = (*func)(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %p returned NULL", (void *) func);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %p returned NULL", (void *) func);
 
-	return result;
+    return result;
 }
 
 /*
@@ -1063,45 +1024,43 @@ DirectFunctionCall9Coll(PGFunction func, Oid collation, Datum arg1, Datum arg2,
  */
 
 Datum
-CallerFInfoFunctionCall1(PGFunction func, FmgrInfo *flinfo, Oid collation, Datum arg1)
-{
-	LOCAL_FCINFO(fcinfo, 1);
-	Datum		result;
+CallerFInfoFunctionCall1(PGFunction func, FmgrInfo *flinfo, Oid collation, Datum arg1) {
+    LOCAL_FCINFO(fcinfo, 1);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 1, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 1, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
 
-	result = (*func) (fcinfo);
+    result = (*func)(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %p returned NULL", (void *) func);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %p returned NULL", (void *) func);
 
-	return result;
+    return result;
 }
 
 Datum
-CallerFInfoFunctionCall2(PGFunction func, FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2)
-{
-	LOCAL_FCINFO(fcinfo, 2);
-	Datum		result;
+CallerFInfoFunctionCall2(PGFunction func, FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2) {
+    LOCAL_FCINFO(fcinfo, 2);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 2, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 2, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
 
-	result = (*func) (fcinfo);
+    result = (*func)(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %p returned NULL", (void *) func);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %p returned NULL", (void *) func);
 
-	return result;
+    return result;
 }
 
 /*
@@ -1110,284 +1069,274 @@ CallerFInfoFunctionCall2(PGFunction func, FmgrInfo *flinfo, Oid collation, Datum
  * are allowed to be NULL.
  */
 Datum
-FunctionCall0Coll(FmgrInfo *flinfo, Oid collation)
-{
-	LOCAL_FCINFO(fcinfo, 0);
-	Datum		result;
+FunctionCall0Coll(FmgrInfo *flinfo, Oid collation) {
+    LOCAL_FCINFO(fcinfo, 0);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 0, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 0, collation, NULL, NULL);
 
-	result = FunctionCallInvoke(fcinfo);
+    result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
-	return result;
+    return result;
 }
 
 Datum
-FunctionCall1Coll(FmgrInfo *flinfo, Oid collation, Datum arg1)
-{
-	LOCAL_FCINFO(fcinfo, 1);
-	Datum		result;
+FunctionCall1Coll(FmgrInfo *flinfo, Oid collation, Datum arg1) {
+    LOCAL_FCINFO(fcinfo, 1);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 1, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 1, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
 
-	result = FunctionCallInvoke(fcinfo);
+    result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
-	return result;
+    return result;
 }
 
 Datum
-FunctionCall2Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2)
-{
-	LOCAL_FCINFO(fcinfo, 2);
-	Datum		result;
+FunctionCall2Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2) {
+    LOCAL_FCINFO(fcinfo, 2);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 2, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 2, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
 
-	result = FunctionCallInvoke(fcinfo);
+    result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
-	return result;
+    return result;
 }
 
 Datum
 FunctionCall3Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
-				  Datum arg3)
-{
-	LOCAL_FCINFO(fcinfo, 3);
-	Datum		result;
+                  Datum arg3) {
+    LOCAL_FCINFO(fcinfo, 3);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 3, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 3, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
 
-	result = FunctionCallInvoke(fcinfo);
+    result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
-	return result;
+    return result;
 }
 
 Datum
 FunctionCall4Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
-				  Datum arg3, Datum arg4)
-{
-	LOCAL_FCINFO(fcinfo, 4);
-	Datum		result;
+                  Datum arg3, Datum arg4) {
+    LOCAL_FCINFO(fcinfo, 4);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 4, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 4, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
 
-	result = FunctionCallInvoke(fcinfo);
+    result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
-	return result;
+    return result;
 }
 
 Datum
 FunctionCall5Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
-				  Datum arg3, Datum arg4, Datum arg5)
-{
-	LOCAL_FCINFO(fcinfo, 5);
-	Datum		result;
+                  Datum arg3, Datum arg4, Datum arg5) {
+    LOCAL_FCINFO(fcinfo, 5);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 5, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 5, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
-	fcinfo->args[4].value = arg5;
-	fcinfo->args[4].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
+    fcinfo->args[4].value = arg5;
+    fcinfo->args[4].isnull = false;
 
-	result = FunctionCallInvoke(fcinfo);
+    result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
-	return result;
+    return result;
 }
 
 Datum
 FunctionCall6Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
-				  Datum arg3, Datum arg4, Datum arg5,
-				  Datum arg6)
-{
-	LOCAL_FCINFO(fcinfo, 6);
-	Datum		result;
+                  Datum arg3, Datum arg4, Datum arg5,
+                  Datum arg6) {
+    LOCAL_FCINFO(fcinfo, 6);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 6, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 6, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
-	fcinfo->args[4].value = arg5;
-	fcinfo->args[4].isnull = false;
-	fcinfo->args[5].value = arg6;
-	fcinfo->args[5].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
+    fcinfo->args[4].value = arg5;
+    fcinfo->args[4].isnull = false;
+    fcinfo->args[5].value = arg6;
+    fcinfo->args[5].isnull = false;
 
-	result = FunctionCallInvoke(fcinfo);
+    result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
-	return result;
+    return result;
 }
 
 Datum
 FunctionCall7Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
-				  Datum arg3, Datum arg4, Datum arg5,
-				  Datum arg6, Datum arg7)
-{
-	LOCAL_FCINFO(fcinfo, 7);
-	Datum		result;
+                  Datum arg3, Datum arg4, Datum arg5,
+                  Datum arg6, Datum arg7) {
+    LOCAL_FCINFO(fcinfo, 7);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 7, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 7, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
-	fcinfo->args[4].value = arg5;
-	fcinfo->args[4].isnull = false;
-	fcinfo->args[5].value = arg6;
-	fcinfo->args[5].isnull = false;
-	fcinfo->args[6].value = arg7;
-	fcinfo->args[6].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
+    fcinfo->args[4].value = arg5;
+    fcinfo->args[4].isnull = false;
+    fcinfo->args[5].value = arg6;
+    fcinfo->args[5].isnull = false;
+    fcinfo->args[6].value = arg7;
+    fcinfo->args[6].isnull = false;
 
-	result = FunctionCallInvoke(fcinfo);
+    result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
-	return result;
+    return result;
 }
 
 Datum
 FunctionCall8Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
-				  Datum arg3, Datum arg4, Datum arg5,
-				  Datum arg6, Datum arg7, Datum arg8)
-{
-	LOCAL_FCINFO(fcinfo, 8);
-	Datum		result;
+                  Datum arg3, Datum arg4, Datum arg5,
+                  Datum arg6, Datum arg7, Datum arg8) {
+    LOCAL_FCINFO(fcinfo, 8);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 8, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 8, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
-	fcinfo->args[4].value = arg5;
-	fcinfo->args[4].isnull = false;
-	fcinfo->args[5].value = arg6;
-	fcinfo->args[5].isnull = false;
-	fcinfo->args[6].value = arg7;
-	fcinfo->args[6].isnull = false;
-	fcinfo->args[7].value = arg8;
-	fcinfo->args[7].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
+    fcinfo->args[4].value = arg5;
+    fcinfo->args[4].isnull = false;
+    fcinfo->args[5].value = arg6;
+    fcinfo->args[5].isnull = false;
+    fcinfo->args[6].value = arg7;
+    fcinfo->args[6].isnull = false;
+    fcinfo->args[7].value = arg8;
+    fcinfo->args[7].isnull = false;
 
-	result = FunctionCallInvoke(fcinfo);
+    result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
-	return result;
+    return result;
 }
 
 Datum
 FunctionCall9Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
-				  Datum arg3, Datum arg4, Datum arg5,
-				  Datum arg6, Datum arg7, Datum arg8,
-				  Datum arg9)
-{
-	LOCAL_FCINFO(fcinfo, 9);
-	Datum		result;
+                  Datum arg3, Datum arg4, Datum arg5,
+                  Datum arg6, Datum arg7, Datum arg8,
+                  Datum arg9) {
+    LOCAL_FCINFO(fcinfo, 9);
+    Datum result;
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 9, collation, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 9, collation, NULL, NULL);
 
-	fcinfo->args[0].value = arg1;
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = arg2;
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = arg3;
-	fcinfo->args[2].isnull = false;
-	fcinfo->args[3].value = arg4;
-	fcinfo->args[3].isnull = false;
-	fcinfo->args[4].value = arg5;
-	fcinfo->args[4].isnull = false;
-	fcinfo->args[5].value = arg6;
-	fcinfo->args[5].isnull = false;
-	fcinfo->args[6].value = arg7;
-	fcinfo->args[6].isnull = false;
-	fcinfo->args[7].value = arg8;
-	fcinfo->args[7].isnull = false;
-	fcinfo->args[8].value = arg9;
-	fcinfo->args[8].isnull = false;
+    fcinfo->args[0].value = arg1;
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = arg2;
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = arg3;
+    fcinfo->args[2].isnull = false;
+    fcinfo->args[3].value = arg4;
+    fcinfo->args[3].isnull = false;
+    fcinfo->args[4].value = arg5;
+    fcinfo->args[4].isnull = false;
+    fcinfo->args[5].value = arg6;
+    fcinfo->args[5].isnull = false;
+    fcinfo->args[6].value = arg7;
+    fcinfo->args[6].isnull = false;
+    fcinfo->args[7].value = arg8;
+    fcinfo->args[7].isnull = false;
+    fcinfo->args[8].value = arg9;
+    fcinfo->args[8].isnull = false;
 
-	result = FunctionCallInvoke(fcinfo);
+    result = FunctionCallInvoke(fcinfo);
 
-	/* Check for null result, since caller is clearly not expecting one */
-	if (fcinfo->isnull)
-		elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
+    /* Check for null result, since caller is clearly not expecting one */
+    if (fcinfo->isnull)
+        elog(ERROR, "function %u returned NULL", flinfo->fn_oid);
 
-	return result;
+    return result;
 }
 
 
@@ -1399,119 +1348,109 @@ FunctionCall9Coll(FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2,
  * do the fmgr_info() once and then use FunctionCallN().
  */
 Datum
-OidFunctionCall0Coll(Oid functionId, Oid collation)
-{
-	FmgrInfo	flinfo;
+OidFunctionCall0Coll(Oid functionId, Oid collation) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
+    fmgr_info(functionId, &flinfo);
 
-	return FunctionCall0Coll(&flinfo, collation);
+    return FunctionCall0Coll(&flinfo, collation);
 }
 
 Datum
-OidFunctionCall1Coll(Oid functionId, Oid collation, Datum arg1)
-{
-	FmgrInfo	flinfo;
+OidFunctionCall1Coll(Oid functionId, Oid collation, Datum arg1) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
+    fmgr_info(functionId, &flinfo);
 
-	return FunctionCall1Coll(&flinfo, collation, arg1);
+    return FunctionCall1Coll(&flinfo, collation, arg1);
 }
 
 Datum
-OidFunctionCall2Coll(Oid functionId, Oid collation, Datum arg1, Datum arg2)
-{
-	FmgrInfo	flinfo;
+OidFunctionCall2Coll(Oid functionId, Oid collation, Datum arg1, Datum arg2) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
+    fmgr_info(functionId, &flinfo);
 
-	return FunctionCall2Coll(&flinfo, collation, arg1, arg2);
+    return FunctionCall2Coll(&flinfo, collation, arg1, arg2);
 }
 
 Datum
 OidFunctionCall3Coll(Oid functionId, Oid collation, Datum arg1, Datum arg2,
-					 Datum arg3)
-{
-	FmgrInfo	flinfo;
+                     Datum arg3) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
+    fmgr_info(functionId, &flinfo);
 
-	return FunctionCall3Coll(&flinfo, collation, arg1, arg2, arg3);
+    return FunctionCall3Coll(&flinfo, collation, arg1, arg2, arg3);
 }
 
 Datum
 OidFunctionCall4Coll(Oid functionId, Oid collation, Datum arg1, Datum arg2,
-					 Datum arg3, Datum arg4)
-{
-	FmgrInfo	flinfo;
+                     Datum arg3, Datum arg4) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
+    fmgr_info(functionId, &flinfo);
 
-	return FunctionCall4Coll(&flinfo, collation, arg1, arg2, arg3, arg4);
+    return FunctionCall4Coll(&flinfo, collation, arg1, arg2, arg3, arg4);
 }
 
 Datum
 OidFunctionCall5Coll(Oid functionId, Oid collation, Datum arg1, Datum arg2,
-					 Datum arg3, Datum arg4, Datum arg5)
-{
-	FmgrInfo	flinfo;
+                     Datum arg3, Datum arg4, Datum arg5) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
+    fmgr_info(functionId, &flinfo);
 
-	return FunctionCall5Coll(&flinfo, collation, arg1, arg2, arg3, arg4, arg5);
+    return FunctionCall5Coll(&flinfo, collation, arg1, arg2, arg3, arg4, arg5);
 }
 
 Datum
 OidFunctionCall6Coll(Oid functionId, Oid collation, Datum arg1, Datum arg2,
-					 Datum arg3, Datum arg4, Datum arg5,
-					 Datum arg6)
-{
-	FmgrInfo	flinfo;
+                     Datum arg3, Datum arg4, Datum arg5,
+                     Datum arg6) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
+    fmgr_info(functionId, &flinfo);
 
-	return FunctionCall6Coll(&flinfo, collation, arg1, arg2, arg3, arg4, arg5,
-							 arg6);
+    return FunctionCall6Coll(&flinfo, collation, arg1, arg2, arg3, arg4, arg5,
+                             arg6);
 }
 
 Datum
 OidFunctionCall7Coll(Oid functionId, Oid collation, Datum arg1, Datum arg2,
-					 Datum arg3, Datum arg4, Datum arg5,
-					 Datum arg6, Datum arg7)
-{
-	FmgrInfo	flinfo;
+                     Datum arg3, Datum arg4, Datum arg5,
+                     Datum arg6, Datum arg7) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
+    fmgr_info(functionId, &flinfo);
 
-	return FunctionCall7Coll(&flinfo, collation, arg1, arg2, arg3, arg4, arg5,
-							 arg6, arg7);
+    return FunctionCall7Coll(&flinfo, collation, arg1, arg2, arg3, arg4, arg5,
+                             arg6, arg7);
 }
 
 Datum
 OidFunctionCall8Coll(Oid functionId, Oid collation, Datum arg1, Datum arg2,
-					 Datum arg3, Datum arg4, Datum arg5,
-					 Datum arg6, Datum arg7, Datum arg8)
-{
-	FmgrInfo	flinfo;
+                     Datum arg3, Datum arg4, Datum arg5,
+                     Datum arg6, Datum arg7, Datum arg8) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
+    fmgr_info(functionId, &flinfo);
 
-	return FunctionCall8Coll(&flinfo, collation, arg1, arg2, arg3, arg4, arg5,
-							 arg6, arg7, arg8);
+    return FunctionCall8Coll(&flinfo, collation, arg1, arg2, arg3, arg4, arg5,
+                             arg6, arg7, arg8);
 }
 
 Datum
 OidFunctionCall9Coll(Oid functionId, Oid collation, Datum arg1, Datum arg2,
-					 Datum arg3, Datum arg4, Datum arg5,
-					 Datum arg6, Datum arg7, Datum arg8,
-					 Datum arg9)
-{
-	FmgrInfo	flinfo;
+                     Datum arg3, Datum arg4, Datum arg5,
+                     Datum arg6, Datum arg7, Datum arg8,
+                     Datum arg9) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
+    fmgr_info(functionId, &flinfo);
 
-	return FunctionCall9Coll(&flinfo, collation, arg1, arg2, arg3, arg4, arg5,
-							 arg6, arg7, arg8, arg9);
+    return FunctionCall9Coll(&flinfo, collation, arg1, arg2, arg3, arg4, arg5,
+                             arg6, arg7, arg8, arg9);
 }
 
 
@@ -1528,40 +1467,36 @@ OidFunctionCall9Coll(Oid functionId, Oid collation, Datum arg1, Datum arg2,
  * the same as FunctionCall3.
  */
 Datum
-InputFunctionCall(FmgrInfo *flinfo, char *str, Oid typioparam, int32 typmod)
-{
-	LOCAL_FCINFO(fcinfo, 3);
-	Datum		result;
+InputFunctionCall(FmgrInfo *flinfo, char *str, Oid typioparam, int32 typmod) {
+    LOCAL_FCINFO(fcinfo, 3);
+    Datum result;
 
-	if (str == NULL && flinfo->fn_strict)
-		return (Datum) 0;		/* just return null result */
+    if (str == NULL && flinfo->fn_strict)
+        return (Datum) 0;        /* just return null result */
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 3, InvalidOid, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 3, InvalidOid, NULL, NULL);
 
-	fcinfo->args[0].value = CStringGetDatum(str);
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = ObjectIdGetDatum(typioparam);
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = Int32GetDatum(typmod);
-	fcinfo->args[2].isnull = false;
+    fcinfo->args[0].value = CStringGetDatum(str);
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = ObjectIdGetDatum(typioparam);
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = Int32GetDatum(typmod);
+    fcinfo->args[2].isnull = false;
 
-	result = ((* (fcinfo)->flinfo->fn_addr) (fcinfo));
+    result = ((*(fcinfo)->flinfo->fn_addr)(fcinfo));
 
-	/* Should get null result if and only if str is NULL */
-	if (str == NULL)
-	{
-		if (!fcinfo->isnull)
-			elog(ERROR, "input function %u returned non-NULL",
-				 flinfo->fn_oid);
-	}
-	else
-	{
-		if (fcinfo->isnull)
-			elog(ERROR, "input function %u returned NULL",
-				 flinfo->fn_oid);
-	}
+    /* Should get null result if and only if str is NULL */
+    if (str == NULL) {
+        if (!fcinfo->isnull)
+            elog(ERROR, "input function %u returned non-NULL",
+                 flinfo->fn_oid);
+    } else {
+        if (fcinfo->isnull)
+            elog(ERROR, "input function %u returned NULL",
+                 flinfo->fn_oid);
+    }
 
-	return result;
+    return result;
 }
 
 /*
@@ -1572,9 +1507,8 @@ InputFunctionCall(FmgrInfo *flinfo, char *str, Oid typioparam, int32 typmod)
  * This is currently little more than window dressing for FunctionCall1.
  */
 char *
-OutputFunctionCall(FmgrInfo *flinfo, Datum val)
-{
-	return DatumGetCString(FunctionCall1(flinfo, val));
+OutputFunctionCall(FmgrInfo *flinfo, Datum val) {
+    return DatumGetCString(FunctionCall1(flinfo, val));
 }
 
 /*
@@ -1587,40 +1521,36 @@ OutputFunctionCall(FmgrInfo *flinfo, Datum val)
  */
 Datum
 ReceiveFunctionCall(FmgrInfo *flinfo, StringInfo buf,
-					Oid typioparam, int32 typmod)
-{
-	LOCAL_FCINFO(fcinfo, 3);
-	Datum		result;
+                    Oid typioparam, int32 typmod) {
+    LOCAL_FCINFO(fcinfo, 3);
+    Datum result;
 
-	if (buf == NULL && flinfo->fn_strict)
-		return (Datum) 0;		/* just return null result */
+    if (buf == NULL && flinfo->fn_strict)
+        return (Datum) 0;        /* just return null result */
 
-	InitFunctionCallInfoData(*fcinfo, flinfo, 3, InvalidOid, NULL, NULL);
+    InitFunctionCallInfoData(*fcinfo, flinfo, 3, InvalidOid, NULL, NULL);
 
-	fcinfo->args[0].value = PointerGetDatum(buf);
-	fcinfo->args[0].isnull = false;
-	fcinfo->args[1].value = ObjectIdGetDatum(typioparam);
-	fcinfo->args[1].isnull = false;
-	fcinfo->args[2].value = Int32GetDatum(typmod);
-	fcinfo->args[2].isnull = false;
+    fcinfo->args[0].value = PointerGetDatum(buf);
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = ObjectIdGetDatum(typioparam);
+    fcinfo->args[1].isnull = false;
+    fcinfo->args[2].value = Int32GetDatum(typmod);
+    fcinfo->args[2].isnull = false;
 
-	result = FunctionCallInvoke(fcinfo);
+    result = FunctionCallInvoke(fcinfo);
 
-	/* Should get null result if and only if buf is NULL */
-	if (buf == NULL)
-	{
-		if (!fcinfo->isnull)
-			elog(ERROR, "receive function %u returned non-NULL",
-				 flinfo->fn_oid);
-	}
-	else
-	{
-		if (fcinfo->isnull)
-			elog(ERROR, "receive function %u returned NULL",
-				 flinfo->fn_oid);
-	}
+    /* Should get null result if and only if buf is NULL */
+    if (buf == NULL) {
+        if (!fcinfo->isnull)
+            elog(ERROR, "receive function %u returned non-NULL",
+                 flinfo->fn_oid);
+    } else {
+        if (fcinfo->isnull)
+            elog(ERROR, "receive function %u returned NULL",
+                 flinfo->fn_oid);
+    }
 
-	return result;
+    return result;
 }
 
 /*
@@ -1633,9 +1563,8 @@ ReceiveFunctionCall(FmgrInfo *flinfo, StringInfo buf,
  * function doesn't.
  */
 bytea *
-SendFunctionCall(FmgrInfo *flinfo, Datum val)
-{
-	return DatumGetByteaP(FunctionCall1(flinfo, val));
+SendFunctionCall(FmgrInfo *flinfo, Datum val) {
+    return DatumGetByteaP(FunctionCall1(flinfo, val));
 }
 
 /*
@@ -1643,40 +1572,36 @@ SendFunctionCall(FmgrInfo *flinfo, Datum val)
  * in seldom-executed code paths.  They are not only slow but leak memory.
  */
 Datum
-OidInputFunctionCall(Oid functionId, char *str, Oid typioparam, int32 typmod)
-{
-	FmgrInfo	flinfo;
+OidInputFunctionCall(Oid functionId, char *str, Oid typioparam, int32 typmod) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
-	return InputFunctionCall(&flinfo, str, typioparam, typmod);
+    fmgr_info(functionId, &flinfo);
+    return InputFunctionCall(&flinfo, str, typioparam, typmod);
 }
 
 char *
-OidOutputFunctionCall(Oid functionId, Datum val)
-{
-	FmgrInfo	flinfo;
+OidOutputFunctionCall(Oid functionId, Datum val) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
-	return OutputFunctionCall(&flinfo, val);
+    fmgr_info(functionId, &flinfo);
+    return OutputFunctionCall(&flinfo, val);
 }
 
 Datum
 OidReceiveFunctionCall(Oid functionId, StringInfo buf,
-					   Oid typioparam, int32 typmod)
-{
-	FmgrInfo	flinfo;
+                       Oid typioparam, int32 typmod) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
-	return ReceiveFunctionCall(&flinfo, buf, typioparam, typmod);
+    fmgr_info(functionId, &flinfo);
+    return ReceiveFunctionCall(&flinfo, buf, typioparam, typmod);
 }
 
 bytea *
-OidSendFunctionCall(Oid functionId, Datum val)
-{
-	FmgrInfo	flinfo;
+OidSendFunctionCall(Oid functionId, Datum val) {
+    FmgrInfo flinfo;
 
-	fmgr_info(functionId, &flinfo);
-	return SendFunctionCall(&flinfo, val);
+    fmgr_info(functionId, &flinfo);
+    return SendFunctionCall(&flinfo, val);
 }
 
 
@@ -1693,27 +1618,27 @@ OidSendFunctionCall(Oid functionId, Datum val)
  *-------------------------------------------------------------------------
  */
 
-#ifndef USE_FLOAT8_BYVAL		/* controls int8 too */
+#ifndef USE_FLOAT8_BYVAL        /* controls int8 too */
 
 Datum
 Int64GetDatum(int64 X)
 {
-	int64	   *retval = (int64 *) palloc(sizeof(int64));
+    int64	   *retval = (int64 *) palloc(sizeof(int64));
 
-	*retval = X;
-	return PointerGetDatum(retval);
+    *retval = X;
+    return PointerGetDatum(retval);
 }
-#endif							/* USE_FLOAT8_BYVAL */
+#endif                            /* USE_FLOAT8_BYVAL */
 
 #ifndef USE_FLOAT4_BYVAL
 
 Datum
 Float4GetDatum(float4 X)
 {
-	float4	   *retval = (float4 *) palloc(sizeof(float4));
+    float4	   *retval = (float4 *) palloc(sizeof(float4));
 
-	*retval = X;
-	return PointerGetDatum(retval);
+    *retval = X;
+    return PointerGetDatum(retval);
 }
 #endif
 
@@ -1722,10 +1647,10 @@ Float4GetDatum(float4 X)
 Datum
 Float8GetDatum(float8 X)
 {
-	float8	   *retval = (float8 *) palloc(sizeof(float8));
+    float8	   *retval = (float8 *) palloc(sizeof(float8));
 
-	*retval = X;
-	return PointerGetDatum(retval);
+    *retval = X;
+    return PointerGetDatum(retval);
 }
 #endif
 
@@ -1736,44 +1661,39 @@ Float8GetDatum(float8 X)
  */
 
 struct varlena *
-pg_detoast_datum(struct varlena *datum)
-{
-	if (VARATT_IS_EXTENDED(datum))
-		return heap_tuple_untoast_attr(datum);
-	else
-		return datum;
+pg_detoast_datum(struct varlena *datum) {
+    if (VARATT_IS_EXTENDED(datum))
+        return heap_tuple_untoast_attr(datum);
+    else
+        return datum;
 }
 
 struct varlena *
-pg_detoast_datum_copy(struct varlena *datum)
-{
-	if (VARATT_IS_EXTENDED(datum))
-		return heap_tuple_untoast_attr(datum);
-	else
-	{
-		/* Make a modifiable copy of the varlena object */
-		Size		len = VARSIZE(datum);
-		struct varlena *result = (struct varlena *) palloc(len);
+pg_detoast_datum_copy(struct varlena *datum) {
+    if (VARATT_IS_EXTENDED(datum))
+        return heap_tuple_untoast_attr(datum);
+    else {
+        /* Make a modifiable copy of the varlena object */
+        Size len = VARSIZE(datum);
+        struct varlena *result = (struct varlena *) palloc(len);
 
-		memcpy(result, datum, len);
-		return result;
-	}
+        memcpy(result, datum, len);
+        return result;
+    }
 }
 
 struct varlena *
-pg_detoast_datum_slice(struct varlena *datum, int32 first, int32 count)
-{
-	/* Only get the specified portion from the toast rel */
-	return heap_tuple_untoast_attr_slice(datum, first, count);
+pg_detoast_datum_slice(struct varlena *datum, int32 first, int32 count) {
+    /* Only get the specified portion from the toast rel */
+    return heap_tuple_untoast_attr_slice(datum, first, count);
 }
 
 struct varlena *
-pg_detoast_datum_packed(struct varlena *datum)
-{
-	if (VARATT_IS_COMPRESSED(datum) || VARATT_IS_EXTERNAL(datum))
-		return heap_tuple_untoast_attr(datum);
-	else
-		return datum;
+pg_detoast_datum_packed(struct varlena *datum) {
+    if (VARATT_IS_COMPRESSED(datum) || VARATT_IS_EXTERNAL(datum))
+        return heap_tuple_untoast_attr(datum);
+    else
+        return datum;
 }
 
 /*-------------------------------------------------------------------------
@@ -1792,20 +1712,19 @@ pg_detoast_datum_packed(struct varlena *datum)
  * Returns InvalidOid if information is not available
  */
 Oid
-get_fn_expr_rettype(FmgrInfo *flinfo)
-{
-	Node	   *expr;
+get_fn_expr_rettype(FmgrInfo *flinfo) {
+    Node *expr;
 
-	/*
-	 * can't return anything useful if we have no FmgrInfo or if its fn_expr
-	 * node has not been initialized
-	 */
-	if (!flinfo || !flinfo->fn_expr)
-		return InvalidOid;
+    /*
+     * can't return anything useful if we have no FmgrInfo or if its fn_expr
+     * node has not been initialized
+     */
+    if (!flinfo || !flinfo->fn_expr)
+        return InvalidOid;
 
-	expr = flinfo->fn_expr;
+    expr = flinfo->fn_expr;
 
-	return exprType(expr);
+    return exprType(expr);
 }
 
 /*
@@ -1814,16 +1733,15 @@ get_fn_expr_rettype(FmgrInfo *flinfo)
  * Returns InvalidOid if information is not available
  */
 Oid
-get_fn_expr_argtype(FmgrInfo *flinfo, int argnum)
-{
-	/*
-	 * can't return anything useful if we have no FmgrInfo or if its fn_expr
-	 * node has not been initialized
-	 */
-	if (!flinfo || !flinfo->fn_expr)
-		return InvalidOid;
+get_fn_expr_argtype(FmgrInfo *flinfo, int argnum) {
+    /*
+     * can't return anything useful if we have no FmgrInfo or if its fn_expr
+     * node has not been initialized
+     */
+    if (!flinfo || !flinfo->fn_expr)
+        return InvalidOid;
 
-	return get_call_expr_argtype(flinfo->fn_expr, argnum);
+    return get_call_expr_argtype(flinfo->fn_expr, argnum);
 }
 
 /*
@@ -1833,42 +1751,41 @@ get_fn_expr_argtype(FmgrInfo *flinfo, int argnum)
  * Returns InvalidOid if information is not available
  */
 Oid
-get_call_expr_argtype(Node *expr, int argnum)
-{
-	List	   *args;
-	Oid			argtype;
+get_call_expr_argtype(Node *expr, int argnum) {
+    List *args;
+    Oid argtype;
 
-	if (expr == NULL)
-		return InvalidOid;
+    if (expr == NULL)
+        return InvalidOid;
 
-	if (IsA(expr, FuncExpr))
-		args = ((FuncExpr *) expr)->args;
-	else if (IsA(expr, OpExpr))
-		args = ((OpExpr *) expr)->args;
-	else if (IsA(expr, DistinctExpr))
-		args = ((DistinctExpr *) expr)->args;
-	else if (IsA(expr, ScalarArrayOpExpr))
-		args = ((ScalarArrayOpExpr *) expr)->args;
-	else if (IsA(expr, NullIfExpr))
-		args = ((NullIfExpr *) expr)->args;
-	else if (IsA(expr, WindowFunc))
-		args = ((WindowFunc *) expr)->args;
-	else
-		return InvalidOid;
+    if (IsA(expr, FuncExpr))
+        args = ((FuncExpr *) expr)->args;
+    else if (IsA(expr, OpExpr))
+        args = ((OpExpr *) expr)->args;
+    else if (IsA(expr, DistinctExpr))
+        args = ((DistinctExpr *) expr)->args;
+    else if (IsA(expr, ScalarArrayOpExpr))
+        args = ((ScalarArrayOpExpr *) expr)->args;
+    else if (IsA(expr, NullIfExpr))
+        args = ((NullIfExpr *) expr)->args;
+    else if (IsA(expr, WindowFunc))
+        args = ((WindowFunc *) expr)->args;
+    else
+        return InvalidOid;
 
-	if (argnum < 0 || argnum >= list_length(args))
-		return InvalidOid;
+    if (argnum < 0 || argnum >= list_length(args))
+        return InvalidOid;
 
-	argtype = exprType((Node *) list_nth(args, argnum));
+    argtype = exprType((Node *) list_nth(args, argnum));
 
-	/*
-	 * special hack for ScalarArrayOpExpr: what the underlying function will
-	 * actually get passed is the element type of the array.
-	 */
-	if (IsA(expr, ScalarArrayOpExpr) && argnum == 1)
-		argtype = get_base_element_type(argtype);
+    /*
+     * special hack for ScalarArrayOpExpr: what the underlying function will
+     * actually get passed is the element type of the array.
+     */
+    if (IsA(expr, ScalarArrayOpExpr) && argnum == 1)
+        argtype = get_base_element_type(argtype);
 
-	return argtype;
+    return argtype;
 }
 
 /*
@@ -1878,16 +1795,15 @@ get_call_expr_argtype(Node *expr, int argnum)
  * Returns false if information is not available
  */
 bool
-get_fn_expr_arg_stable(FmgrInfo *flinfo, int argnum)
-{
-	/*
-	 * can't return anything useful if we have no FmgrInfo or if its fn_expr
-	 * node has not been initialized
-	 */
-	if (!flinfo || !flinfo->fn_expr)
-		return false;
+get_fn_expr_arg_stable(FmgrInfo *flinfo, int argnum) {
+    /*
+     * can't return anything useful if we have no FmgrInfo or if its fn_expr
+     * node has not been initialized
+     */
+    if (!flinfo || !flinfo->fn_expr)
+        return false;
 
-	return get_call_expr_arg_stable(flinfo->fn_expr, argnum);
+    return get_call_expr_arg_stable(flinfo->fn_expr, argnum);
 }
 
 /*
@@ -1897,46 +1813,45 @@ get_fn_expr_arg_stable(FmgrInfo *flinfo, int argnum)
  * Returns false if information is not available
  */
 bool
-get_call_expr_arg_stable(Node *expr, int argnum)
-{
-	List	   *args;
-	Node	   *arg;
+get_call_expr_arg_stable(Node *expr, int argnum) {
+    List *args;
+    Node *arg;
 
-	if (expr == NULL)
-		return false;
+    if (expr == NULL)
+        return false;
 
-	if (IsA(expr, FuncExpr))
-		args = ((FuncExpr *) expr)->args;
-	else if (IsA(expr, OpExpr))
-		args = ((OpExpr *) expr)->args;
-	else if (IsA(expr, DistinctExpr))
-		args = ((DistinctExpr *) expr)->args;
-	else if (IsA(expr, ScalarArrayOpExpr))
-		args = ((ScalarArrayOpExpr *) expr)->args;
-	else if (IsA(expr, NullIfExpr))
-		args = ((NullIfExpr *) expr)->args;
-	else if (IsA(expr, WindowFunc))
-		args = ((WindowFunc *) expr)->args;
-	else
-		return false;
+    if (IsA(expr, FuncExpr))
+        args = ((FuncExpr *) expr)->args;
+    else if (IsA(expr, OpExpr))
+        args = ((OpExpr *) expr)->args;
+    else if (IsA(expr, DistinctExpr))
+        args = ((DistinctExpr *) expr)->args;
+    else if (IsA(expr, ScalarArrayOpExpr))
+        args = ((ScalarArrayOpExpr *) expr)->args;
+    else if (IsA(expr, NullIfExpr))
+        args = ((NullIfExpr *) expr)->args;
+    else if (IsA(expr, WindowFunc))
+        args = ((WindowFunc *) expr)->args;
+    else
+        return false;
 
-	if (argnum < 0 || argnum >= list_length(args))
-		return false;
+    if (argnum < 0 || argnum >= list_length(args))
+        return false;
 
-	arg = (Node *) list_nth(args, argnum);
+    arg = (Node *) list_nth(args, argnum);
 
-	/*
-	 * Either a true Const or an external Param will have a value that doesn't
-	 * change during the execution of the query.  In future we might want to
-	 * consider other cases too, e.g. now().
-	 */
-	if (IsA(arg, Const))
-		return true;
-	if (IsA(arg, Param) &&
-		((Param *) arg)->paramkind == PARAM_EXTERN)
-		return true;
+    /*
+     * Either a true Const or an external Param will have a value that doesn't
+     * change during the execution of the query.  In future we might want to
+     * consider other cases too, e.g. now().
+     */
+    if (IsA(arg, Const))
+        return true;
+    if (IsA(arg, Param) &&
+        ((Param *) arg)->paramkind == PARAM_EXTERN)
+        return true;
 
-	return false;
+    return false;
 }
 
 /*
@@ -1947,23 +1862,22 @@ get_call_expr_arg_stable(Node *expr, int argnum)
  * Note this is generally only of interest to VARIADIC ANY functions
  */
 bool
-get_fn_expr_variadic(FmgrInfo *flinfo)
-{
-	Node	   *expr;
+get_fn_expr_variadic(FmgrInfo *flinfo) {
+    Node *expr;
 
-	/*
-	 * can't return anything useful if we have no FmgrInfo or if its fn_expr
-	 * node has not been initialized
-	 */
-	if (!flinfo || !flinfo->fn_expr)
-		return false;
+    /*
+     * can't return anything useful if we have no FmgrInfo or if its fn_expr
+     * node has not been initialized
+     */
+    if (!flinfo || !flinfo->fn_expr)
+        return false;
 
-	expr = flinfo->fn_expr;
+    expr = flinfo->fn_expr;
 
-	if (IsA(expr, FuncExpr))
-		return ((FuncExpr *) expr)->funcvariadic;
-	else
-		return false;
+    if (IsA(expr, FuncExpr))
+        return ((FuncExpr *) expr)->funcvariadic;
+    else
+        return false;
 }
 
 /*-------------------------------------------------------------------------
@@ -1997,59 +1911,58 @@ get_fn_expr_variadic(FmgrInfo *flinfo)
  * mischief than creating and validating a clone thereof.
  */
 bool
-CheckFunctionValidatorAccess(Oid validatorOid, Oid functionOid)
-{
-	HeapTuple	procTup;
-	HeapTuple	langTup;
-	Form_pg_proc procStruct;
-	Form_pg_language langStruct;
-	AclResult	aclresult;
+CheckFunctionValidatorAccess(Oid validatorOid, Oid functionOid) {
+    HeapTuple procTup;
+    HeapTuple langTup;
+    Form_pg_proc procStruct;
+    Form_pg_language langStruct;
+    AclResult aclresult;
 
-	/*
-	 * Get the function's pg_proc entry.  Throw a user-facing error for bad
-	 * OID, because validators can be called with user-specified OIDs.
-	 */
-	procTup = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionOid));
-	if (!HeapTupleIsValid(procTup))
-		ereport(ERROR,
-				(errcode(ERRCODE_UNDEFINED_FUNCTION),
-				 errmsg("function with OID %u does not exist", functionOid)));
-	procStruct = (Form_pg_proc) GETSTRUCT(procTup);
+    /*
+     * Get the function's pg_proc entry.  Throw a user-facing error for bad
+     * OID, because validators can be called with user-specified OIDs.
+     */
+    procTup = SearchSysCache1(PROCOID, ObjectIdGetDatum(functionOid));
+    if (!HeapTupleIsValid(procTup))
+        ereport(ERROR,
+                (errcode(ERRCODE_UNDEFINED_FUNCTION),
+                        errmsg("function with OID %u does not exist", functionOid)));
+    procStruct = (Form_pg_proc) GETSTRUCT(procTup);
 
-	/*
-	 * Fetch pg_language entry to know if this is the correct validation
-	 * function for that pg_proc entry.
-	 */
-	langTup = SearchSysCache1(LANGOID, ObjectIdGetDatum(procStruct->prolang));
-	if (!HeapTupleIsValid(langTup))
-		elog(ERROR, "cache lookup failed for language %u", procStruct->prolang);
-	langStruct = (Form_pg_language) GETSTRUCT(langTup);
+    /*
+     * Fetch pg_language entry to know if this is the correct validation
+     * function for that pg_proc entry.
+     */
+    langTup = SearchSysCache1(LANGOID, ObjectIdGetDatum(procStruct->prolang));
+    if (!HeapTupleIsValid(langTup))
+        elog(ERROR, "cache lookup failed for language %u", procStruct->prolang);
+    langStruct = (Form_pg_language) GETSTRUCT(langTup);
 
-	if (langStruct->lanvalidator != validatorOid)
-		ereport(ERROR,
-				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-				 errmsg("language validation function %u called for language %u instead of %u",
-						validatorOid, procStruct->prolang,
-						langStruct->lanvalidator)));
+    if (langStruct->lanvalidator != validatorOid)
+        ereport(ERROR,
+                (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+                        errmsg("language validation function %u called for language %u instead of %u",
+                               validatorOid, procStruct->prolang,
+                               langStruct->lanvalidator)));
 
-	/* first validate that we have permissions to use the language */
-	aclresult = pg_language_aclcheck(procStruct->prolang, GetUserId(),
-									 ACL_USAGE);
-	if (aclresult != ACLCHECK_OK)
-		aclcheck_error(aclresult, OBJECT_LANGUAGE,
-					   NameStr(langStruct->lanname));
+    /* first validate that we have permissions to use the language */
+    aclresult = pg_language_aclcheck(procStruct->prolang, GetUserId(),
+                                     ACL_USAGE);
+    if (aclresult != ACLCHECK_OK)
+        aclcheck_error(aclresult, OBJECT_LANGUAGE,
+                       NameStr(langStruct->lanname));
 
-	/*
-	 * Check whether we are allowed to execute the function itself. If we can
-	 * execute it, there should be no possible side-effect of
-	 * compiling/validation that execution can't have.
-	 */
-	aclresult = pg_proc_aclcheck(functionOid, GetUserId(), ACL_EXECUTE);
-	if (aclresult != ACLCHECK_OK)
-		aclcheck_error(aclresult, OBJECT_FUNCTION, NameStr(procStruct->proname));
+    /*
+     * Check whether we are allowed to execute the function itself. If we can
+     * execute it, there should be no possible side-effect of
+     * compiling/validation that execution can't have.
+     */
+    aclresult = pg_proc_aclcheck(functionOid, GetUserId(), ACL_EXECUTE);
+    if (aclresult != ACLCHECK_OK)
+        aclcheck_error(aclresult, OBJECT_FUNCTION, NameStr(procStruct->proname));
 
-	ReleaseSysCache(procTup);
-	ReleaseSysCache(langTup);
+    ReleaseSysCache(procTup);
+    ReleaseSysCache(langTup);
 
-	return true;
+    return true;
 }

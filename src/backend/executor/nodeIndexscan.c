@@ -80,15 +80,10 @@ static HeapTuple reorderqueue_pop(IndexScanState *node);
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *IndexNext(IndexScanState *indexScanState) {
-    EState *estate;
-    ExprContext *exprContext;
-    ScanDirection scanDirection;
-    IndexScanDesc indexScanDesc;
-    TupleTableSlot *tupleTableSlot;
 
     // extract necessary information from index scan node
-    estate = indexScanState->ss.ps.state;
-    scanDirection = estate->es_direction;
+    EState *estate = indexScanState->ss.ps.state;
+    ScanDirection scanDirection = estate->es_direction;
 
     /* flip direction if this is an overall backward scan */
     if (ScanDirectionIsBackward(((IndexScan *) indexScanState->ss.ps.plan)->indexorderdir)) {
@@ -99,9 +94,9 @@ static TupleTableSlot *IndexNext(IndexScanState *indexScanState) {
         }
     }
 
-    indexScanDesc = indexScanState->iss_ScanDesc;
-    exprContext = indexScanState->ss.ps.ps_ExprContext;
-    tupleTableSlot = indexScanState->ss.ss_ScanTupleSlot;
+    IndexScanDesc indexScanDesc = indexScanState->iss_ScanDesc;
+    ExprContext *exprContext = indexScanState->ss.ps.ps_ExprContext;
+    TupleTableSlot *tupleTableSlot = indexScanState->ss.ss_ScanTupleSlot;
 
     if (indexScanDesc == NULL) {
         /*
@@ -128,16 +123,11 @@ static TupleTableSlot *IndexNext(IndexScanState *indexScanState) {
                          indexScanState->iss_NumOrderByKeys);
     }
 
-    /*
-     * ok, now that we have what we need, fetch the next tuple.
-     */
+    //ok, now that we have what we need, fetch the next tuple.
     while (index_getnext_slot(indexScanDesc, scanDirection, tupleTableSlot)) {
         CHECK_FOR_INTERRUPTS();
 
-        /*
-         * If the index was lossy, we have to recheck the index quals using
-         * the fetched tuple.
-         */
+        // If the index was lossy, we have to recheck the index quals using the fetched tuple.
         if (indexScanDesc->xs_recheck) {
             exprContext->ecxt_scantuple = tupleTableSlot;
             if (!ExecQualAndReset(indexScanState->indexqualorig, exprContext)) {

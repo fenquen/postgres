@@ -72,12 +72,13 @@ typedef struct ParallelBlockTableScanDescData {
 typedef struct ParallelBlockTableScanDescData *ParallelBlockTableScanDesc;
 
 /*
+ * 子类 IndexFetchHeapData
+ *
  * Base class for fetches from a table via an index. This is the base-class
- * for such scans, which needs to be embedded in the respective struct for
- * individual AMs.
+ * for such scans, which needs to be embedded in the respective struct for individual AMs.
  */
 typedef struct IndexFetchTableData {
-    Relation rel;
+    Relation rel; // 对应的table
 } IndexFetchTableData;
 
 /*
@@ -118,9 +119,8 @@ typedef struct IndexScanDescData {
     struct TupleDescData *xs_hitupdesc; /* rowtype descriptor of xs_hitup */
 
     ItemPointerData xs_heaptid; /* result */
-    bool xs_heap_continue;    /* T if must keep walking, potential
-									 * further results */
-    IndexFetchTableData *xs_heapfetch;
+    bool xs_heap_continue;    /* true if must keep walking, potential further results */
+    IndexFetchTableData *xs_heapfetch; // 已知有子类 IndexFetchHeapData
 
     bool xs_recheck;        /* T means scan keys must be rechecked */
 
@@ -128,8 +128,7 @@ typedef struct IndexScanDescData {
      * When fetching with an ordering operator, the values of the ORDER BY
      * expressions of the last returned tuple, according to the index.  If
      * xs_recheckorderby is true, these need to be rechecked just like the
-     * scan keys, and the values returned here are a lower-bound on the actual
-     * values.
+     * scan keys, and the values returned here are a lower-bound on the actual values.
      */
     Datum *xs_orderbyvals;
     bool *xs_orderbynulls;
