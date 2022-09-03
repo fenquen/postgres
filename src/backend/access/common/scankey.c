@@ -30,29 +30,25 @@
  */
 void
 ScanKeyEntryInitialize(ScanKey entry,
-					   int flags,
-					   AttrNumber attributeNumber,
-					   StrategyNumber strategy,
-					   Oid subtype,
-					   Oid collation,
-					   RegProcedure procedure,
-					   Datum argument)
-{
-	entry->sk_flags = flags;
-	entry->sk_attno = attributeNumber;
-	entry->sk_strategy = strategy;
-	entry->sk_subtype = subtype;
-	entry->sk_collation = collation;
-	entry->sk_argument = argument;
-	if (RegProcedureIsValid(procedure))
-	{
-		fmgr_info(procedure, &entry->sk_func);
-	}
-	else
-	{
-		Assert(flags & (SK_SEARCHNULL | SK_SEARCHNOTNULL));
-		MemSet(&entry->sk_func, 0, sizeof(entry->sk_func));
-	}
+                       int flags,
+                       AttrNumber attributeNumber,
+                       StrategyNumber strategy,
+                       Oid subtype,
+                       Oid collation,
+                       RegProcedure procedure,
+                       Datum argument) {
+    entry->sk_flags = flags;
+    entry->sk_attno = attributeNumber;
+    entry->sk_strategy = strategy;
+    entry->sk_subtype = subtype;
+    entry->sk_collation = collation;
+    entry->sk_argument = argument;
+    if (RegProcedureIsValid(procedure)) {
+        fmgr_info(procedure, &entry->sk_func);
+    } else {
+        Assert(flags & (SK_SEARCHNULL | SK_SEARCHNOTNULL));
+        MemSet(&entry->sk_func, 0, sizeof(entry->sk_func));
+    }
 }
 
 /*
@@ -72,20 +68,18 @@ ScanKeyEntryInitialize(ScanKey entry,
  * itself, because that's what will be used for any subsidiary info attached
  * to the ScanKey's FmgrInfo record.
  */
-void
-ScanKeyInit(ScanKey entry,
-			AttrNumber attributeNumber,
-			StrategyNumber strategy,
-			RegProcedure procedure,
-			Datum argument)
-{
-	entry->sk_flags = 0;
-	entry->sk_attno = attributeNumber;
-	entry->sk_strategy = strategy;
-	entry->sk_subtype = InvalidOid;
-	entry->sk_collation = C_COLLATION_OID;
-	entry->sk_argument = argument;
-	fmgr_info(procedure, &entry->sk_func);
+void ScanKeyInit(ScanKey entry,
+                 AttrNumber attributeNumber,
+                 StrategyNumber strategy,
+                 RegProcedure procedure,
+                 Datum argument) {
+    entry->sk_flags = 0;
+    entry->sk_attno = attributeNumber;
+    entry->sk_strategy = strategy;
+    entry->sk_subtype = InvalidOid;
+    entry->sk_collation = C_COLLATION_OID;
+    entry->sk_argument = argument;
+    fmgr_info(procedure, &entry->sk_func);
 }
 
 /*
@@ -97,21 +91,19 @@ ScanKeyInit(ScanKey entry,
  * itself, because that's what will be used for any subsidiary info attached
  * to the ScanKey's FmgrInfo record.
  */
-void
-ScanKeyEntryInitializeWithInfo(ScanKey entry,
-							   int flags,
-							   AttrNumber attributeNumber,
-							   StrategyNumber strategy,
-							   Oid subtype,
-							   Oid collation,
-							   FmgrInfo *finfo,
-							   Datum argument)
-{
-	entry->sk_flags = flags;
-	entry->sk_attno = attributeNumber;
-	entry->sk_strategy = strategy;
-	entry->sk_subtype = subtype;
-	entry->sk_collation = collation;
-	entry->sk_argument = argument;
-	fmgr_info_copy(&entry->sk_func, finfo, CurrentMemoryContext);
+void ScanKeyEntryInitializeWithInfo(ScanKey entry,
+                                    int flags,
+                                    AttrNumber attributeNumber,
+                                    StrategyNumber strategy,
+                                    Oid subtype,
+                                    Oid collation,
+                                    FmgrInfo *finfo,
+                                    Datum argument) {
+    entry->sk_flags = flags;
+    entry->sk_attno = attributeNumber;
+    entry->sk_strategy = strategy;
+    entry->sk_subtype = subtype;
+    entry->sk_collation = collation;
+    entry->sk_argument = argument;
+    fmgr_info_copy(&entry->sk_func, finfo, CurrentMemoryContext);
 }
