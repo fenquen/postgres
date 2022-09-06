@@ -170,7 +170,7 @@ struct HeapTupleHeaderData {
 #define FIELDNO_HEAPTUPLEHEADERDATA_BITS 5
     bits8 t_bits[FLEXIBLE_ARRAY_MEMBER];    /* bitmap of NULLs */
 
-    /* MORE DATA FOLLOWS AT END OF STRUCT */
+    /* MORE DATA FOLLOWING AT END OF STRUCT */
 };
 
 /* typedef appears in htup.h */

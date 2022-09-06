@@ -273,22 +273,18 @@ ExecMakeTableFunctionResult(SetExprState *setexpr,
                 MemoryContextSwitchTo(oldcontext);
             }
 
-            /*
-             * Store current resultset item.
-             */
+            // store current resultset item.
             if (returnsTuple) {
                 if (!fcinfo->isnull) {
                     HeapTupleHeader td = DatumGetHeapTupleHeader(result);
 
                     if (tupdesc == NULL) {
-                        MemoryContext oldcontext =
-                                MemoryContextSwitchTo(econtext->ecxt_per_query_memory);
+                        MemoryContext oldcontext = MemoryContextSwitchTo(econtext->ecxt_per_query_memory);
 
                         /*
                          * This is the first non-NULL result from the
                          * function.  Use the type info embedded in the
-                         * rowtype Datum to look up the needed tupdesc.  Make
-                         * a copy for the query.
+                         * rowtype Datum to look up the needed tupdesc.  Make a copy for the query.
                          */
                         tupdesc = lookup_rowtype_tupdesc_copy(HeapTupleHeaderGetTypeId(td),
                                                               HeapTupleHeaderGetTypMod(td));

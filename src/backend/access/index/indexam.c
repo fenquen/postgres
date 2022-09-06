@@ -57,7 +57,6 @@
 #include "storage/predicate.h"
 #include "utils/snapmgr.h"
 
-
 /* ----------------------------------------------------------------
  *					macros used in index_ routines
  *
@@ -99,8 +98,11 @@ do { \
 } while(0)
 
 static IndexScanDesc index_beginscan_internal(Relation indexRelation,
-                                              int nkeys, int norderbys, Snapshot snapshot,
-                                              ParallelIndexScanDesc parallelIndexScanDesc, bool temp_snap);
+                                              int nkeys,
+                                              int norderbys,
+                                              Snapshot snapshot,
+                                              ParallelIndexScanDesc parallelIndexScanDesc,
+                                              bool temp_snap);
 
 
 /* ----------------------------------------------------------------
@@ -538,17 +540,18 @@ ItemPointer index_getnext_tid(IndexScanDesc scan,
  * enough information to do it efficiently in the general case.
  * ----------------
  */
-bool index_fetch_heap(IndexScanDesc scan, TupleTableSlot *slot) {
-    bool all_dead = false;
-    bool found = table_index_fetch_tuple(scan->xs_heapfetch,
-                                         &scan->xs_heaptid,
-                                         scan->xs_snapshot,
-                                         slot,
-                                         &scan->xs_heap_continue,
-                                         &all_dead);
+bool index_fetch_heap(IndexScanDesc indexScanDesc, TupleTableSlot *tupleTableSlot) {
+    bool allDead = false;
+    bool found = table_index_fetch_tuple(indexScanDesc->xs_heapfetch,
+                                         &indexScanDesc->xs_heaptid,
+                                         indexScanDesc->xs_snapshot,
+                                         tupleTableSlot,
+                                         &indexScanDesc->xs_heap_continue,
+                                         &allDead);
 
-    if (found)
-        pgstat_count_heap_fetch(scan->indexRelation);
+    if (found) {
+        pgstat_count_heap_fetch(indexScanDesc->indexRelation);
+    }
 
     /*
      * If we scanned a whole HOT chain and found only dead tuples, tell index
@@ -557,8 +560,9 @@ bool index_fetch_heap(IndexScanDesc scan, TupleTableSlot *slot) {
      * recovery because it may violate MVCC to do so.  See comments in
      * RelationGetIndexScan().
      */
-    if (!scan->xactStartedInRecovery)
-        scan->kill_prior_tuple = all_dead;
+    if (!indexScanDesc->xactStartedInRecovery) {
+        indexScanDesc->kill_prior_tuple = allDead;
+    }
 
     return found;
 }
@@ -576,7 +580,6 @@ bool index_fetch_heap(IndexScanDesc scan, TupleTableSlot *slot) {
  * Note: caller must check scan->xs_recheck, and perform rechecking of the
  * scan keys if required.  We do not do that here because we don't have
  * enough information to do it efficiently in the general case.
- * ----------------
  */
 bool index_getnext_slot(IndexScanDesc indexScanDesc,
                         ScanDirection scanDirection,
@@ -758,21 +761,16 @@ index_getprocid(Relation irel,
  * or save it only after having acquired some type of lock on the index rel.
  * ----------------
  */
-FmgrInfo *
-index_getprocinfo(Relation irel,
-                  AttrNumber attnum,
-                  uint16 procnum) {
-    FmgrInfo *locinfo;
-    int nproc;
-    int procindex;
-
-    nproc = irel->rd_indam->amsupport;
+FmgrInfo *index_getprocinfo(Relation indexRelation,
+                            AttrNumber attnum,
+                            uint16 procnum) {
+    int nproc = indexRelation->rd_indam->amsupport;
 
     Assert(procnum > 0 && procnum <= (uint16) nproc);
 
-    procindex = (nproc * (attnum - 1)) + (procnum - 1);
+    int procindex = (nproc * (attnum - 1)) + (procnum - 1);
 
-    locinfo = irel->rd_supportinfo;
+    FmgrInfo *locinfo = indexRelation->rd_supportinfo;
 
     Assert(locinfo != NULL);
 
@@ -780,7 +778,7 @@ index_getprocinfo(Relation irel,
 
     /* Initialize the lookup info if first time through */
     if (locinfo->fn_oid == InvalidOid) {
-        RegProcedure *loc = irel->rd_support;
+        RegProcedure *loc = indexRelation->rd_support;
         RegProcedure procId;
 
         Assert(loc != NULL);
@@ -795,9 +793,9 @@ index_getprocinfo(Relation irel,
          */
         if (!RegProcedureIsValid(procId))
             elog(ERROR, "missing support function %d for attribute %d of index \"%s\"",
-                 procnum, attnum, RelationGetRelationName(irel));
+                 procnum, attnum, RelationGetRelationName(indexRelation));
 
-        fmgr_info_cxt(procId, locinfo, irel->rd_indexcxt);
+        fmgr_info_cxt(procId, locinfo, indexRelation->rd_indexcxt);
     }
 
     return locinfo;

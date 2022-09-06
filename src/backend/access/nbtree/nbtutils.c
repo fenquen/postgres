@@ -1275,29 +1275,30 @@ _bt_mark_scankey_required(ScanKey skey) {
  * dir: direction we are scanning in
  * continuescan: output parameter (will be set correctly in all cases)
  */
-bool
-_bt_checkkeys(IndexScanDesc scan, IndexTuple tuple, int tupnatts,
-              ScanDirection dir, bool *continuescan) {
-    TupleDesc tupdesc;
-    BTScanOpaque so;
-    int keysz;
-    int ikey;
-    ScanKey key;
+bool _bt_checkkeys(IndexScanDesc scan,
+                   IndexTuple indexTuple,
+                   int tupnatts,
+                   ScanDirection dir,
+                   bool *continueScan) {
 
-    Assert(BTreeTupleGetNAtts(tuple, scan->indexRelation) == tupnatts);
 
-    *continuescan = true;        /* default assumption */
+    Assert(BTreeTupleGetNAtts(indexTuple, scan->indexRelation) == tupnatts);
 
-    tupdesc = RelationGetDescr(scan->indexRelation);
-    so = (BTScanOpaque) scan->opaque;
-    keysz = so->numberOfKeys;
+    // default assumption
+    *continueScan = true;
 
-    for (key = so->keyData, ikey = 0; ikey < keysz; key++, ikey++) {
-        Datum datum;
+    TupleDesc tupleDesc = RelationGetDescr(scan->indexRelation);
+
+    BTScanOpaque btScanOpaque = (BTScanOpaque) scan->opaque;
+    int keyNum = btScanOpaque->numberOfKeys;
+
+    int a = 0;
+    ScanKey scanKey = btScanOpaque->keyData;
+    for (; a < keyNum; scanKey++, a++) {
         bool isNull;
         Datum test;
 
-        if (key->sk_attno > tupnatts) {
+        if (scanKey->sk_attno > tupnatts) {
             /*
              * This attribute is truncated (must be high key).  The value for
              * this attribute in the first non-pivot tuple on the page to the
@@ -1309,27 +1310,31 @@ _bt_checkkeys(IndexScanDesc scan, IndexTuple tuple, int tupnatts,
         }
 
         /* row-comparison keys need special processing */
-        if (key->sk_flags & SK_ROW_HEADER) {
-            if (_bt_check_rowcompare(key, tuple, tupnatts, tupdesc, dir,
-                                     continuescan))
+        if (scanKey->sk_flags & SK_ROW_HEADER) {
+            if (_bt_check_rowcompare(scanKey, indexTuple, tupnatts, tupleDesc, dir,
+                                     continueScan))
                 continue;
             return false;
         }
 
-        datum = index_getattr(tuple,
-                              key->sk_attno,
-                              tupdesc,
-                              &isNull);
+        Datum datum = index_getattr(indexTuple,
+                                    scanKey->sk_attno,
+                                    tupleDesc,
+                                    &isNull);
 
-        if (key->sk_flags & SK_ISNULL) {
+        if (scanKey->sk_flags & SK_ISNULL) {
             /* Handle IS NULL/NOT NULL tests */
-            if (key->sk_flags & SK_SEARCHNULL) {
-                if (isNull)
-                    continue;    /* tuple satisfies this qual */
+            if (scanKey->sk_flags & SK_SEARCHNULL) {
+                // tuple satisfies this qual
+                if (isNull) {
+                    continue;
+                }
             } else {
-                Assert(key->sk_flags & SK_SEARCHNOTNULL);
-                if (!isNull)
-                    continue;    /* tuple satisfies this qual */
+                Assert(scanKey->sk_flags & SK_SEARCHNOTNULL);
+                // tuple satisfies this qual
+                if (!isNull) {
+                    continue;
+                }
             }
 
             /*
@@ -1337,21 +1342,18 @@ _bt_checkkeys(IndexScanDesc scan, IndexTuple tuple, int tupnatts,
              * scan direction, then we can conclude no further tuples will
              * pass, either.
              */
-            if ((key->sk_flags & SK_BT_REQFWD) &&
-                ScanDirectionIsForward(dir))
-                *continuescan = false;
-            else if ((key->sk_flags & SK_BT_REQBKWD) &&
-                     ScanDirectionIsBackward(dir))
-                *continuescan = false;
+            if ((scanKey->sk_flags & SK_BT_REQFWD) && ScanDirectionIsForward(dir)) {
+                *continueScan = false;
+            } else if ((scanKey->sk_flags & SK_BT_REQBKWD) && ScanDirectionIsBackward(dir)) {
+                *continueScan = false;
+            }
 
-            /*
-             * In any case, this indextuple doesn't match the qual.
-             */
+            // In any case, this indextuple doesn't match the qual.
             return false;
         }
 
         if (isNull) {
-            if (key->sk_flags & SK_BT_NULLS_FIRST) {
+            if (scanKey->sk_flags & SK_BT_NULLS_FIRST) {
                 /*
                  * Since NULLs are sorted before non-NULLs, we know we have
                  * reached the lower limit of the range of values for this
@@ -1362,9 +1364,9 @@ _bt_checkkeys(IndexScanDesc scan, IndexTuple tuple, int tupnatts,
                  * a forward scan, however, we must keep going, because we may
                  * have initially positioned to the start of the index.
                  */
-                if ((key->sk_flags & (SK_BT_REQFWD | SK_BT_REQBKWD)) &&
+                if ((scanKey->sk_flags & (SK_BT_REQFWD | SK_BT_REQBKWD)) &&
                     ScanDirectionIsBackward(dir))
-                    *continuescan = false;
+                    *continueScan = false;
             } else {
                 /*
                  * Since NULLs are sorted after non-NULLs, we know we have
@@ -1376,9 +1378,9 @@ _bt_checkkeys(IndexScanDesc scan, IndexTuple tuple, int tupnatts,
                  * a backward scan, however, we must keep going, because we
                  * may have initially positioned to the end of the index.
                  */
-                if ((key->sk_flags & (SK_BT_REQFWD | SK_BT_REQBKWD)) &&
+                if ((scanKey->sk_flags & (SK_BT_REQFWD | SK_BT_REQBKWD)) &&
                     ScanDirectionIsForward(dir))
-                    *continuescan = false;
+                    *continueScan = false;
             }
 
             /*
@@ -1387,8 +1389,10 @@ _bt_checkkeys(IndexScanDesc scan, IndexTuple tuple, int tupnatts,
             return false;
         }
 
-        test = FunctionCall2Coll(&key->sk_func, key->sk_collation,
-                                 datum, key->sk_argument);
+        test = FunctionCall2Coll(&scanKey->sk_func,
+                                 scanKey->sk_collation,
+                                 datum,
+                                 scanKey->sk_argument);
 
         if (!DatumGetBool(test)) {
             /*
@@ -1401,21 +1405,18 @@ _bt_checkkeys(IndexScanDesc scan, IndexTuple tuple, int tupnatts,
              * initial positioning in _bt_first() when they are available. See
              * comments in _bt_first().
              */
-            if ((key->sk_flags & SK_BT_REQFWD) &&
-                ScanDirectionIsForward(dir))
-                *continuescan = false;
-            else if ((key->sk_flags & SK_BT_REQBKWD) &&
-                     ScanDirectionIsBackward(dir))
-                *continuescan = false;
+            if ((scanKey->sk_flags & SK_BT_REQFWD) && ScanDirectionIsForward(dir)) {
+                *continueScan = false;
+            } else if ((scanKey->sk_flags & SK_BT_REQBKWD) && ScanDirectionIsBackward(dir)) {
+                *continueScan = false;
+            }
 
-            /*
-             * In any case, this indextuple doesn't match the qual.
-             */
+            // in any case, this indextuple doesn't match the qual.
             return false;
         }
     }
 
-    /* If we get here, the tuple passes all index quals. */
+    // If we get here, the tuple passes all index quals
     return true;
 }
 

@@ -208,7 +208,7 @@ index_form_tuple(TupleDesc tupleDescriptor,
  * ----------------
  */
 Datum
-nocache_index_getattr(IndexTuple tup,
+nocache_index_getattr(IndexTuple indexTuple,
 					  int attnum,
 					  TupleDesc tupleDesc)
 {
@@ -227,11 +227,11 @@ nocache_index_getattr(IndexTuple tup,
 	 * ----------------
 	 */
 
-	data_off = IndexInfoFindDataOffset(tup->t_info);
+	data_off = IndexInfoFindDataOffset(indexTuple->t_info);
 
 	attnum--;
 
-	if (IndexTupleHasNulls(tup))
+	if (IndexTupleHasNulls(indexTuple))
 	{
 		/*
 		 * there's a null somewhere in the tuple
@@ -240,7 +240,7 @@ nocache_index_getattr(IndexTuple tup,
 		 */
 
 		/* XXX "knows" t_bits are just after fixed tuple header! */
-		bp = (bits8 *) ((char *) tup + sizeof(IndexTupleData));
+		bp = (bits8 *) ((char *) indexTuple + sizeof(IndexTupleData));
 
 		/*
 		 * Now check to see if any preceding bits are null...
@@ -269,7 +269,7 @@ nocache_index_getattr(IndexTuple tup,
 		}
 	}
 
-	tp = (char *) tup + data_off;
+	tp = (char *) indexTuple + data_off;
 
 	if (!slow)
 	{
@@ -288,7 +288,7 @@ nocache_index_getattr(IndexTuple tup,
 		 * target.  If there aren't any, it's safe to cheaply initialize the
 		 * cached offsets for these attrs.
 		 */
-		if (IndexTupleHasVarwidths(tup))
+		if (IndexTupleHasVarwidths(indexTuple))
 		{
 			int			j;
 
@@ -364,7 +364,7 @@ nocache_index_getattr(IndexTuple tup,
 		{
 			Form_pg_attribute att = TupleDescAttr(tupleDesc, i);
 
-			if (IndexTupleHasNulls(tup) && att_isnull(i, bp))
+			if (IndexTupleHasNulls(indexTuple) && att_isnull(i, bp))
 			{
 				usecache = false;
 				continue;		/* this cannot be the target att */

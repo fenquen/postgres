@@ -951,7 +951,6 @@ static void exec_simple_query(const char *queryString) {
     bool save_log_statement_stats = log_statement_stats;
     bool was_logged = false;
 
-
     char msec_str[32];
 
     // Report query to various monitoring facilities.

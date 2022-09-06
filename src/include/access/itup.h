@@ -31,21 +31,20 @@
  * attributes in the header.  Given the MAXALIGN constraint there's no space
  * savings to be had anyway, for usual values of INDEX_MAX_KEYS.
  */
-
 typedef struct IndexTupleData {
-    ItemPointerData t_tid;        /* reference TID to heap tuple */
 
-    /* ---------------
-     * t_info is laid out in the following fashion:
+    // 实际的data位置,reference TID to heap tuple
+    ItemPointerData t_tid;
+
+    /*
+     * various info about tuple
      *
      * 15th (high) bit: has nulls
      * 14th bit: has var-width attributes
      * 13th bit: AM-defined meaning
      * 12-0 bit: size of tuple
-     * ---------------
      */
-
-    unsigned short t_info;        /* various info about tuple */
+    unsigned short t_info;
 
 } IndexTupleData;                /* MORE DATA FOLLOWS AT END OF STRUCT */
 
@@ -149,7 +148,7 @@ typedef IndexAttributeBitMapData *IndexAttributeBitMap;
 extern IndexTuple index_form_tuple(TupleDesc tupleDescriptor,
                                    Datum *values, bool *isnull);
 
-extern Datum nocache_index_getattr(IndexTuple tup, int attnum,
+extern Datum nocache_index_getattr(IndexTuple indexTuple, int attnum,
                                    TupleDesc tupleDesc);
 
 extern void index_deform_tuple(IndexTuple tup, TupleDesc tupleDescriptor,

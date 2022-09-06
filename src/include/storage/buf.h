@@ -15,7 +15,7 @@
 #define BUF_H
 
 /*
- * Buffer identifiers 其实是对应的id
+ * Buffer identifiers 其实是对应 BufferDescriptors 下标
  *
  * Zero 意味着是invalid的, positive is the index of a shared buffer (1..NBuffers),
  * negative is the index of a local buffer (-1 .. -NLocBuffer). 临时的表之类的是在local的

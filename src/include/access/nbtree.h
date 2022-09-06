@@ -511,11 +511,11 @@ typedef struct BTInsertStateData {
 typedef BTInsertStateData *BTInsertState;
 
 
-typedef struct BTScanPosItem    /* what we remember about each match */
-{
-    ItemPointerData heapTid;    /* TID of referenced heap item */
-    OffsetNumber indexOffset;    /* index item's location within page */
-    LocationIndex tupleOffset;    /* IndexTuple's offset in workspace, if any */
+// what we remember about each match
+typedef struct BTScanPosItem {
+    ItemPointerData heapTid;    /* 当前对应的 TID of referenced heap item */
+    OffsetNumber indexOffset;    /* 当前的indexTuple 的 offsetNumber,index item's location within page */
+    LocationIndex tupleOffset;    /* IndexTuple's 字节的偏移 in workspace, if any */
 } BTScanPosItem;
 
 typedef struct BTScanPosData {
@@ -626,6 +626,7 @@ typedef struct BTArrayKeyInfo {
 typedef struct BTScanOpaqueData {
     /* these fields are set by _bt_preprocess_keys(): */
     bool qual_ok;        /* false if qual can never be satisfied */
+
     int numberOfKeys;    /* number of preprocessed scan keys */
     ScanKey keyData;        /* array of preprocessed scan keys */
 
@@ -800,7 +801,7 @@ extern uint32 _bt_pagedel(Relation rel, Buffer leafbuf,
 /*
  * prototypes for functions in nbtsearch.c
  */
-extern BTStack _bt_search(Relation indexRelation, BTScanInsert key, Buffer *bufP,
+extern BTStack _bt_search(Relation indexRelation, BTScanInsert btScanInsert, Buffer *bufP,
                           int access, Snapshot snapshot);
 
 extern Buffer _bt_moveright(Relation indexRelation, BTScanInsert key, Buffer buffer,
@@ -812,7 +813,7 @@ extern int32 _bt_compare(Relation rel, BTScanInsert key, Page page, OffsetNumber
 
 extern bool _bt_first(IndexScanDesc indexScanDesc, ScanDirection scanDirection);
 
-extern bool _bt_next(IndexScanDesc scan, ScanDirection dir);
+extern bool _bt_next(IndexScanDesc indexScanDesc, ScanDirection scanDirection);
 
 extern Buffer _bt_get_endpoint(Relation rel, uint32 level, bool rightmost,
                                Snapshot snapshot);
@@ -836,8 +837,8 @@ extern void _bt_restore_array_keys(IndexScanDesc scan);
 
 extern void _bt_preprocess_keys(IndexScanDesc scan);
 
-extern bool _bt_checkkeys(IndexScanDesc scan, IndexTuple tuple,
-                          int tupnatts, ScanDirection dir, bool *continuescan);
+extern bool _bt_checkkeys(IndexScanDesc scan, IndexTuple indexTuple,
+                          int tupnatts, ScanDirection dir, bool *continueScan);
 
 extern void _bt_killitems(IndexScanDesc scan);
 

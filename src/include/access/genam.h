@@ -176,7 +176,7 @@ extern ItemPointer index_getnext_tid(IndexScanDesc scan,
 
 struct TupleTableSlot;
 
-extern bool index_fetch_heap(IndexScanDesc scan, struct TupleTableSlot *slot);
+extern bool index_fetch_heap(IndexScanDesc indexScanDesc, struct TupleTableSlot *tupleTableSlot);
 
 extern bool index_getnext_slot(IndexScanDesc indexScanDesc, ScanDirection scanDirection,
                                struct TupleTableSlot *tupleTableSlot);
@@ -196,7 +196,7 @@ extern bool index_can_return(Relation indexRelation, int attno);
 extern RegProcedure index_getprocid(Relation irel, AttrNumber attnum,
                                     uint16 procnum);
 
-extern FmgrInfo *index_getprocinfo(Relation irel, AttrNumber attnum,
+extern FmgrInfo *index_getprocinfo(Relation indexRelation, AttrNumber attnum,
                                    uint16 procnum);
 
 extern void index_store_float8_orderby_distances(IndexScanDesc scan,

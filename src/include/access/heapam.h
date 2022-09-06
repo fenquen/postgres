@@ -75,7 +75,7 @@ typedef struct HeapScanDescData *HeapScanDesc;
 typedef struct IndexFetchHeapData {
     IndexFetchTableData xs_base;    /* AM independent part of the descriptor */
 
-    // current heap buffer in scan
+    // current heap buffer in scan 是table对应的buffer
     // if xs_cbuf is valid, we hold a pin on that buffer
     Buffer xs_cbuf;
 } IndexFetchHeapData;
@@ -131,9 +131,9 @@ extern bool heap_fetch_extended(Relation relation, Snapshot snapshot,
                                 HeapTuple tuple, Buffer *userbuf,
                                 bool keep_buf);
 
-extern bool heap_hot_search_buffer(ItemPointer tid, Relation relation,
-                                   Buffer buffer, Snapshot snapshot, HeapTuple heapTuple,
-                                   bool *all_dead, bool first_call);
+extern bool heap_hot_search_buffer(ItemPointer tid, Relation tableRelation,
+                                   Buffer tableBuffer, Snapshot snapshot, HeapTuple heapTuple,
+                                   bool *allDead, bool firstCall);
 
 extern void heap_get_latest_tid(TableScanDesc scan, ItemPointer tid);
 

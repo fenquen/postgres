@@ -67,12 +67,10 @@ static const TableAmRoutine heapam_methods;
  * Slot related callbacks for heap AM
  * ------------------------------------------------------------------------
  */
-
 static const TupleTableSlotOps *
 heapam_slot_callbacks(Relation relation) {
     return &TTSOpsBufferHeapTuple;
 }
-
 
 /* ------------------------------------------------------------------------
  * Index Scan Callbacks for heap AM
@@ -87,8 +85,7 @@ static IndexFetchTableData *heapam_index_fetch_begin(Relation tableRelation) {
     return &hscan->xs_base;
 }
 
-static void
-heapam_index_fetch_reset(IndexFetchTableData *scan) {
+static void heapam_index_fetch_reset(IndexFetchTableData *scan) {
     IndexFetchHeapData *hscan = (IndexFetchHeapData *) scan;
 
     if (BufferIsValid(hscan->xs_cbuf)) {
@@ -97,8 +94,7 @@ heapam_index_fetch_reset(IndexFetchTableData *scan) {
     }
 }
 
-static void
-heapam_index_fetch_end(IndexFetchTableData *scan) {
+static void heapam_index_fetch_end(IndexFetchTableData *scan) {
     IndexFetchHeapData *hscan = (IndexFetchHeapData *) scan;
 
     heapam_index_fetch_reset(scan);
@@ -106,61 +102,59 @@ heapam_index_fetch_end(IndexFetchTableData *scan) {
     pfree(hscan);
 }
 
-static bool
-heapam_index_fetch_tuple(struct IndexFetchTableData *scan,
-                         ItemPointer tid,
-                         Snapshot snapshot,
-                         TupleTableSlot *slot,
-                         bool *call_again, bool *all_dead) {
-    IndexFetchHeapData *hscan = (IndexFetchHeapData *) scan;
-    BufferHeapTupleTableSlot *bslot = (BufferHeapTupleTableSlot *) slot;
-    bool got_heap_tuple;
+static bool heapam_index_fetch_tuple(struct IndexFetchTableData *indexFetchTableData,
+                                     ItemPointer tid,
+                                     Snapshot snapshot,
+                                     TupleTableSlot *tupleTableSlot,
+                                     bool *callAgain,
+                                     bool *allDead) {
 
-    Assert(TTS_IS_BUFFERTUPLE(slot));
+    IndexFetchHeapData *indexFetchHeapData = (IndexFetchHeapData *) indexFetchTableData;
+    BufferHeapTupleTableSlot *bufferHeapTupleTableSlot = (BufferHeapTupleTableSlot *) tupleTableSlot;
+
+    Assert(TTS_IS_BUFFERTUPLE(tupleTableSlot));
 
     /* We can skip the buffer-switching logic if we're in mid-HOT chain. */
-    if (!*call_again) {
+    if (!*callAgain) {
         /* Switch to correct buffer if we don't have it already */
-        Buffer prev_buf = hscan->xs_cbuf;
+        Buffer prev_buf = indexFetchHeapData->xs_cbuf;
 
-        hscan->xs_cbuf = ReleaseAndReadBuffer(hscan->xs_cbuf,
-                                              hscan->xs_base.rel,
-                                              ItemPointerGetBlockNumber(tid));
+        indexFetchHeapData->xs_cbuf = ReleaseAndReadBuffer(indexFetchHeapData->xs_cbuf,
+                                                           indexFetchHeapData->xs_base.rel,
+                                                           ItemPointerGetBlockNumber(tid));
 
-        /*
-         * Prune page, but only if we weren't already on this page
-         */
-        if (prev_buf != hscan->xs_cbuf)
-            heap_page_prune_opt(hscan->xs_base.rel, hscan->xs_cbuf);
+        // prune page, but only if we weren't already on this page
+        if (prev_buf != indexFetchHeapData->xs_cbuf) {
+            heap_page_prune_opt(indexFetchHeapData->xs_base.rel, indexFetchHeapData->xs_cbuf);
+        }
     }
 
     /* Obtain share-lock on the buffer so we can examine visibility */
-    LockBuffer(hscan->xs_cbuf, BUFFER_LOCK_SHARE);
-    got_heap_tuple = heap_hot_search_buffer(tid,
-                                            hscan->xs_base.rel,
-                                            hscan->xs_cbuf,
-                                            snapshot,
-                                            &bslot->base.tupdata,
-                                            all_dead,
-                                            !*call_again);
-    bslot->base.tupdata.t_self = *tid;
-    LockBuffer(hscan->xs_cbuf, BUFFER_LOCK_UNLOCK);
+    LockBuffer(indexFetchHeapData->xs_cbuf, BUFFER_LOCK_SHARE);
+    bool gotHeapTuple = heap_hot_search_buffer(tid,
+                                               indexFetchHeapData->xs_base.rel,
+                                               indexFetchHeapData->xs_cbuf,
+                                               snapshot,
+                                               &bufferHeapTupleTableSlot->base.tupdata,
+                                               allDead,
+                                               !*callAgain);
+    bufferHeapTupleTableSlot->base.tupdata.t_self = *tid;
+    LockBuffer(indexFetchHeapData->xs_cbuf, BUFFER_LOCK_UNLOCK);
 
-    if (got_heap_tuple) {
-        /*
-         * Only in a non-MVCC snapshot can more than one member of the HOT
-         * chain be visible.
-         */
-        *call_again = !IsMVCCSnapshot(snapshot);
+    if (gotHeapTuple) {
+        // Only in a non-MVCC snapshot can more than one member of the HOT chain be visible.
+        *callAgain = !IsMVCCSnapshot(snapshot);
 
-        slot->tts_tableOid = RelationGetRelid(scan->rel);
-        ExecStoreBufferHeapTuple(&bslot->base.tupdata, slot, hscan->xs_cbuf);
+        tupleTableSlot->tts_tableOid = RelationGetRelid(indexFetchTableData->rel);
+        ExecStoreBufferHeapTuple(&bufferHeapTupleTableSlot->base.tupdata,
+                                 tupleTableSlot,
+                                 indexFetchHeapData->xs_cbuf);
     } else {
         /* We've reached the end of the HOT chain. */
-        *call_again = false;
+        *callAgain = false;
     }
 
-    return got_heap_tuple;
+    return gotHeapTuple;
 }
 
 

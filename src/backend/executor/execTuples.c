@@ -1034,12 +1034,10 @@ const TupleTableSlotOps TTSOpsBufferHeapTuple = {
  *		undesirable, pass NULL.
  * --------------------------------
  */
-TupleTableSlot *
-MakeTupleTableSlot(TupleDesc tupleDesc,
-                   const TupleTableSlotOps *tts_ops) {
-    Size basesz,
-            allocsz;
-    TupleTableSlot *slot;
+TupleTableSlot *MakeTupleTableSlot(TupleDesc tupleDesc,
+                                   const TupleTableSlotOps *tts_ops) {
+    Size basesz, allocsz;
+    TupleTableSlot *tupleTableSlot;
 
     basesz = tts_ops->base_slot_size;
 
@@ -1054,23 +1052,23 @@ MakeTupleTableSlot(TupleDesc tupleDesc,
     else
         allocsz = basesz;
 
-    slot = palloc0(allocsz);
+    tupleTableSlot = palloc0(allocsz);
     /* const for optimization purposes, OK to modify at allocation time */
-    *((const TupleTableSlotOps **) &slot->tts_ops) = tts_ops;
-    slot->type = T_TupleTableSlot;
-    slot->tts_flags |= TTS_FLAG_EMPTY;
+    *((const TupleTableSlotOps **) &tupleTableSlot->tts_ops) = tts_ops;
+    tupleTableSlot->type = T_TupleTableSlot;
+    tupleTableSlot->tts_flags |= TTS_FLAG_EMPTY;
     if (tupleDesc != NULL)
-        slot->tts_flags |= TTS_FLAG_FIXED;
-    slot->tts_tupleDescriptor = tupleDesc;
-    slot->tts_mcxt = CurrentMemoryContext;
-    slot->tts_nvalid = 0;
+        tupleTableSlot->tts_flags |= TTS_FLAG_FIXED;
+    tupleTableSlot->tts_tupleDescriptor = tupleDesc;
+    tupleTableSlot->tts_mcxt = CurrentMemoryContext;
+    tupleTableSlot->tts_nvalid = 0;
 
     if (tupleDesc != NULL) {
-        slot->tts_values = (Datum *)
-                (((char *) slot)
+        tupleTableSlot->tts_values = (Datum *)
+                (((char *) tupleTableSlot)
                  + MAXALIGN(basesz));
-        slot->tts_isnull = (bool *)
-                (((char *) slot)
+        tupleTableSlot->tts_isnull = (bool *)
+                (((char *) tupleTableSlot)
                  + MAXALIGN(basesz)
                  + MAXALIGN(tupleDesc->natts * sizeof(Datum)));
 
@@ -1080,9 +1078,9 @@ MakeTupleTableSlot(TupleDesc tupleDesc,
     /*
      * And allow slot type specific initialization.
      */
-    slot->tts_ops->init(slot);
+    tupleTableSlot->tts_ops->init(tupleTableSlot);
 
-    return slot;
+    return tupleTableSlot;
 }
 
 /* --------------------------------

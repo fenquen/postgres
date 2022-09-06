@@ -18,7 +18,7 @@
 #include "storage/off.h"
 
 /*
- * ItemPointer:
+ * 说的tid(tuple id)指的是它,能够直接定位到table的某条data
  *
  * This is a pointer to an item within a disk page of a known file
  * (for example, a cross-link from an index to its parent table).

@@ -973,15 +973,15 @@ static inline bool table_index_fetch_tuple(struct IndexFetchTableData *scan,
                                            ItemPointer tid,
                                            Snapshot snapshot,
                                            TupleTableSlot *slot,
-                                           bool *call_again,
-                                           bool *all_dead) {
+                                           bool *callAgain,
+                                           bool *allDead) {
 
     return scan->rel->rd_tableam->index_fetch_tuple(scan,
                                                     tid,
                                                     snapshot,
                                                     slot,
-                                                    call_again,
-                                                    all_dead);
+                                                    callAgain,
+                                                    allDead);
 }
 
 /*

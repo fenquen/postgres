@@ -1442,7 +1442,7 @@ heap_fetch_extended(Relation relation,
 }
 
 /*
- *	heap_hot_search_buffer	- search HOT chain for tuple satisfying snapshot
+ * search HOT chain for tuple satisfying snapshot
  *
  * On entry, *tid is the TID of a tuple (either a simple tuple, or the root
  * of a HOT chain), and buffer is the buffer holding this tuple.  We search
@@ -1461,49 +1461,49 @@ heap_fetch_extended(Relation relation,
  * Unlike heap_fetch, the caller must already have pin and (at least) share
  * lock on the buffer; it is still pinned/locked at exit.
  */
-bool
-heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
-                       Snapshot snapshot, HeapTuple heapTuple,
-                       bool *all_dead, bool first_call) {
-    Page dp = (Page) BufferGetPage(buffer);
-    TransactionId prev_xmax = InvalidTransactionId;
-    BlockNumber blkno;
-    OffsetNumber offnum;
-    bool at_chain_start;
-    bool valid;
-    bool skip;
+bool heap_hot_search_buffer(ItemPointer tid,
+                            Relation tableRelation,
+                            Buffer tableBuffer,
+                            Snapshot snapshot,
+                            HeapTuple heapTuple,
+                            bool *allDead,
+                            bool firstCall) {
+    Page page = (Page) BufferGetPage(tableBuffer);
+    TransactionId prevMaxTransactionId = InvalidTransactionId;
 
     /* If this is not the first call, previous call returned a (live!) tuple */
-    if (all_dead)
-        *all_dead = first_call;
+    if (allDead) {
+        *allDead = firstCall;
+    }
 
-    blkno = ItemPointerGetBlockNumber(tid);
-    offnum = ItemPointerGetOffsetNumber(tid);
-    at_chain_start = first_call;
-    skip = !first_call;
+    BlockNumber blockNumber = ItemPointerGetBlockNumber(tid);
+    OffsetNumber offsetNumber = ItemPointerGetOffsetNumber(tid);
+
+    bool atChainStart = firstCall;
+    bool skip = !firstCall;
 
     Assert(TransactionIdIsValid(RecentGlobalXmin));
-    Assert(BufferGetBlockNumber(buffer) == blkno);
+    Assert(BufferGetBlockNumber(tableBuffer) == blockNumber);
 
-    /* Scan through possible multiple members of HOT-chain */
+    // scan through possible multiple members of HOT-chain
     for (;;) {
-        ItemId lp;
-
-        /* check for bogus TID */
-        if (offnum < FirstOffsetNumber || offnum > PageGetMaxOffsetNumber(dp))
+        // check for bogus TID
+        if (offsetNumber < FirstOffsetNumber || offsetNumber > PageGetMaxOffsetNumber(page)) {
             break;
+        }
 
-        lp = PageGetItemId(dp, offnum);
+        ItemId itemId = PageGetItemId(page, offsetNumber);
 
         /* check for unused, dead, or redirected items */
-        if (!ItemIdIsNormal(lp)) {
+        if (!ItemIdIsNormal(itemId)) {
             /* We should only see a redirect at start of chain */
-            if (ItemIdIsRedirected(lp) && at_chain_start) {
+            if (ItemIdIsRedirected(itemId) && atChainStart) {
                 /* Follow the redirect */
-                offnum = ItemIdGetRedirect(lp);
-                at_chain_start = false;
+                offsetNumber = ItemIdGetRedirect(itemId);
+                atChainStart = false;
                 continue;
             }
+
             /* else must be end of chain */
             break;
         }
@@ -1514,25 +1514,21 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
 		 * because the SSI checks and the *Satisfies routine for historical
 		 * MVCC snapshots need the correct tid to decide about the visibility.
 		 */
-        heapTuple->t_data = (HeapTupleHeader) PageGetItem(dp, lp);
-        heapTuple->t_len = ItemIdGetLength(lp);
-        heapTuple->t_tableOid = RelationGetRelid(relation);
-        ItemPointerSet(&heapTuple->t_self, blkno, offnum);
+        heapTuple->t_data = (HeapTupleHeader) PageGetItem(page, itemId);
+        heapTuple->t_len = ItemIdGetLength(itemId);
+        heapTuple->t_tableOid = RelationGetRelid(tableRelation);
+        ItemPointerSet(&heapTuple->t_self, blockNumber, offsetNumber);
 
-        /*
-		 * Shouldn't see a HEAP_ONLY tuple at chain start.
-		 */
-        if (at_chain_start && HeapTupleIsHeapOnly(heapTuple))
+        // shouldn't see a HEAP_ONLY tuple at chain start.
+        if (atChainStart && HeapTupleIsHeapOnly(heapTuple)) {
             break;
+        }
 
-        /*
-		 * The xmin should match the previous xmax value, else chain is
-		 * broken.
-		 */
-        if (TransactionIdIsValid(prev_xmax) &&
-            !TransactionIdEquals(prev_xmax,
-                                 HeapTupleHeaderGetXmin(heapTuple->t_data)))
+        // the xmin should match the previous xmax value, else chain is broken.
+        if (TransactionIdIsValid(prevMaxTransactionId) &&
+            !TransactionIdEquals(prevMaxTransactionId, HeapTupleHeaderGetXmin(heapTuple->t_data))) {
             break;
+        }
 
         /*
 		 * When first_call is true (and thus, skip is initially false) we'll
@@ -1543,15 +1539,17 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
 		 */
         if (!skip) {
             /* If it's visible per the snapshot, we must return it */
-            valid = HeapTupleSatisfiesVisibility(heapTuple, snapshot, buffer);
-            CheckForSerializableConflictOut(valid, relation, heapTuple,
-                                            buffer, snapshot);
+            bool valid = HeapTupleSatisfiesVisibility(heapTuple, snapshot, tableBuffer);
+            CheckForSerializableConflictOut(valid, tableRelation, heapTuple,
+                                            tableBuffer, snapshot);
 
             if (valid) {
-                ItemPointerSetOffsetNumber(tid, offnum);
-                PredicateLockTuple(relation, heapTuple, snapshot);
-                if (all_dead)
-                    *all_dead = false;
+                ItemPointerSetOffsetNumber(tid, offsetNumber);
+                PredicateLockTuple(tableRelation, heapTuple, snapshot);
+                if (allDead) {
+                    *allDead = false;
+                }
+
                 return true;
             }
         }
@@ -1565,22 +1563,21 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
 		 * Note: if you change the criterion here for what is "dead", fix the
 		 * planner's get_actual_variable_range() function to match.
 		 */
-        if (all_dead && *all_dead &&
-            !HeapTupleIsSurelyDead(heapTuple, RecentGlobalXmin))
-            *all_dead = false;
+        if (allDead && *allDead &&
+            !HeapTupleIsSurelyDead(heapTuple, RecentGlobalXmin)) {
+            *allDead = false;
+        }
 
-        /*
-		 * Check to see if HOT chain continues past this tuple; if so fetch
-		 * the next offnum and loop around.
-		 */
+        // check to see if HOT chain continues past this tuple; if so fetch the next offnum and loop around.
         if (HeapTupleIsHotUpdated(heapTuple)) {
-            Assert(ItemPointerGetBlockNumber(&heapTuple->t_data->t_ctid) ==
-                   blkno);
-            offnum = ItemPointerGetOffsetNumber(&heapTuple->t_data->t_ctid);
-            at_chain_start = false;
-            prev_xmax = HeapTupleHeaderGetUpdateXid(heapTuple->t_data);
-        } else
-            break;                /* end of chain */
+            Assert(ItemPointerGetBlockNumber(&heapTuple->t_data->t_ctid) == blockNumber);
+
+            offsetNumber = ItemPointerGetOffsetNumber(&heapTuple->t_data->t_ctid);
+            atChainStart = false;
+            prevMaxTransactionId = HeapTupleHeaderGetUpdateXid(heapTuple->t_data);
+        } else {   // end of chain
+            break;
+        }
     }
 
     return false;

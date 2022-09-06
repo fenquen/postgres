@@ -223,16 +223,16 @@ bool btgettuple(IndexScanDesc scan, ScanDirection dir) {
     }
 
     /* This loop handles advancing to the next array elements, if any */
-    bool res;
+    bool result;
     do {
         /*
          * If we've already initialized this scan, we can just advance it in
          * the appropriate direction.  If we haven't done so yet, we call
          * _bt_first() to get the first item in the scan.
          */
-        if (!BTScanPosIsValid(btScanOpaque->currPos))
-            res = _bt_first(scan, dir);
-        else {
+        if (!BTScanPosIsValid(btScanOpaque->currPos)) {
+            result = _bt_first(scan, dir);
+        } else {
             // check to see if we should kill the previously-fetched tuple.
             if (scan->kill_prior_tuple) {
                 /*
@@ -251,21 +251,19 @@ bool btgettuple(IndexScanDesc scan, ScanDirection dir) {
                     btScanOpaque->killedItems[btScanOpaque->numKilled++] = btScanOpaque->currPos.itemIndex;
             }
 
-            /*
-             * Now continue the scan.
-             */
-            res = _bt_next(scan, dir);
+            // now continue the scan.
+            result = _bt_next(scan, dir);
         }
 
-        /* If we have a tuple, return it ... */
-        if (res) {
+        // if we have a tuple, return it
+        if (result) {
             break;
         }
 
         /* ... otherwise see if we have more array keys to deal with */
     } while (btScanOpaque->numArrayKeys && _bt_advance_array_keys(scan, dir));
 
-    return res;
+    return result;
 }
 
 /*
@@ -663,8 +661,7 @@ _bt_parallel_release(IndexScanDesc scan, BlockNumber scan_page) {
  * notify other workers.  Otherwise, they might wait forever for the scan to
  * advance to the next page.
  */
-void
-_bt_parallel_done(IndexScanDesc scan) {
+void _bt_parallel_done(IndexScanDesc scan) {
     BTScanOpaque so = (BTScanOpaque) scan->opaque;
     ParallelIndexScanDesc parallel_scan = scan->parallel_scan;
     BTParallelScanDesc btscan;
