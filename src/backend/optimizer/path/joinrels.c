@@ -745,30 +745,51 @@ static void populate_joinrel_with_paths(PlannerInfo *root,
      */
     switch (specialJoinInfo->jointype) {
         case JOIN_INNER:
-            if (is_dummy_rel(outerRelOptInfo) || is_dummy_rel(innerRelOptInfo) ||
+            if (is_dummy_rel(outerRelOptInfo) ||
+                is_dummy_rel(innerRelOptInfo) ||
                 restriction_is_constant_false(restrictList, joinRelOptInfo, false)) {
+
                 mark_dummy_rel(joinRelOptInfo);
                 break;
             }
-            add_paths_to_joinrel(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
-                                 JOIN_INNER, specialJoinInfo,
+
+            add_paths_to_joinrel(root,
+                                 joinRelOptInfo,
+                                 outerRelOptInfo,
+                                 innerRelOptInfo,
+                                 JOIN_INNER,
+                                 specialJoinInfo,
                                  restrictList);
-            add_paths_to_joinrel(root, joinRelOptInfo, innerRelOptInfo, outerRelOptInfo,
-                                 JOIN_INNER, specialJoinInfo,
+
+            add_paths_to_joinrel(root, joinRelOptInfo,
+                                 innerRelOptInfo,
+                                 outerRelOptInfo,
+                                 JOIN_INNER,
+                                 specialJoinInfo,
                                  restrictList);
             break;
         case JOIN_LEFT:
             if (is_dummy_rel(outerRelOptInfo) ||
-                restriction_is_constant_false(restrictList, joinRelOptInfo, true)) {
+                restriction_is_constant_false(restrictList,
+                                              joinRelOptInfo,
+                                              true)) {
+
                 mark_dummy_rel(joinRelOptInfo);
                 break;
             }
-            if (restriction_is_constant_false(restrictList, joinRelOptInfo, false) &&
-                bms_is_subset(innerRelOptInfo->relids, specialJoinInfo->syn_righthand))
+
+            if (restriction_is_constant_false(restrictList,
+                                              joinRelOptInfo,
+                                              false) &&
+                bms_is_subset(innerRelOptInfo->relids, specialJoinInfo->syn_righthand)) {
+
                 mark_dummy_rel(innerRelOptInfo);
+            }
+
             add_paths_to_joinrel(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
                                  JOIN_LEFT, specialJoinInfo,
                                  restrictList);
+
             add_paths_to_joinrel(root, joinRelOptInfo, innerRelOptInfo, outerRelOptInfo,
                                  JOIN_RIGHT, specialJoinInfo,
                                  restrictList);
@@ -862,7 +883,12 @@ static void populate_joinrel_with_paths(PlannerInfo *root,
     }
 
     /* Apply partitionwise join technique, if possible. */
-    try_partitionwise_join(root, outerRelOptInfo, innerRelOptInfo, joinRelOptInfo, specialJoinInfo, restrictList);
+    try_partitionwise_join(root,
+                           outerRelOptInfo,
+                           innerRelOptInfo,
+                           joinRelOptInfo,
+                           specialJoinInfo,
+                           restrictList);
 }
 
 
@@ -1270,10 +1296,12 @@ restriction_is_constant_false(List *restrictlist,
  * The RelOptInfo, SpecialJoinInfo and restrictlist for each child join are
  * obtained by translating the respective parent join structures.
  */
-static void
-try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
-                       RelOptInfo *joinrel, SpecialJoinInfo *parent_sjinfo,
-                       List *parent_restrictlist) {
+static void try_partitionwise_join(PlannerInfo *root,
+                                   RelOptInfo *rel1,
+                                   RelOptInfo *rel2,
+                                   RelOptInfo *joinrel,
+                                   SpecialJoinInfo *parent_sjinfo,
+                                   List *parent_restrictlist) {
     bool rel1_is_simple = IS_SIMPLE_REL(rel1);
     bool rel2_is_simple = IS_SIMPLE_REL(rel2);
     int nparts;

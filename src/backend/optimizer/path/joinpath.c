@@ -126,8 +126,8 @@ void add_paths_to_joinrel(PlannerInfo *root,
                           RelOptInfo *outerRelOptInfo,
                           RelOptInfo *innerRelOptInfo,
                           JoinType joinType,
-                          SpecialJoinInfo *sjinfo,
-                          List *restrictlist) {
+                          SpecialJoinInfo *specialJoinInfo,
+                          List *restrictList) {
     bool mergejoin_allowed = true;
     ListCell *lc;
     Relids joinrelids;
@@ -146,9 +146,9 @@ void add_paths_to_joinrel(PlannerInfo *root,
     }
 
     JoinPathExtraData joinPathExtraData;
-    joinPathExtraData.restrictlist = restrictlist;
+    joinPathExtraData.restrictlist = restrictList;
     joinPathExtraData.mergeclause_list = NIL;
-    joinPathExtraData.sjinfo = sjinfo;
+    joinPathExtraData.sjinfo = specialJoinInfo;
     joinPathExtraData.param_source_rels = NULL;
 
     /*
@@ -172,7 +172,7 @@ void add_paths_to_joinrel(PlannerInfo *root,
             joinPathExtraData.inner_unique = false; /* well, unproven */
             break;
         case JOIN_UNIQUE_INNER:
-            joinPathExtraData.inner_unique = bms_is_subset(sjinfo->min_lefthand, outerRelOptInfo->relids);
+            joinPathExtraData.inner_unique = bms_is_subset(specialJoinInfo->min_lefthand, outerRelOptInfo->relids);
             break;
         case JOIN_UNIQUE_OUTER:
             joinPathExtraData.inner_unique = innerrel_is_unique(root,
@@ -180,7 +180,7 @@ void add_paths_to_joinrel(PlannerInfo *root,
                                                                 outerRelOptInfo->relids,
                                                                 innerRelOptInfo,
                                                                 JOIN_INNER,
-                                                                restrictlist,
+                                                                restrictList,
                                                                 false);
             break;
         default:
@@ -189,7 +189,7 @@ void add_paths_to_joinrel(PlannerInfo *root,
                                                                 outerRelOptInfo->relids,
                                                                 innerRelOptInfo,
                                                                 joinType,
-                                                                restrictlist,
+                                                                restrictList,
                                                                 false);
             break;
     }
@@ -205,7 +205,7 @@ void add_paths_to_joinrel(PlannerInfo *root,
                                                                       joinRelOptInfo,
                                                                       outerRelOptInfo,
                                                                       innerRelOptInfo,
-                                                                      restrictlist,
+                                                                      restrictList,
                                                                       joinType,
                                                                       &mergejoin_allowed);
 
@@ -215,7 +215,7 @@ void add_paths_to_joinrel(PlannerInfo *root,
      */
     if (joinType == JOIN_SEMI || joinType == JOIN_ANTI || joinPathExtraData.inner_unique)
         compute_semi_anti_join_factors(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
-                                       joinType, sjinfo, restrictlist,
+                                       joinType, specialJoinInfo, restrictList,
                                        &joinPathExtraData.semifactors);
 
     /*
@@ -269,7 +269,7 @@ void add_paths_to_joinrel(PlannerInfo *root,
      * 1. Consider mergejoin paths where both relations must be explicitly
      * sorted.  Skip this if we can't mergejoin.
      */
-    if (mergejoin_allowed)
+    if (mergejoin_allowed) // 添加 T_MergeJoin 的path
         sort_inner_and_outer(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
                              joinType, &joinPathExtraData);
 
@@ -307,7 +307,7 @@ void add_paths_to_joinrel(PlannerInfo *root,
      * before being joined.  As above, disregard enable_hashjoin for full
      * joins, because there may be no other alternative.
      */
-    if (enable_hashjoin || joinType == JOIN_FULL) {
+    if (enable_hashjoin || joinType == JOIN_FULL) { // 添加 T_HashJoin 的 path
         hash_inner_and_outer(root,
                              joinRelOptInfo,
                              outerRelOptInfo,

@@ -456,7 +456,7 @@ HashJoinTable ExecHashTableCreate(HashState *hashState,
     size_t spaceByteCountAllowed;
     int bucketCount;
     int batchCount;
-    int skewmcvCount;
+    int skewMcvCount;
     ExecChooseHashTableSize(rows,
                             planOuter->plan_width,
                             OidIsValid(hash->skewTable),
@@ -465,7 +465,7 @@ HashJoinTable ExecHashTableCreate(HashState *hashState,
                             &spaceByteCountAllowed,
                             &bucketCount,
                             &batchCount,
-                            &skewmcvCount);
+                            &skewMcvCount);
 
     /* nbuckets must be a power of 2 */
     int log2BucketNum = my_log2(bucketCount);
@@ -620,7 +620,7 @@ HashJoinTable ExecHashTableCreate(HashState *hashState,
          * more than one batch.  (In a one-batch join, there's no point in it.)
          */
         if (batchCount > 1) {
-            ExecHashBuildSkewHash(hashJoinTable, hash, skewmcvCount);
+            ExecHashBuildSkewHash(hashJoinTable, hash, skewMcvCount);
         }
 
         MemoryContextSwitchTo(oldcxt);
