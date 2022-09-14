@@ -18,7 +18,7 @@
 #include "nodes/execnodes.h"
 #include "storage/buffile.h"
 
-extern HashJoinState *ExecInitHashJoin(HashJoin *node, EState *estate, int eflags);
+extern HashJoinState *ExecInitHashJoin(HashJoin *hashJoin, EState *estate, int eflags);
 extern void ExecEndHashJoin(HashJoinState *node);
 extern void ExecReScanHashJoin(HashJoinState *node);
 extern void ExecShutdownHashJoin(HashJoinState *node);

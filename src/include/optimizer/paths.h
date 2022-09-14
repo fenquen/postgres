@@ -56,8 +56,8 @@ extern PGDLLIMPORT join_search_hook_type join_search_hook;
 
 
 extern RelOptInfo *make_one_rel(PlannerInfo *root, List *joinlist);
-extern RelOptInfo *standard_join_search(PlannerInfo *root, int levels_needed,
-										List *initial_rels);
+extern RelOptInfo *standard_join_search(PlannerInfo *root, int levelsNeeded,
+										List *initialRelOptInfoList);
 
 extern void generate_gather_paths(PlannerInfo *root, RelOptInfo *rel,
 								  bool override_rows);
@@ -97,10 +97,10 @@ extern void create_tidscan_paths(PlannerInfo *root, RelOptInfo *rel);
  * joinpath.c
  *	   routines to create join paths
  */
-extern void add_paths_to_joinrel(PlannerInfo *root, RelOptInfo *joinrel,
-								 RelOptInfo *outerrel, RelOptInfo *innerrel,
-								 JoinType jointype, SpecialJoinInfo *sjinfo,
-								 List *restrictlist);
+extern void add_paths_to_joinrel(PlannerInfo *root, RelOptInfo *joinRelOptInfo,
+                                 RelOptInfo *outerRelOptInfo, RelOptInfo *innerRelOptInfo,
+                                 JoinType joinType, SpecialJoinInfo *sjinfo,
+                                 List *restrictlist);
 
 /*
  * joinrels.c
@@ -108,7 +108,7 @@ extern void add_paths_to_joinrel(PlannerInfo *root, RelOptInfo *joinrel,
  */
 extern void join_search_one_level(PlannerInfo *root, int level);
 extern RelOptInfo *make_join_rel(PlannerInfo *root,
-								 RelOptInfo *rel1, RelOptInfo *rel2);
+                                 RelOptInfo *outerRelOptInfo, RelOptInfo *innerRelOptInfo);
 extern bool have_join_order_restriction(PlannerInfo *root,
 										RelOptInfo *rel1, RelOptInfo *rel2);
 extern bool have_dangerous_phv(PlannerInfo *root,

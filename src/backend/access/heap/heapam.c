@@ -1413,8 +1413,9 @@ heap_fetch_extended(Relation relation,
 	 */
     valid = HeapTupleSatisfiesVisibility(tuple, snapshot, buffer);
 
-    if (valid)
+    if (valid) {
         PredicateLockTuple(relation, tuple, snapshot);
+    }
 
     CheckForSerializableConflictOut(valid, relation, tuple, buffer, snapshot);
 
@@ -1431,9 +1432,9 @@ heap_fetch_extended(Relation relation,
     }
 
     /* Tuple failed time qual, but maybe caller wants to see it anyway. */
-    if (keep_buf)
+    if (keep_buf) {
         *userbuf = buffer;
-    else {
+    } else {
         ReleaseBuffer(buffer);
         *userbuf = InvalidBuffer;
     }
@@ -1538,10 +1539,14 @@ bool heap_hot_search_buffer(ItemPointer tid,
 		 * we skip it and return the next match we find.
 		 */
         if (!skip) {
-            /* If it's visible per the snapshot, we must return it */
+            // If it's visible per the snapshot, we must return it
             bool valid = HeapTupleSatisfiesVisibility(heapTuple, snapshot, tableBuffer);
-            CheckForSerializableConflictOut(valid, tableRelation, heapTuple,
-                                            tableBuffer, snapshot);
+
+            CheckForSerializableConflictOut(valid,
+                                            tableRelation,
+                                            heapTuple,
+                                            tableBuffer,
+                                            snapshot);
 
             if (valid) {
                 ItemPointerSetOffsetNumber(tid, offsetNumber);

@@ -519,11 +519,11 @@ typedef struct BTScanPosItem {
 } BTScanPosItem;
 
 typedef struct BTScanPosData {
-    Buffer buf;            /* if valid, the buffer is pinned */
+    Buffer buf;            /* 是index的本身的buffer,if valid the buffer is pinned */
 
     XLogRecPtr lsn;            /* pos in the WAL stream when page was read */
     BlockNumber currPage;        /* page referenced by items array */
-    BlockNumber nextPage;        /* page's right link when we scanned it */
+    BlockNumber nextPage;        /* 来自btPageOpaque的btpo_next;page's right link when we scanned it */
 
     /*
      * moreLeft and moreRight track whether we think there may be matching
@@ -551,7 +551,9 @@ typedef struct BTScanPosData {
     int lastItem;        /* last valid index in items[] */
     int itemIndex;        /* current index in items[] */
 
-    BTScanPosItem items[MaxIndexTuplesPerPage]; /* MUST BE LAST */
+    // MUST BE LAST
+    // _bt_readpage() 调用 _bt_saveitem() 注入元素
+    BTScanPosItem items[MaxIndexTuplesPerPage];
 } BTScanPosData;
 
 typedef BTScanPosData *BTScanPos;
@@ -767,13 +769,13 @@ extern void _bt_update_meta_cleanup_info(Relation rel,
 
 extern void _bt_upgrademetapage(Page page);
 
-extern Buffer _bt_getroot(Relation rel, int access);
+extern Buffer _bt_getroot(Relation indexRelation, int access);
 
 extern Buffer _bt_gettrueroot(Relation rel);
 
 extern int _bt_getrootheight(Relation rel);
 
-extern bool _bt_heapkeyspace(Relation rel);
+extern bool _bt_heapkeyspace(Relation indexRelation);
 
 extern void _bt_checkpage(Relation rel, Buffer buf);
 

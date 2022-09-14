@@ -947,8 +947,7 @@ typedef struct PlanState {
     struct PlanState *lefttree; /* input plan tree(s) */
     struct PlanState *righttree;
 
-    List *initPlan;        /* Init SubPlanState nodes (un-correlated expr
-								 * subselects) */
+    List *initPlan;        /* Init SubPlanState nodes (un-correlated expr subselects) */
     List *subPlan;        /* SubPlanState nodes in my expressions */
 
     /*
@@ -1906,7 +1905,7 @@ typedef struct HashJoinState {
     TupleTableSlot *hj_NullOuterTupleSlot;
     TupleTableSlot *hj_NullInnerTupleSlot;
     TupleTableSlot *hj_FirstOuterTupleSlot;
-    int hj_JoinState;
+    int hj_JoinState; // 起始的值 HJ_BUILD_HASHTABLE
     bool hj_MatchedOuter;
     bool hj_OuterNotEmpty;
 } HashJoinState;

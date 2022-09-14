@@ -148,7 +148,7 @@ extern void initial_cost_hashjoin(PlannerInfo *root,
 								  List *hashclauses,
 								  Path *outer_path, Path *inner_path,
 								  JoinPathExtraData *extra,
-								  bool parallel_hash);
+								  bool parallelHash);
 extern void final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 								JoinCostWorkspace *workspace,
 								JoinPathExtraData *extra);

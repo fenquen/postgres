@@ -1281,7 +1281,6 @@ bool _bt_checkkeys(IndexScanDesc scan,
                    ScanDirection dir,
                    bool *continueScan) {
 
-
     Assert(BTreeTupleGetNAtts(indexTuple, scan->indexRelation) == tupnatts);
 
     // default assumption
@@ -1292,9 +1291,8 @@ bool _bt_checkkeys(IndexScanDesc scan,
     BTScanOpaque btScanOpaque = (BTScanOpaque) scan->opaque;
     int keyNum = btScanOpaque->numberOfKeys;
 
-    int a = 0;
     ScanKey scanKey = btScanOpaque->keyData;
-    for (; a < keyNum; scanKey++, a++) {
+    for (int a = 0; a < keyNum; scanKey++, a++) {
         bool isNull;
         Datum test;
 
@@ -1339,8 +1337,7 @@ bool _bt_checkkeys(IndexScanDesc scan,
 
             /*
              * Tuple fails this qual.  If it's a required qual for the current
-             * scan direction, then we can conclude no further tuples will
-             * pass, either.
+             * scan direction, then we can conclude no further tuples will pass, either.
              */
             if ((scanKey->sk_flags & SK_BT_REQFWD) && ScanDirectionIsForward(dir)) {
                 *continueScan = false;
@@ -1572,20 +1569,18 @@ _bt_check_rowcompare(ScanKey skey, IndexTuple tuple, int tupnatts,
          * either.  Note we have to look at the deciding column, not
          * necessarily the first or last column of the row condition.
          */
-        if ((subkey->sk_flags & SK_BT_REQFWD) &&
-            ScanDirectionIsForward(dir))
+        if ((subkey->sk_flags & SK_BT_REQFWD) && ScanDirectionIsForward(dir)) {
             *continuescan = false;
-        else if ((subkey->sk_flags & SK_BT_REQBKWD) &&
-                 ScanDirectionIsBackward(dir))
+        } else if ((subkey->sk_flags & SK_BT_REQBKWD) && ScanDirectionIsBackward(dir)) {
             *continuescan = false;
+        }
     }
 
     return result;
 }
 
 /*
- * _bt_killitems - set LP_DEAD state for items an indexscan caller has
- * told us were killed
+ *  set LP_DEAD state for items an indexscan caller has told us were killed
  *
  * scan->opaque, referenced locally through so, contains information about the
  * current page and killed tuples thereon (generally, this should only be
@@ -1614,44 +1609,38 @@ _bt_check_rowcompare(ScanKey skey, IndexTuple tuple, int tupnatts,
  * flag any entries because it is possible that the old entry was vacuumed
  * away and the TID was re-used by a completely different heap tuple.
  */
-void
-_bt_killitems(IndexScanDesc scan) {
+void _bt_killitems(IndexScanDesc scan) {
     BTScanOpaque so = (BTScanOpaque) scan->opaque;
     Page page;
     BTPageOpaque opaque;
     OffsetNumber minoff;
     OffsetNumber maxoff;
-    int i;
+
     int numKilled = so->numKilled;
     bool killedsomething = false;
 
     Assert(BTScanPosIsValid(so->currPos));
 
-    /*
-     * Always reset the scan state, so we don't look for same items on other
-     * pages.
-     */
+    // Always reset the scan state, so we don't look for same items on other pages.
     so->numKilled = 0;
 
     if (BTScanPosIsPinned(so->currPos)) {
         /*
          * We have held the pin on this page since we read the index tuples,
          * so all we need to do is lock it.  The pin will have prevented
-         * re-use of any TID on the page, so there is no need to check the
-         * LSN.
+         * re-use of any TID on the page, so there is no need to check the LSN.
          */
         LockBuffer(so->currPos.buf, BT_READ);
 
         page = BufferGetPage(so->currPos.buf);
     } else {
-        Buffer buf;
-
         /* Attempt to re-read the buffer, getting pin and lock. */
-        buf = _bt_getbuf(scan->indexRelation, so->currPos.currPage, BT_READ);
+        Buffer buf = _bt_getbuf(scan->indexRelation, so->currPos.currPage, BT_READ);
 
         /* It might not exist anymore; in which case we can't hint it. */
-        if (!BufferIsValid(buf))
+        if (!BufferIsValid(buf)) {
             return;
+        }
 
         page = BufferGetPage(buf);
         if (BufferGetLSNAtomic(buf) == so->currPos.lsn)
@@ -1667,7 +1656,7 @@ _bt_killitems(IndexScanDesc scan) {
     minoff = P_FIRSTDATAKEY(opaque);
     maxoff = PageGetMaxOffsetNumber(page);
 
-    for (i = 0; i < numKilled; i++) {
+    for (int i = 0; i < numKilled; i++) {
         int itemIndex = so->killedItems[i];
         BTScanPosItem *kitem = &so->currPos.items[itemIndex];
         OffsetNumber offnum = kitem->indexOffset;
@@ -1677,8 +1666,8 @@ _bt_killitems(IndexScanDesc scan) {
         if (offnum < minoff)
             continue;            /* pure paranoia */
         while (offnum <= maxoff) {
-            ItemId iid = PageGetItemId(page, offnum);
-            IndexTuple ituple = (IndexTuple) PageGetItem(page, iid);
+            ItemId itemId = PageGetItemId(page, offnum);
+            IndexTuple ituple = (IndexTuple) PageGetItem(page, itemId);
 
             if (ItemPointerEquals(&ituple->t_tid, &kitem->heapTid)) {
                 /*
@@ -1689,8 +1678,8 @@ _bt_killitems(IndexScanDesc scan) {
                  * images being sent to WAL (if wal_log_hints or data checksums
                  * are enabled), which is undesirable.
                  */
-                if (!ItemIdIsDead(iid)) {
-                    ItemIdMarkDead(iid);
+                if (!ItemIdIsDead(itemId)) {
+                    ItemIdMarkDead(itemId);
                     killedsomething = true;
                 }
                 break;            /* out of inner search loop */

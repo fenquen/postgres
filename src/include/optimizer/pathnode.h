@@ -161,16 +161,16 @@ extern MergePath *create_mergejoin_path(PlannerInfo *root,
 										List *innersortkeys);
 
 extern HashPath *create_hashjoin_path(PlannerInfo *root,
-									  RelOptInfo *joinrel,
-									  JoinType jointype,
-									  JoinCostWorkspace *workspace,
-									  JoinPathExtraData *extra,
-									  Path *outer_path,
-									  Path *inner_path,
-									  bool parallel_hash,
-									  List *restrict_clauses,
-									  Relids required_outer,
-									  List *hashclauses);
+									  RelOptInfo *joinRelOptInfo,
+									  JoinType joinType,
+									  JoinCostWorkspace *joinCostWorkspace,
+									  JoinPathExtraData *joinPathExtraData,
+									  Path *outerPath,
+									  Path *innerPath,
+									  bool parallelHash,
+									  List *restrictClauseList,
+									  Relids requiredOuter,
+									  List *hashClauseList);
 
 extern ProjectionPath *create_projection_path(PlannerInfo *root,
 											  RelOptInfo *rel,

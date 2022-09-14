@@ -136,7 +136,7 @@ static TupleTableSlot *ExecProcNodeInstr(PlanState *node);
  */
 PlanState *ExecInitNode(Plan *plan, EState *estate, int eflags) {
     PlanState *planState;
-    List *subps;
+
     ListCell *l;
 
     // do nothing when we get to the end of a leaf on tree.
@@ -156,10 +156,8 @@ PlanState *ExecInitNode(Plan *plan, EState *estate, int eflags) {
             planState = (PlanState *) ExecInitFunctionScan((FunctionScan *) plan, estate, eflags);
             break;
         case T_Result: // control nodes
-            planState = (PlanState *) ExecInitResult((Result *) plan,
-                                                     estate, eflags);
+            planState = (PlanState *) ExecInitResult((Result *) plan,estate, eflags);
             break;
-
         case T_ProjectSet:
             planState = (PlanState *) ExecInitProjectSet((ProjectSet *) plan, estate, eflags);
             break;
@@ -192,21 +190,18 @@ PlanState *ExecInitNode(Plan *plan, EState *estate, int eflags) {
             planState = (PlanState *) ExecInitIndexScan((IndexScan *) plan, estate, eflags);
             break;
         case T_IndexOnlyScan:
-            planState = (PlanState *) ExecInitIndexOnlyScan((IndexOnlyScan *) plan,estate, eflags);
+            planState = (PlanState *) ExecInitIndexOnlyScan((IndexOnlyScan *) plan, estate, eflags);
             break;
         case T_BitmapIndexScan:
-            planState = (PlanState *) ExecInitBitmapIndexScan((BitmapIndexScan *) plan,
-                                                              estate, eflags);
+            planState = (PlanState *) ExecInitBitmapIndexScan((BitmapIndexScan *) plan, estate, eflags);
             break;
 
         case T_BitmapHeapScan:
-            planState = (PlanState *) ExecInitBitmapHeapScan((BitmapHeapScan *) plan,
-                                                             estate, eflags);
+            planState = (PlanState *) ExecInitBitmapHeapScan((BitmapHeapScan *) plan, estate, eflags);
             break;
 
         case T_TidScan:
-            planState = (PlanState *) ExecInitTidScan((TidScan *) plan,
-                                                      estate, eflags);
+            planState = (PlanState *) ExecInitTidScan((TidScan *) plan, estate, eflags);
             break;
 
         case T_SubqueryScan:
@@ -234,9 +229,8 @@ PlanState *ExecInitNode(Plan *plan, EState *estate, int eflags) {
         case T_CustomScan:
             planState = (PlanState *) ExecInitCustomScan((CustomScan *) plan, estate, eflags);
             break;
-            /*
-             * join nodes
-             */
+
+            // join node
         case T_NestLoop:
             planState = (PlanState *) ExecInitNestLoop((NestLoop *) plan, estate, eflags);
             break;
@@ -246,9 +240,8 @@ PlanState *ExecInitNode(Plan *plan, EState *estate, int eflags) {
         case T_HashJoin:
             planState = (PlanState *) ExecInitHashJoin((HashJoin *) plan, estate, eflags);
             break;
-            /*
-             * materialization nodes
-             */
+
+            // materialization node
         case T_Material:
             planState = (PlanState *) ExecInitMaterial((Material *) plan, estate, eflags);
             break;
@@ -294,18 +287,17 @@ PlanState *ExecInitNode(Plan *plan, EState *estate, int eflags) {
     ExecSetExecProcNode(planState, planState->ExecProcNode);
 
     // initialize any initPlans present in this node.  The planner put them in a separate list for us.
-    subps = NIL;
+    List *subPlanList = NIL;
     foreach(l, plan->initPlan) {
-        SubPlan *subplan = (SubPlan *) lfirst(l);
-        SubPlanState *sstate;
+        SubPlan *subPlan = (SubPlan *) lfirst(l);
 
-        Assert(IsA(subplan, SubPlan));
-        sstate = ExecInitSubPlan(subplan, planState);
-        subps = lappend(subps, sstate);
+        Assert(IsA(subPlan, SubPlan));
+        SubPlanState *subPlanState = ExecInitSubPlan(subPlan, planState);
+        subPlanList = lappend(subPlanList, subPlanState);
     }
-    planState->initPlan = subps;
+    planState->initPlan = subPlanList;
 
-    /* Set up instrumentation for this node if requested */
+    // set up instrumentation for this node if requested */
     if (estate->es_instrument) {
         planState->instrument = InstrAlloc(1, estate->es_instrument);
     }

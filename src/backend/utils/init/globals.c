@@ -117,7 +117,7 @@ int IntervalStyle = INTSTYLE_POSTGRES;
 
 bool enableFsync = true;
 bool allowSystemTableMods = false;
-int work_mem = 1024;// kb
+int work_mem = 1024;// kb ,默认的guc的配置是4096
 int maintenance_work_mem = 16384;
 int max_parallel_maintenance_workers = 2;
 

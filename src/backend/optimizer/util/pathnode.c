@@ -2345,37 +2345,37 @@ create_mergejoin_path(PlannerInfo *root,
  * 'hashclauses' are the RestrictInfo nodes to use as hash clauses
  *		(this should be a subset of the restrict_clauses list)
  */
-HashPath *
-create_hashjoin_path(PlannerInfo *root,
-                     RelOptInfo *joinrel,
-                     JoinType jointype,
-                     JoinCostWorkspace *workspace,
-                     JoinPathExtraData *extra,
-                     Path *outer_path,
-                     Path *inner_path,
-                     bool parallel_hash,
-                     List *restrict_clauses,
-                     Relids required_outer,
-                     List *hashclauses) {
-    HashPath *pathnode = makeNode(HashPath);
+HashPath *create_hashjoin_path(PlannerInfo *root,
+                               RelOptInfo *joinRelOptInfo,
+                               JoinType joinType,
+                               JoinCostWorkspace *joinCostWorkspace,
+                               JoinPathExtraData *joinPathExtraData,
+                               Path *outerPath,
+                               Path *innerPath,
+                               bool parallelHash,
+                               List *restrictClauseList,
+                               Relids requiredOuter,
+                               List *hashClauseList) {
+    HashPath *hashPath = makeNode(HashPath);
 
-    pathnode->jpath.path.pathtype = T_HashJoin;
-    pathnode->jpath.path.parent = joinrel;
-    pathnode->jpath.path.pathtarget = joinrel->reltarget;
-    pathnode->jpath.path.param_info =
-            get_joinrel_parampathinfo(root,
-                                      joinrel,
-                                      outer_path,
-                                      inner_path,
-                                      extra->sjinfo,
-                                      required_outer,
-                                      &restrict_clauses);
-    pathnode->jpath.path.parallel_aware =
-            joinrel->consider_parallel && parallel_hash;
-    pathnode->jpath.path.parallel_safe = joinrel->consider_parallel &&
-                                         outer_path->parallel_safe && inner_path->parallel_safe;
+    hashPath->jpath.path.pathtype = T_HashJoin;
+    hashPath->jpath.path.parent = joinRelOptInfo;
+    hashPath->jpath.path.pathtarget = joinRelOptInfo->reltarget;
+
+    hashPath->jpath.path.param_info = get_joinrel_parampathinfo(root,
+                                                                joinRelOptInfo,
+                                                                outerPath,
+                                                                innerPath,
+                                                                joinPathExtraData->sjinfo,
+                                                                requiredOuter,
+                                                                &restrictClauseList);
+
     /* This is a foolish way to estimate parallel_workers, but for now... */
-    pathnode->jpath.path.parallel_workers = outer_path->parallel_workers;
+    hashPath->jpath.path.parallel_workers = outerPath->parallel_workers;
+    hashPath->jpath.path.parallel_aware = joinRelOptInfo->consider_parallel && parallelHash;
+    hashPath->jpath.path.parallel_safe = joinRelOptInfo->consider_parallel &&
+                                         outerPath->parallel_safe &&
+                                         innerPath->parallel_safe;
 
     /*
      * A hashjoin never has pathkeys, since its output ordering is
@@ -2388,18 +2388,18 @@ create_hashjoin_path(PlannerInfo *root,
      * seriously, joinpath.c would have to consider many more paths for the
      * outer rel than it does now.)
      */
-    pathnode->jpath.path.pathkeys = NIL;
-    pathnode->jpath.jointype = jointype;
-    pathnode->jpath.inner_unique = extra->inner_unique;
-    pathnode->jpath.outerjoinpath = outer_path;
-    pathnode->jpath.innerjoinpath = inner_path;
-    pathnode->jpath.joinrestrictinfo = restrict_clauses;
-    pathnode->path_hashclauses = hashclauses;
+    hashPath->jpath.path.pathkeys = NIL;
+    hashPath->jpath.jointype = joinType;
+    hashPath->jpath.inner_unique = joinPathExtraData->inner_unique;
+    hashPath->jpath.outerjoinpath = outerPath;
+    hashPath->jpath.innerjoinpath = innerPath;
+    hashPath->jpath.joinrestrictinfo = restrictClauseList;
+    hashPath->path_hashclauses = hashClauseList;
+
     /* final_cost_hashjoin will fill in pathnode->num_batches */
+    final_cost_hashjoin(root, hashPath, joinCostWorkspace, joinPathExtraData);
 
-    final_cost_hashjoin(root, pathnode, workspace, extra);
-
-    return pathnode;
+    return hashPath;
 }
 
 /*

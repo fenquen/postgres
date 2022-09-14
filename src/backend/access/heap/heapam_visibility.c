@@ -1569,5 +1569,5 @@ bool HeapTupleSatisfiesVisibility(HeapTuple heapTuple,
             return HeapTupleSatisfiesNonVacuumable(heapTuple, snapshot, buffer);
     }
 
-    return false;                /* keep compiler quiet */
+    return false;
 }

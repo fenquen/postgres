@@ -64,21 +64,19 @@
 /* typedef struct HashJoinTupleData *HashJoinTuple; */
 /* typedef struct HashJoinTableData *HashJoinTable; */
 
-typedef struct HashJoinTupleData
-{
-	/* link to next tuple in same bucket */
-	union
-	{
-		struct HashJoinTupleData *unshared;
-		dsa_pointer shared;
-	}			next;
-	uint32		hashvalue;		/* tuple's hash code */
-	/* Tuple data, in MinimalTuple format, follows on a MAXALIGN boundary */
-}			HashJoinTupleData;
+typedef struct HashJoinTupleData {
+    /* link to next tuple in same bucket */
+    union {
+        struct HashJoinTupleData *unshared;
+        dsa_pointer shared;
+    } next;
+    uint32 hashvalue;        /* tuple's hash code */
+    /* Tuple data, in MinimalTuple format, follows on a MAXALIGN boundary */
+} HashJoinTupleData;
 
 #define HJTUPLE_OVERHEAD  MAXALIGN(sizeof(HashJoinTupleData))
 #define HJTUPLE_MINTUPLE(hjtup)  \
-	((MinimalTuple) ((char *) (hjtup) + HJTUPLE_OVERHEAD))
+    ((MinimalTuple) ((char *) (hjtup) + HJTUPLE_OVERHEAD))
 
 /*
  * If the outer relation's distribution is sufficiently nonuniform, we attempt
@@ -99,14 +97,13 @@ typedef struct HashJoinTupleData
  * uniformly distributed relation on the inside, so we're more likely to find
  * interesting skew in the outer relation.
  */
-typedef struct HashSkewBucket
-{
-	uint32		hashvalue;		/* common hash value */
-	HashJoinTuple tuples;		/* linked list of inner-relation tuples */
+typedef struct HashSkewBucket {
+    uint32 hashvalue;        /* common hash value */
+    HashJoinTuple tuples;        /* linked list of inner-relation tuples */
 } HashSkewBucket;
 
 #define SKEW_BUCKET_OVERHEAD  MAXALIGN(sizeof(HashSkewBucket))
-#define INVALID_SKEW_BUCKET_NO	(-1)
+#define INVALID_SKEW_BUCKET_NO    (-1)
 #define SKEW_WORK_MEM_PERCENT  2
 #define SKEW_MIN_OUTER_FRACTION  0.01
 
@@ -114,33 +111,31 @@ typedef struct HashSkewBucket
  * To reduce palloc overhead, the HashJoinTuples for the current batch are
  * packed in 32kB buffers instead of pallocing each tuple individually.
  */
-typedef struct HashMemoryChunkData
-{
-	int			ntuples;		/* number of tuples stored in this chunk */
-	size_t		maxlen;			/* size of the chunk's tuple buffer */
-	size_t		used;			/* number of buffer bytes already used */
+typedef struct HashMemoryChunkData {
+    int ntuples;        /* number of tuples stored in this chunk */
+    size_t maxlen;            /* size of the chunk's tuple buffer */
+    size_t used;            /* number of buffer bytes already used */
 
-	/* pointer to the next chunk (linked list) */
-	union
-	{
-		struct HashMemoryChunkData *unshared;
-		dsa_pointer shared;
-	}			next;
+    /* pointer to the next chunk (linked list) */
+    union {
+        struct HashMemoryChunkData *unshared;
+        dsa_pointer shared;
+    } next;
 
-	/*
-	 * The chunk's tuple buffer starts after the HashMemoryChunkData struct,
-	 * at offset HASH_CHUNK_HEADER_SIZE (which must be maxaligned).  Note that
-	 * that offset is not included in "maxlen" or "used".
-	 */
-}			HashMemoryChunkData;
+    /*
+     * The chunk's tuple buffer starts after the HashMemoryChunkData struct,
+     * at offset HASH_CHUNK_HEADER_SIZE (which must be maxaligned).  Note that
+     * that offset is not included in "maxlen" or "used".
+     */
+} HashMemoryChunkData;
 
 typedef struct HashMemoryChunkData *HashMemoryChunk;
 
-#define HASH_CHUNK_SIZE			(32 * 1024L)
-#define HASH_CHUNK_HEADER_SIZE	MAXALIGN(sizeof(HashMemoryChunkData))
-#define HASH_CHUNK_DATA(hc)		(((char *) (hc)) + HASH_CHUNK_HEADER_SIZE)
+#define HASH_CHUNK_SIZE            (32 * 1024L)
+#define HASH_CHUNK_HEADER_SIZE    MAXALIGN(sizeof(HashMemoryChunkData))
+#define HASH_CHUNK_DATA(hc)        (((char *) (hc)) + HASH_CHUNK_HEADER_SIZE)
 /* tuples exceeding HASH_CHUNK_THRESHOLD bytes are put in their own chunk */
-#define HASH_CHUNK_THRESHOLD	(HASH_CHUNK_SIZE / 4)
+#define HASH_CHUNK_THRESHOLD    (HASH_CHUNK_SIZE / 4)
 
 /*
  * For each batch of a Parallel Hash Join, we have a ParallelHashJoinBatch
@@ -148,65 +143,63 @@ typedef struct HashMemoryChunkData *HashMemoryChunk;
  * followed by variable-sized objects, they are arranged in contiguous memory
  * but not accessed directly as an array.
  */
-typedef struct ParallelHashJoinBatch
-{
-	dsa_pointer buckets;		/* array of hash table buckets */
-	Barrier		batch_barrier;	/* synchronization for joining this batch */
+typedef struct ParallelHashJoinBatch {
+    dsa_pointer buckets;        /* array of hash table buckets */
+    Barrier batch_barrier;    /* synchronization for joining this batch */
 
-	dsa_pointer chunks;			/* chunks of tuples loaded */
-	size_t		size;			/* size of buckets + chunks in memory */
-	size_t		estimated_size; /* size of buckets + chunks while writing */
-	size_t		ntuples;		/* number of tuples loaded */
-	size_t		old_ntuples;	/* number of tuples before repartitioning */
-	bool		space_exhausted;
+    dsa_pointer chunks;            /* chunks of tuples loaded */
+    size_t size;            /* size of buckets + chunks in memory */
+    size_t estimated_size; /* size of buckets + chunks while writing */
+    size_t ntuples;        /* number of tuples loaded */
+    size_t old_ntuples;    /* number of tuples before repartitioning */
+    bool space_exhausted;
 
-	/*
-	 * Variable-sized SharedTuplestore objects follow this struct in memory.
-	 * See the accessor macros below.
-	 */
+    /*
+     * Variable-sized SharedTuplestore objects follow this struct in memory.
+     * See the accessor macros below.
+     */
 } ParallelHashJoinBatch;
 
 /* Accessor for inner batch tuplestore following a ParallelHashJoinBatch. */
-#define ParallelHashJoinBatchInner(batch)							\
-	((SharedTuplestore *)											\
-	 ((char *) (batch) + MAXALIGN(sizeof(ParallelHashJoinBatch))))
+#define ParallelHashJoinBatchInner(batch)                            \
+    ((SharedTuplestore *)                                            \
+     ((char *) (batch) + MAXALIGN(sizeof(ParallelHashJoinBatch))))
 
 /* Accessor for outer batch tuplestore following a ParallelHashJoinBatch. */
 #define ParallelHashJoinBatchOuter(batch, nparticipants) \
-	((SharedTuplestore *)												\
-	 ((char *) ParallelHashJoinBatchInner(batch) +						\
-	  MAXALIGN(sts_estimate(nparticipants))))
+    ((SharedTuplestore *)                                                \
+     ((char *) ParallelHashJoinBatchInner(batch) +                        \
+      MAXALIGN(sts_estimate(nparticipants))))
 
 /* Total size of a ParallelHashJoinBatch and tuplestores. */
-#define EstimateParallelHashJoinBatch(hashtable)						\
-	(MAXALIGN(sizeof(ParallelHashJoinBatch)) +							\
-	 MAXALIGN(sts_estimate((hashtable)->parallel_state->nparticipants)) * 2)
+#define EstimateParallelHashJoinBatch(hashtable)                        \
+    (MAXALIGN(sizeof(ParallelHashJoinBatch)) +                            \
+     MAXALIGN(sts_estimate((hashtable)->parallel_state->nparticipants)) * 2)
 
 /* Accessor for the nth ParallelHashJoinBatch given the base. */
-#define NthParallelHashJoinBatch(base, n)								\
-	((ParallelHashJoinBatch *)											\
-	 ((char *) (base) +													\
-	  EstimateParallelHashJoinBatch(hashtable) *  (n)))
+#define NthParallelHashJoinBatch(base, n)                                \
+    ((ParallelHashJoinBatch *)                                            \
+     ((char *) (base) +                                                    \
+      EstimateParallelHashJoinBatch(hashtable) *  (n)))
 
 /*
  * Each backend requires a small amount of per-batch state to interact with
  * each ParallelHashJoinBatch.
  */
-typedef struct ParallelHashJoinBatchAccessor
-{
-	ParallelHashJoinBatch *shared;	/* pointer to shared state */
+typedef struct ParallelHashJoinBatchAccessor {
+    ParallelHashJoinBatch *shared;    /* pointer to shared state */
 
-	/* Per-backend partial counters to reduce contention. */
-	size_t		preallocated;	/* pre-allocated space for this backend */
-	size_t		ntuples;		/* number of tuples */
-	size_t		size;			/* size of partition in memory */
-	size_t		estimated_size; /* size of partition on disk */
-	size_t		old_ntuples;	/* how many tuples before repartitioning? */
-	bool		at_least_one_chunk; /* has this backend allocated a chunk? */
+    /* Per-backend partial counters to reduce contention. */
+    size_t preallocated;    /* pre-allocated space for this backend */
+    size_t ntuples;        /* number of tuples */
+    size_t size;            /* size of partition in memory */
+    size_t estimated_size; /* size of partition on disk */
+    size_t old_ntuples;    /* how many tuples before repartitioning? */
+    bool at_least_one_chunk; /* has this backend allocated a chunk? */
 
-	bool		done;			/* flag to remember that a batch is done */
-	SharedTuplestoreAccessor *inner_tuples;
-	SharedTuplestoreAccessor *outer_tuples;
+    bool done;            /* flag to remember that a batch is done */
+    SharedTuplestoreAccessor *inner_tuples;
+    SharedTuplestoreAccessor *outer_tuples;
 } ParallelHashJoinBatchAccessor;
 
 /*
@@ -215,148 +208,144 @@ typedef struct ParallelHashJoinBatchAccessor
  * to reduce the memory size.  This is indicated by setting the growth flag to
  * these values.
  */
-typedef enum ParallelHashGrowth
-{
-	/* The current dimensions are sufficient. */
-	PHJ_GROWTH_OK,
-	/* The load factor is too high, so we need to add buckets. */
-	PHJ_GROWTH_NEED_MORE_BUCKETS,
-	/* The memory budget would be exhausted, so we need to repartition. */
-	PHJ_GROWTH_NEED_MORE_BATCHES,
-	/* Repartitioning didn't help last time, so don't try to do that again. */
-	PHJ_GROWTH_DISABLED
+typedef enum ParallelHashGrowth {
+    /* The current dimensions are sufficient. */
+    PHJ_GROWTH_OK,
+    /* The load factor is too high, so we need to add buckets. */
+    PHJ_GROWTH_NEED_MORE_BUCKETS,
+    /* The memory budget would be exhausted, so we need to repartition. */
+    PHJ_GROWTH_NEED_MORE_BATCHES,
+    /* Repartitioning didn't help last time, so don't try to do that again. */
+    PHJ_GROWTH_DISABLED
 } ParallelHashGrowth;
 
 /*
  * The shared state used to coordinate a Parallel Hash Join.  This is stored
  * in the DSM segment.
  */
-typedef struct ParallelHashJoinState
-{
-	dsa_pointer batches;		/* array of ParallelHashJoinBatch */
-	dsa_pointer old_batches;	/* previous generation during repartition */
-	int			nbatch;			/* number of batches now */
-	int			old_nbatch;		/* previous number of batches */
-	int			nbuckets;		/* number of buckets */
-	ParallelHashGrowth growth;	/* control batch/bucket growth */
-	dsa_pointer chunk_work_queue;	/* chunk work queue */
-	int			nparticipants;
-	size_t		space_allowed;
-	size_t		total_tuples;	/* total number of inner tuples */
-	LWLock		lock;			/* lock protecting the above */
+typedef struct ParallelHashJoinState {
+    dsa_pointer batches;        /* array of ParallelHashJoinBatch */
+    dsa_pointer old_batches;    /* previous generation during repartition */
+    int nbatch;            /* number of batches now */
+    int old_nbatch;        /* previous number of batches */
+    int nbuckets;        /* number of buckets */
+    ParallelHashGrowth growth;    /* control batch/bucket growth */
+    dsa_pointer chunk_work_queue;    /* chunk work queue */
+    int nparticipants;
+    size_t space_allowed;
+    size_t total_tuples;    /* total number of inner tuples */
+    LWLock lock;            /* lock protecting the above */
 
-	Barrier		build_barrier;	/* synchronization for the build phases */
-	Barrier		grow_batches_barrier;
-	Barrier		grow_buckets_barrier;
-	pg_atomic_uint32 distributor;	/* counter for load balancing */
+    Barrier build_barrier;    /* synchronization for the build phases */
+    Barrier grow_batches_barrier;
+    Barrier grow_buckets_barrier;
+    pg_atomic_uint32 distributor;    /* counter for load balancing */
 
-	SharedFileSet fileset;		/* space for shared temporary files */
+    SharedFileSet fileset;        /* space for shared temporary files */
 } ParallelHashJoinState;
 
 /* The phases for building batches, used by build_barrier. */
-#define PHJ_BUILD_ELECTING				0
-#define PHJ_BUILD_ALLOCATING			1
-#define PHJ_BUILD_HASHING_INNER			2
-#define PHJ_BUILD_HASHING_OUTER			3
-#define PHJ_BUILD_DONE					4
+#define PHJ_BUILD_ELECTING                0
+#define PHJ_BUILD_ALLOCATING            1
+#define PHJ_BUILD_HASHING_INNER            2
+#define PHJ_BUILD_HASHING_OUTER            3
+#define PHJ_BUILD_DONE                    4
 
 /* The phases for probing each batch, used by for batch_barrier. */
-#define PHJ_BATCH_ELECTING				0
-#define PHJ_BATCH_ALLOCATING			1
-#define PHJ_BATCH_LOADING				2
-#define PHJ_BATCH_PROBING				3
-#define PHJ_BATCH_DONE					4
+#define PHJ_BATCH_ELECTING                0
+#define PHJ_BATCH_ALLOCATING            1
+#define PHJ_BATCH_LOADING                2
+#define PHJ_BATCH_PROBING                3
+#define PHJ_BATCH_DONE                    4
 
 /* The phases of batch growth while hashing, for grow_batches_barrier. */
-#define PHJ_GROW_BATCHES_ELECTING		0
-#define PHJ_GROW_BATCHES_ALLOCATING		1
+#define PHJ_GROW_BATCHES_ELECTING        0
+#define PHJ_GROW_BATCHES_ALLOCATING        1
 #define PHJ_GROW_BATCHES_REPARTITIONING 2
-#define PHJ_GROW_BATCHES_DECIDING		3
-#define PHJ_GROW_BATCHES_FINISHING		4
-#define PHJ_GROW_BATCHES_PHASE(n)		((n) % 5)	/* circular phases */
+#define PHJ_GROW_BATCHES_DECIDING        3
+#define PHJ_GROW_BATCHES_FINISHING        4
+#define PHJ_GROW_BATCHES_PHASE(n)        ((n) % 5)    /* circular phases */
 
 /* The phases of bucket growth while hashing, for grow_buckets_barrier. */
-#define PHJ_GROW_BUCKETS_ELECTING		0
-#define PHJ_GROW_BUCKETS_ALLOCATING		1
-#define PHJ_GROW_BUCKETS_REINSERTING	2
-#define PHJ_GROW_BUCKETS_PHASE(n)		((n) % 3)	/* circular phases */
+#define PHJ_GROW_BUCKETS_ELECTING        0
+#define PHJ_GROW_BUCKETS_ALLOCATING        1
+#define PHJ_GROW_BUCKETS_REINSERTING    2
+#define PHJ_GROW_BUCKETS_PHASE(n)        ((n) % 3)    /* circular phases */
 
-typedef struct HashJoinTableData
-{
-	int			nbuckets;		/* # buckets in the in-memory hash table */
-	int			log2_nbuckets;	/* its log2 (nbuckets must be a power of 2) */
+typedef struct HashJoinTableData {
+    int nbuckets;        /* # buckets in the in-memory hash table */
+    int log2_nbuckets;    /* its log2 (nbuckets must be a power of 2) */
 
-	int			nbuckets_original;	/* # buckets when starting the first hash */
-	int			nbuckets_optimal;	/* optimal # buckets (per batch) */
-	int			log2_nbuckets_optimal;	/* log2(nbuckets_optimal) */
+    int nbuckets_original;    /* # buckets when starting the first hash */
+    int nbuckets_optimal;    /* optimal # buckets (per batch) */
+    int log2_nbuckets_optimal;    /* log2(nbuckets_optimal) */
 
-	/* buckets[i] is head of list of tuples in i'th in-memory bucket */
-	union
-	{
-		/* unshared array is per-batch storage, as are all the tuples */
-		struct HashJoinTupleData **unshared;
-		/* shared array is per-query DSA area, as are all the tuples */
-		dsa_pointer_atomic *shared;
-	}			buckets;
+    /* buckets[i] is head of list of tuples in i'th in-memory bucket */
+    union {
+        /* unshared array is per-batch storage, as are all the tuples */
+        struct HashJoinTupleData **unshared;
+        /* shared array is per-query DSA area, as are all the tuples */
+        dsa_pointer_atomic *shared;
+    } buckets;
 
-	bool		keepNulls;		/* true to store unmatchable NULL tuples */
+    bool keepNulls;        /* true to store unmatchable NULL tuples */
 
-	bool		skewEnabled;	/* are we using skew optimization? */
-	HashSkewBucket **skewBucket;	/* hashtable of skew buckets */
-	int			skewBucketLen;	/* size of skewBucket array (a power of 2!) */
-	int			nSkewBuckets;	/* number of active skew buckets */
-	int		   *skewBucketNums; /* array indexes of active skew buckets */
+    bool skewEnabled;    /* are we using skew optimization? */
+    HashSkewBucket **skewBucket;    /* hashtable of skew buckets */
+    int skewBucketLen;    /* size of skewBucket array (a power of 2!) */
+    int nSkewBuckets;    /* number of active skew buckets */
+    int *skewBucketNums; /* array indexes of active skew buckets */
 
-	int			nbatch;			/* number of batches */
-	int			curbatch;		/* current batch #; 0 during 1st pass */
+    int nbatch;            /* number of batches */
+    int curbatch;        /* current batch #; 0 during 1st pass */
 
-	int			nbatch_original;	/* nbatch when we started inner scan */
-	int			nbatch_outstart;	/* nbatch when we started outer scan */
+    int nbatch_original;    /* nbatch when we started inner scan */
+    int nbatch_outstart;    /* nbatch when we started outer scan */
 
-	bool		growEnabled;	/* flag to shut off nbatch increases */
+    bool growEnabled;    /* flag to shut off nbatch increases */
 
-	double		totalTuples;	/* # tuples obtained from inner plan */
-	double		partialTuples;	/* # tuples obtained from inner plan by me */
-	double		skewTuples;		/* # tuples inserted into skew tuples */
+    double totalTuples;    /* # tuples obtained from inner plan */
+    double partialTuples;    /* # tuples obtained from inner plan by me */
+    double skewTuples;        /* # tuples inserted into skew tuples */
 
-	/*
-	 * These arrays are allocated for the life of the hash join, but only if
-	 * nbatch > 1.  A file is opened only when we first write a tuple into it
-	 * (otherwise its pointer remains NULL).  Note that the zero'th array
-	 * elements never get used, since we will process rather than dump out any
-	 * tuples of batch zero.
-	 */
-	BufFile   **innerBatchFile; /* buffered virtual temp file per batch */
-	BufFile   **outerBatchFile; /* buffered virtual temp file per batch */
+    /*
+     * These arrays are allocated for the life of the hash join, but only if
+     * nbatch > 1.  A file is opened only when we first write a tuple into it
+     * (otherwise its pointer remains NULL).  Note that the zero'th array
+     * elements never get used, since we will process rather than dump out any
+     * tuples of batch zero.
+     */
+    BufFile **innerBatchFile; /* buffered virtual temp file per batch */
+    BufFile **outerBatchFile; /* buffered virtual temp file per batch */
 
-	/*
-	 * Info about the datatype-specific hash functions for the datatypes being
-	 * hashed. These are arrays of the same length as the number of hash join
-	 * clauses (hash keys).
-	 */
-	FmgrInfo   *outer_hashfunctions;	/* lookup data for hash functions */
-	FmgrInfo   *inner_hashfunctions;	/* lookup data for hash functions */
-	bool	   *hashStrict;		/* is each hash join operator strict? */
-	Oid		   *collations;
+    /*
+     * Info about the datatype-specific hash functions for the datatypes being
+     * hashed. These are arrays of the same length as the number of hash join
+     * clauses (hash keys).
+     */
+    FmgrInfo *outer_hashfunctions;    /* lookup data for hash functions */
+    FmgrInfo *inner_hashfunctions;    /* lookup data for hash functions */
+    bool *hashStrict;        /* is each hash join operator strict? */
+    Oid *collations;
 
-	Size		spaceUsed;		/* memory space currently used by tuples */
-	Size		spaceAllowed;	/* upper limit for space used */
-	Size		spacePeak;		/* peak space used */
-	Size		spaceUsedSkew;	/* skew hash table's current space usage */
-	Size		spaceAllowedSkew;	/* upper limit for skew hashtable */
+    Size spaceUsed;        /* memory space currently used by tuples */
+    Size spaceAllowed;    /* upper limit for space used */
+    Size spacePeak;        /* peak space used */
+    Size spaceUsedSkew;    /* skew hash table's current space usage */
+    Size spaceAllowedSkew;    /* upper limit for skew hashtable */
 
-	MemoryContext hashCxt;		/* context for whole-hash-join storage */
-	MemoryContext batchCxt;		/* context for this-batch-only storage */
+    MemoryContext hashCxt;        /* context for whole-hash-join storage */
+    MemoryContext batchCxt;        /* context for this-batch-only storage */
 
-	/* used for dense allocation of tuples (into linked chunks) */
-	HashMemoryChunk chunks;		/* one list for the whole batch */
+    /* used for dense allocation of tuples (into linked chunks) */
+    HashMemoryChunk chunks;        /* one list for the whole batch */
 
-	/* Shared and private state for Parallel Hash. */
-	HashMemoryChunk current_chunk;	/* this backend's current chunk */
-	dsa_area   *area;			/* DSA area to allocate memory from */
-	ParallelHashJoinState *parallel_state;
-	ParallelHashJoinBatchAccessor *batches;
-	dsa_pointer current_chunk_shared;
-}			HashJoinTableData;
+    /* Shared and private state for Parallel Hash. */
+    HashMemoryChunk current_chunk;    /* this backend's current chunk */
+    dsa_area *area;            /* DSA area to allocate memory from */
+    ParallelHashJoinState *parallel_state;
+    ParallelHashJoinBatchAccessor *batches;
+    dsa_pointer current_chunk_shared;
+} HashJoinTableData;
 
-#endif							/* HASHJOIN_H */
+#endif                            /* HASHJOIN_H */

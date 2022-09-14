@@ -2700,11 +2700,9 @@ static RelOptInfo *make_rel_from_joinlist(PlannerInfo *root, List *joinlist) {
  * than one join-order search, you'll probably need to save and restore the
  * original states of those data structures.  See geqo_eval() for an example.
  */
-RelOptInfo *
-standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels) {
-    int lev;
-    RelOptInfo *rel;
-
+RelOptInfo *standard_join_search(PlannerInfo *root,
+                                 int levelsNeeded,
+                                 List *initialRelOptInfoList) {
     /*
      * This function cannot be invoked recursively within any one planning
      * problem, so join_rel_level[] can't be in use already.
@@ -2722,11 +2720,11 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels) {
      * set root->join_rel_level[1] to represent all the single-jointree-item
      * relations.
      */
-    root->join_rel_level = (List **) palloc0((levels_needed + 1) * sizeof(List *));
+    root->join_rel_level = (List **) palloc0((levelsNeeded + 1) * sizeof(List *));
 
-    root->join_rel_level[1] = initial_rels;
+    root->join_rel_level[1] = initialRelOptInfoList;
 
-    for (lev = 2; lev <= levels_needed; lev++) {
+    for (int lev = 2; lev <= levelsNeeded; lev++) {
         ListCell *lc;
 
         /*
@@ -2746,21 +2744,21 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels) {
          * set_cheapest().
          */
         foreach(lc, root->join_rel_level[lev]) {
-            rel = (RelOptInfo *) lfirst(lc);
+            RelOptInfo *relOptInfo = (RelOptInfo *) lfirst(lc);
 
             /* Create paths for partitionwise joins. */
-            generate_partitionwise_join_paths(root, rel);
+            generate_partitionwise_join_paths(root, relOptInfo);
 
             /*
              * Except for the topmost scan/join rel, consider gathering
              * partial paths.  We'll do the same for the topmost scan/join rel
              * once we know the final targetlist (see grouping_planner).
              */
-            if (lev < levels_needed)
-                generate_gather_paths(root, rel, false);
+            if (lev < levelsNeeded)
+                generate_gather_paths(root, relOptInfo, false);
 
             /* Find and save the cheapest paths for this rel */
-            set_cheapest(rel);
+            set_cheapest(relOptInfo);
 
 #ifdef OPTIMIZER_DEBUG
             debug_print_rel(root, rel);
@@ -2771,15 +2769,15 @@ standard_join_search(PlannerInfo *root, int levels_needed, List *initial_rels) {
     /*
      * We should have a single rel at the final level.
      */
-    if (root->join_rel_level[levels_needed] == NIL)
-        elog(ERROR, "failed to build any %d-way joins", levels_needed);
-    Assert(list_length(root->join_rel_level[levels_needed]) == 1);
+    if (root->join_rel_level[levelsNeeded] == NIL)
+        elog(ERROR, "failed to build any %d-way joins", levelsNeeded);
+    Assert(list_length(root->join_rel_level[levelsNeeded]) == 1);
 
-    rel = (RelOptInfo *) linitial(root->join_rel_level[levels_needed]);
+    RelOptInfo *relOptInfo = (RelOptInfo *) linitial(root->join_rel_level[levelsNeeded]);
 
     root->join_rel_level = NULL;
 
-    return rel;
+    return relOptInfo;
 }
 
 /*****************************************************************************

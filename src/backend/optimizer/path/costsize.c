@@ -3133,7 +3133,7 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
                       List *hashclauses,
                       Path *outer_path, Path *inner_path,
                       JoinPathExtraData *extra,
-                      bool parallel_hash) {
+                      bool parallelHash) {
     Cost startup_cost = 0;
     Cost run_cost = 0;
     double outer_path_rows = outer_path->rows;
@@ -3170,7 +3170,7 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	 * participant.  For shared hash table size estimation, we need the total
 	 * number, so we need to undo the division.
 	 */
-    if (parallel_hash)
+    if (parallelHash)
         inner_path_rows_total *= get_parallel_divisor(inner_path);
 
     /*
@@ -3186,7 +3186,7 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
     ExecChooseHashTableSize(inner_path_rows_total,
                             inner_path->pathtarget->width,
                             true,    /* useskew */
-                            parallel_hash,    /* try_combined_work_mem */
+                            parallelHash,    /* try_combined_work_mem */
                             outer_path->parallel_workers,
                             &space_allowed,
                             &numbuckets,
@@ -3233,10 +3233,10 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
  * 'workspace' is the result from initial_cost_hashjoin
  * 'extra' contains miscellaneous information about the join
  */
-void
-final_cost_hashjoin(PlannerInfo *root, HashPath *path,
-                    JoinCostWorkspace *workspace,
-                    JoinPathExtraData *extra) {
+void final_cost_hashjoin(PlannerInfo *root,
+                         HashPath *path,
+                         JoinCostWorkspace *workspace,
+                         JoinPathExtraData *extra) {
     Path *outer_path = path->jpath.outerjoinpath;
     Path *inner_path = path->jpath.innerjoinpath;
     double outer_path_rows = outer_path->rows;

@@ -35,7 +35,7 @@
  */
 typedef struct ItemPointerData {
     BlockIdData ip_blkid;
-    OffsetNumber ip_posid;
+    OffsetNumber ip_posid; // PageHeader 的 pd_linp 数组的index
 }
 
 /* If compiler understands packed and aligned pragmas, use those */

@@ -33,7 +33,7 @@
 #include "storage/predicate.h"
 #include "utils/snapmgr.h"
 
-static BTMetaPageData *_bt_getmeta(Relation rel, Buffer metabuf);
+static BTMetaPageData *_bt_getmeta(Relation indexRelation, Buffer metaBuffer);
 
 static bool _bt_mark_page_halfdead(Relation rel, Buffer leafbuf,
                                    BTStack stack);
@@ -122,34 +122,26 @@ _bt_upgrademetapage(Page page) {
  * on-the-fly upgrade using _bt_upgrademetapage() can change the version field
  * and BTREE_NOVAC_VERSION specific fields without invalidating local cache.
  */
-static BTMetaPageData *
-_bt_getmeta(Relation rel, Buffer metabuf) {
-    Page metapg;
-    BTPageOpaque metaopaque;
-    BTMetaPageData *metad;
-
-    metapg = BufferGetPage(metabuf);
-    metaopaque = (BTPageOpaque) PageGetSpecialPointer(metapg);
-    metad = BTPageGetMeta(metapg);
+static BTMetaPageData *_bt_getmeta(Relation indexRelation, Buffer metaBuffer) {
+    Page metaPage = BufferGetPage(metaBuffer);
+    BTPageOpaque metaBTPageOpaque = (BTPageOpaque) PageGetSpecialPointer(metaPage);
+    BTMetaPageData *btMetaPageData = BTPageGetMeta(metaPage);
 
     /* sanity-check the metapage */
-    if (!P_ISMETA(metaopaque) ||
-        metad->btm_magic != BTREE_MAGIC)
-        ereport(ERROR,
-                (errcode(ERRCODE_INDEX_CORRUPTED),
-                        errmsg("index \"%s\" is not a btree",
-                               RelationGetRelationName(rel))));
+    if (!P_ISMETA(metaBTPageOpaque) || btMetaPageData->btm_magic != BTREE_MAGIC) {
+        ereport(ERROR, (errcode(ERRCODE_INDEX_CORRUPTED),
+                errmsg("index \"%s\" is not a btree", RelationGetRelationName(indexRelation))));
+    }
 
-    if (metad->btm_version < BTREE_MIN_VERSION ||
-        metad->btm_version > BTREE_VERSION)
-        ereport(ERROR,
-                (errcode(ERRCODE_INDEX_CORRUPTED),
-                        errmsg("version mismatch in index \"%s\": file version %d, "
-                               "current version %d, minimal supported version %d",
-                               RelationGetRelationName(rel),
-                               metad->btm_version, BTREE_VERSION, BTREE_MIN_VERSION)));
+    if (btMetaPageData->btm_version < BTREE_MIN_VERSION || btMetaPageData->btm_version > BTREE_VERSION) {
+        ereport(ERROR, (errcode(ERRCODE_INDEX_CORRUPTED),
+                errmsg("version mismatch in index \"%s\": file version %d, "
+                       "current version %d, minimal supported version %d",
+                       RelationGetRelationName(indexRelation),
+                       btMetaPageData->btm_version, BTREE_VERSION, BTREE_MIN_VERSION)));
+    }
 
-    return metad;
+    return btMetaPageData;
 }
 
 /*
@@ -255,36 +247,30 @@ _bt_update_meta_cleanup_info(Relation rel, TransactionId oldestBtpoXact,
  *		On successful return, the root page is pinned and read-locked.
  *		The metadata page is not locked or pinned on exit.
  */
-Buffer
-_bt_getroot(Relation rel, int access) {
-    Buffer metabuf;
-    Buffer rootbuf;
-    Page rootpage;
-    BTPageOpaque rootopaque;
-    BlockNumber rootblkno;
-    uint32 rootlevel;
-    BTMetaPageData *metad;
+Buffer _bt_getroot(Relation indexRelation, int access) {
+    Buffer rootBuffer;
 
     /*
      * Try to use previously-cached metapage data to find the root.  This
      * normally saves one buffer access per index search, which is a very
      * helpful savings in bufmgr traffic and hence contention.
      */
-    if (rel->rd_amcache != NULL) {
-        metad = (BTMetaPageData *) rel->rd_amcache;
-        /* We shouldn't have cached it if any of these fail */
-        Assert(metad->btm_magic == BTREE_MAGIC);
-        Assert(metad->btm_version >= BTREE_MIN_VERSION);
-        Assert(metad->btm_version <= BTREE_VERSION);
-        Assert(metad->btm_root != P_NONE);
+    if (indexRelation->rd_amcache != NULL) {
+        BTMetaPageData *btMetaPageData = (BTMetaPageData *) indexRelation->rd_amcache;
 
-        rootblkno = metad->btm_fastroot;
-        Assert(rootblkno != P_NONE);
-        rootlevel = metad->btm_fastlevel;
+        // We shouldn't have cached it if any of these fail */
+        Assert(btMetaPageData->btm_magic == BTREE_MAGIC);
+        Assert(btMetaPageData->btm_version >= BTREE_MIN_VERSION);
+        Assert(btMetaPageData->btm_version <= BTREE_VERSION);
+        Assert(btMetaPageData->btm_root != P_NONE);
 
-        rootbuf = _bt_getbuf(rel, rootblkno, BT_READ);
-        rootpage = BufferGetPage(rootbuf);
-        rootopaque = (BTPageOpaque) PageGetSpecialPointer(rootpage);
+        BlockNumber rootBlockNumber = btMetaPageData->btm_fastroot;
+        Assert(rootBlockNumber != P_NONE);
+        uint32 rootLevel = btMetaPageData->btm_fastlevel;
+
+        rootBuffer = _bt_getbuf(indexRelation, rootBlockNumber, BT_READ);
+        Page rootPage = BufferGetPage(rootBuffer);
+        BTPageOpaque rootBTPageOpaque = (BTPageOpaque) PageGetSpecialPointer(rootPage);
 
         /*
          * Since the cache might be stale, we check the page more carefully
@@ -293,51 +279,54 @@ _bt_getroot(Relation rel, int access) {
          * paranoid but better safe than sorry.  Note we don't check P_ISROOT,
          * because that's not set in a "fast root".
          */
-        if (!P_IGNORE(rootopaque) &&
-            rootopaque->btpo.level == rootlevel &&
-            P_LEFTMOST(rootopaque) &&
-            P_RIGHTMOST(rootopaque)) {
-            /* OK, accept cached page as the root */
-            return rootbuf;
+        if (!P_IGNORE(rootBTPageOpaque) &&
+            rootBTPageOpaque->btpo.level == rootLevel &&
+            P_LEFTMOST(rootBTPageOpaque) &&
+            P_RIGHTMOST(rootBTPageOpaque)) {
+
+            // OK, accept cached page as the root */
+            return rootBuffer;
         }
-        _bt_relbuf(rel, rootbuf);
-        /* Cache is stale, throw it away */
-        if (rel->rd_amcache)
-            pfree(rel->rd_amcache);
-        rel->rd_amcache = NULL;
+
+        _bt_relbuf(indexRelation, rootBuffer);
+
+        // Cache is stale, throw it away
+        if (indexRelation->rd_amcache) {
+            pfree(indexRelation->rd_amcache);
+        }
+        indexRelation->rd_amcache = NULL;
     }
 
-    metabuf = _bt_getbuf(rel, BTREE_METAPAGE, BT_READ);
-    metad = _bt_getmeta(rel, metabuf);
+    Buffer metaBuffer = _bt_getbuf(indexRelation, BTREE_METAPAGE, BT_READ);
+    BTMetaPageData *btMetaPageData = _bt_getmeta(indexRelation, metaBuffer);
 
-    /* if no root page initialized yet, do it */
-    if (metad->btm_root == P_NONE) {
-        Page metapg;
+    // if no root page initialized yet, do it
+    if (btMetaPageData->btm_root == P_NONE) {
 
         /* If access = BT_READ, caller doesn't want us to create root yet */
         if (access == BT_READ) {
-            _bt_relbuf(rel, metabuf);
+            _bt_relbuf(indexRelation, metaBuffer);
             return InvalidBuffer;
         }
 
         /* trade in our read lock for a write lock */
-        LockBuffer(metabuf, BUFFER_LOCK_UNLOCK);
-        LockBuffer(metabuf, BT_WRITE);
+        LockBuffer(metaBuffer, BUFFER_LOCK_UNLOCK);
+        LockBuffer(metaBuffer, BT_WRITE);
 
         /*
          * Race condition:	if someone else initialized the metadata between
          * the time we released the read lock and acquired the write lock, we
          * must avoid doing it again.
          */
-        if (metad->btm_root != P_NONE) {
+        if (btMetaPageData->btm_root != P_NONE) {
             /*
              * Metadata initialized by someone else.  In order to guarantee no
              * deadlocks, we have to release the metadata page and start all
              * over again.  (Is that really true? But it's hardly worth trying
              * to optimize this case.)
              */
-            _bt_relbuf(rel, metabuf);
-            return _bt_getroot(rel, access);
+            _bt_relbuf(indexRelation, metaBuffer);
+            return _bt_getroot(indexRelation, access);
         }
 
         /*
@@ -345,64 +334,65 @@ _bt_getroot(Relation rel, int access) {
          * the new root page.  Since this is the first page in the tree, it's
          * a leaf as well as the root.
          */
-        rootbuf = _bt_getbuf(rel, P_NEW, BT_WRITE);
-        rootblkno = BufferGetBlockNumber(rootbuf);
-        rootpage = BufferGetPage(rootbuf);
-        rootopaque = (BTPageOpaque) PageGetSpecialPointer(rootpage);
-        rootopaque->btpo_prev = rootopaque->btpo_next = P_NONE;
-        rootopaque->btpo_flags = (BTP_LEAF | BTP_ROOT);
-        rootopaque->btpo.level = 0;
-        rootopaque->btpo_cycleid = 0;
+        rootBuffer = _bt_getbuf(indexRelation, P_NEW, BT_WRITE);
+        BlockNumber rootBlockNumber = BufferGetBlockNumber(rootBuffer);
+        Page rootPage = BufferGetPage(rootBuffer);
+        BTPageOpaque rootBTPageOpaque = (BTPageOpaque) PageGetSpecialPointer(rootPage);
+        rootBTPageOpaque->btpo_prev = rootBTPageOpaque->btpo_next = P_NONE;
+        rootBTPageOpaque->btpo_flags = (BTP_LEAF | BTP_ROOT);
+        rootBTPageOpaque->btpo.level = 0;
+        rootBTPageOpaque->btpo_cycleid = 0;
+
         /* Get raw page pointer for metapage */
-        metapg = BufferGetPage(metabuf);
+        Page metaPage = BufferGetPage(metaBuffer);
 
         /* NO ELOG(ERROR) till meta is updated */
         START_CRIT_SECTION();
 
         /* upgrade metapage if needed */
-        if (metad->btm_version < BTREE_NOVAC_VERSION)
-            _bt_upgrademetapage(metapg);
+        if (btMetaPageData->btm_version < BTREE_NOVAC_VERSION)
+            _bt_upgrademetapage(metaPage);
 
-        metad->btm_root = rootblkno;
-        metad->btm_level = 0;
-        metad->btm_fastroot = rootblkno;
-        metad->btm_fastlevel = 0;
-        metad->btm_oldest_btpo_xact = InvalidTransactionId;
-        metad->btm_last_cleanup_num_heap_tuples = -1.0;
+        btMetaPageData->btm_root = rootBlockNumber;
+        btMetaPageData->btm_level = 0;
+        btMetaPageData->btm_fastroot = rootBlockNumber;
+        btMetaPageData->btm_fastlevel = 0;
+        btMetaPageData->btm_oldest_btpo_xact = InvalidTransactionId;
+        btMetaPageData->btm_last_cleanup_num_heap_tuples = -1.0;
 
-        MarkBufferDirty(rootbuf);
-        MarkBufferDirty(metabuf);
+        MarkBufferDirty(rootBuffer);
+        MarkBufferDirty(metaBuffer);
 
         /* XLOG stuff */
-        if (RelationNeedsWAL(rel)) {
+        if (RelationNeedsWAL(indexRelation)) {
             xl_btree_newroot xlrec;
             XLogRecPtr recptr;
             xl_btree_metadata md;
 
             XLogBeginInsert();
-            XLogRegisterBuffer(0, rootbuf, REGBUF_WILL_INIT);
-            XLogRegisterBuffer(2, metabuf, REGBUF_WILL_INIT | REGBUF_STANDARD);
+            XLogRegisterBuffer(0, rootBuffer, REGBUF_WILL_INIT);
+            XLogRegisterBuffer(2, metaBuffer, REGBUF_WILL_INIT | REGBUF_STANDARD);
 
-            Assert(metad->btm_version >= BTREE_NOVAC_VERSION);
-            md.version = metad->btm_version;
-            md.root = rootblkno;
+            Assert(btMetaPageData->btm_version >= BTREE_NOVAC_VERSION);
+            md.version = btMetaPageData->btm_version;
+            md.root = rootBlockNumber;
             md.level = 0;
-            md.fastroot = rootblkno;
+            md.fastroot = rootBlockNumber;
             md.fastlevel = 0;
             md.oldest_btpo_xact = InvalidTransactionId;
             md.last_cleanup_num_heap_tuples = -1.0;
 
             XLogRegisterBufData(2, (char *) &md, sizeof(xl_btree_metadata));
 
-            xlrec.rootblk = rootblkno;
+            xlrec.rootblk = rootBlockNumber;
             xlrec.level = 0;
 
             XLogRegisterData((char *) &xlrec, SizeOfBtreeNewroot);
 
             recptr = XLogInsert(RM_BTREE_ID, XLOG_BTREE_NEWROOT);
 
-            PageSetLSN(rootpage, recptr);
-            PageSetLSN(metapg, recptr);
+            PageSetLSN(rootPage, recptr);
+            PageSetLSN(metaPage, recptr);
         }
 
         END_CRIT_SECTION();
@@ -412,56 +402,54 @@ _bt_getroot(Relation rel, int access) {
          * else accessing the new root page while it's unlocked, since no one
          * else knows where it is yet.
          */
-        LockBuffer(rootbuf, BUFFER_LOCK_UNLOCK);
-        LockBuffer(rootbuf, BT_READ);
+        LockBuffer(rootBuffer, BUFFER_LOCK_UNLOCK);
+        LockBuffer(rootBuffer, BT_READ);
 
         /* okay, metadata is correct, release lock on it without caching */
-        _bt_relbuf(rel, metabuf);
+        _bt_relbuf(indexRelation, metaBuffer);
     } else {
-        rootblkno = metad->btm_fastroot;
-        Assert(rootblkno != P_NONE);
-        rootlevel = metad->btm_fastlevel;
+        BlockNumber rootBlockNumber = btMetaPageData->btm_fastroot;
+        Assert(rootBlockNumber != P_NONE);
+        uint32 rootLevel = btMetaPageData->btm_fastlevel;
 
-        /*
-         * Cache the metapage data for next time
-         */
-        rel->rd_amcache = MemoryContextAlloc(rel->rd_indexcxt,
-                                             sizeof(BTMetaPageData));
-        memcpy(rel->rd_amcache, metad, sizeof(BTMetaPageData));
+        // cache the metapage data for next time
+        indexRelation->rd_amcache = MemoryContextAlloc(indexRelation->rd_indexcxt, sizeof(BTMetaPageData));
+        memcpy(indexRelation->rd_amcache, btMetaPageData, sizeof(BTMetaPageData));
 
-        /*
-         * We are done with the metapage; arrange to release it via first
-         * _bt_relandgetbuf call
-         */
-        rootbuf = metabuf;
+        // we are done with the metapage; arrange to release it via first _bt_relandgetbuf call
 
+        rootBuffer = metaBuffer;
+
+        BTPageOpaque rootBTPageOpaque;
         for (;;) {
-            rootbuf = _bt_relandgetbuf(rel, rootbuf, rootblkno, BT_READ);
-            rootpage = BufferGetPage(rootbuf);
-            rootopaque = (BTPageOpaque) PageGetSpecialPointer(rootpage);
+            rootBuffer = _bt_relandgetbuf(indexRelation, rootBuffer, rootBlockNumber, BT_READ);
+            Page rootPage = BufferGetPage(rootBuffer);
+            rootBTPageOpaque = (BTPageOpaque) PageGetSpecialPointer(rootPage);
 
-            if (!P_IGNORE(rootopaque))
+            if (!P_IGNORE(rootBTPageOpaque)) {
                 break;
+            }
 
-            /* it's dead, Jim.  step right one page */
-            if (P_RIGHTMOST(rootopaque))
-                elog(ERROR, "no live root page found in index \"%s\"",
-                     RelationGetRelationName(rel));
-            rootblkno = rootopaque->btpo_next;
+            // it's dead, Jim.  step right one page
+            if (P_RIGHTMOST(rootBTPageOpaque)) {
+                elog(ERROR, "no live root page found in index \"%s\"", RelationGetRelationName(indexRelation));
+            }
+
+            rootBlockNumber = rootBTPageOpaque->btpo_next;
         }
 
         /* Note: can't check btpo.level on deleted pages */
-        if (rootopaque->btpo.level != rootlevel)
+        if (rootBTPageOpaque->btpo.level != rootLevel)
             elog(ERROR, "root page %u of index \"%s\" has level %u, expected %u",
-                 rootblkno, RelationGetRelationName(rel),
-                 rootopaque->btpo.level, rootlevel);
+                 rootBlockNumber, RelationGetRelationName(indexRelation),
+                 rootBTPageOpaque->btpo.level, rootLevel);
     }
 
     /*
      * By here, we have a pin and read lock on the root page, and no lock set
      * on the metadata page.  Return the root page's buffer.
      */
-    return rootbuf;
+    return rootBuffer;
 }
 
 /*
@@ -602,6 +590,7 @@ _bt_getrootheight(Relation rel) {
 
     /* Get cached page */
     metad = (BTMetaPageData *) rel->rd_amcache;
+
     /* We shouldn't have cached it if any of these fail */
     Assert(metad->btm_magic == BTREE_MAGIC);
     Assert(metad->btm_version >= BTREE_MIN_VERSION);
@@ -620,25 +609,19 @@ _bt_getrootheight(Relation rel) {
  *		performance when inserting a new BTScanInsert-wise duplicate tuple
  *		among many leaf pages already full of such duplicates.
  */
-bool
-_bt_heapkeyspace(Relation rel) {
-    BTMetaPageData *metad;
+bool _bt_heapkeyspace(Relation indexRelation) {
+    BTMetaPageData *btMetaPageData;
 
-    if (rel->rd_amcache == NULL) {
-        Buffer metabuf;
+    if (indexRelation->rd_amcache == NULL) {
+        Buffer metabuf = _bt_getbuf(indexRelation, BTREE_METAPAGE, BT_READ);
+        btMetaPageData = _bt_getmeta(indexRelation, metabuf);
 
-        metabuf = _bt_getbuf(rel, BTREE_METAPAGE, BT_READ);
-        metad = _bt_getmeta(rel, metabuf);
+        // If there's no root page yet, _bt_getroot() doesn't expect a cache
+        // to be made,stop here.  (XXX perhaps _bt_getroot() should be changed to allow this case.)
+        if (btMetaPageData->btm_root == P_NONE) {
+            uint32 btm_version = btMetaPageData->btm_version;
 
-        /*
-         * If there's no root page yet, _bt_getroot() doesn't expect a cache
-         * to be made, so just stop here.  (XXX perhaps _bt_getroot() should
-         * be changed to allow this case.)
-         */
-        if (metad->btm_root == P_NONE) {
-            uint32 btm_version = metad->btm_version;
-
-            _bt_relbuf(rel, metabuf);
+            _bt_relbuf(indexRelation, metabuf);
             return btm_version > BTREE_NOVAC_VERSION;
         }
 
@@ -651,21 +634,21 @@ _bt_heapkeyspace(Relation rel) {
          * from version 2 to version 3, both of which are !heapkeyspace
          * versions.
          */
-        rel->rd_amcache = MemoryContextAlloc(rel->rd_indexcxt,
-                                             sizeof(BTMetaPageData));
-        memcpy(rel->rd_amcache, metad, sizeof(BTMetaPageData));
-        _bt_relbuf(rel, metabuf);
+        indexRelation->rd_amcache = MemoryContextAlloc(indexRelation->rd_indexcxt, sizeof(BTMetaPageData));
+        memcpy(indexRelation->rd_amcache, btMetaPageData, sizeof(BTMetaPageData));
+
+        _bt_relbuf(indexRelation, metabuf);
     }
 
-    /* Get cached page */
-    metad = (BTMetaPageData *) rel->rd_amcache;
-    /* We shouldn't have cached it if any of these fail */
-    Assert(metad->btm_magic == BTREE_MAGIC);
-    Assert(metad->btm_version >= BTREE_MIN_VERSION);
-    Assert(metad->btm_version <= BTREE_VERSION);
-    Assert(metad->btm_fastroot != P_NONE);
+    btMetaPageData = (BTMetaPageData *) indexRelation->rd_amcache;
 
-    return metad->btm_version > BTREE_NOVAC_VERSION;
+    // shouldn't have cached it if any of these fail */
+    Assert(btMetaPageData->btm_magic == BTREE_MAGIC);
+    Assert(btMetaPageData->btm_version >= BTREE_MIN_VERSION);
+    Assert(btMetaPageData->btm_version <= BTREE_VERSION);
+    Assert(btMetaPageData->btm_fastroot != P_NONE);
+
+    return btMetaPageData->btm_version > BTREE_NOVAC_VERSION;
 }
 
 /*

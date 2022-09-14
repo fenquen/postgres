@@ -1438,10 +1438,7 @@ typedef struct GatherMergePath {
 } GatherMergePath;
 
 
-/*
- * All join-type paths share these fields.
- */
-
+// all join-type paths share these fields.
 typedef struct JoinPath {
     Path path;
 

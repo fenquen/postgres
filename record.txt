@@ -1,3 +1,22 @@
+编译
+    ./configure --enable-debug --enable-cassert --enable-thread-safety --prefix=/Users/a/program/pg12 CFLAGS="-g -O0 -std=c99 -Wno-declaration-after-statement"
+
+    make -sj
+其他
+  SELECT pg_backend_pid();
+  PlannerInfo* root
+  Plan* top_plan
+  PlannedStmt* result
+
+  ./postgres -D ../data
+  ./psql postgres
+
+
+  explain select * from row_table where id=1 and sale=1;
+  INSERT INTO row_table (id, addr,a,sale) SELECT d, 'a','a',d FROM generate_series(1,20000) d;
+
+  select * from test_table LEFT JOIN row_table on test_table.addr = row_table.addr;
+
 data/global/pg_contorl内容是ControlFileData二进制
     详见 ReadControlFile
 
@@ -137,19 +156,6 @@ data/postermaster.opts 内容是启动的命令
     	return get_rel_persistence(tableRelid) == RELPERSISTENCE_PERMANENT;
     }
 
-编译
-    ./configure --enable-debug --enable-cassert --enable-thread-safety --prefix=/Users/a/program/pg12 CFLAGS="-g -O0 -std=c99 -Wno-declaration-after-statement"
-
-    make -sj
-其他
-  SELECT pg_backend_pid();
-  PlannerInfo* root
-  Plan* top_plan
-  PlannedStmt* result
-
-  ./postgres -D ../data
-  ./psql postgres
-
 共享内存
     sql: select name, setting from pg_settings where name like 'shared_memory_type';
     global变量: int shared_memory_type
@@ -242,3 +248,17 @@ typedef IndexTupleData *IndexTuple;
 如何应对过个单column的index
 如何应对1个多column的index
 如何应对多个多column的index
+
+
+
+
+
+indexRelation的第0个buffer是meta
+    Buffer metaBuffer = _bt_getbuf(indexRelation, BTREE_METAPAGE, BT_READ);
+indexRelation的meta对应的那个page实际保存的数据便是meta本身
+    Page metaPage = BufferGetPage(metaBuffer);
+    BTMetaPageData *btMetaPageData = BTPageGetMeta(metaPage);
+indexRelation上的各个page都含BTPageOpaque
+
+    indexPage = BufferGetPage(indexBuffer);
+    btPageOpaque = (BTPageOpaque) PageGetSpecialPointer(indexPage);
