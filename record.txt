@@ -4,6 +4,7 @@
     make -sj
 其他
   SELECT pg_backend_pid();
+
   PlannerInfo* root
   Plan* top_plan
   PlannedStmt* result
@@ -262,3 +263,12 @@ indexRelation上的各个page都含BTPageOpaque
 
     indexPage = BufferGetPage(indexBuffer);
     btPageOpaque = (BTPageOpaque) PageGetSpecialPointer(indexPage);
+
+
+
+
+hash structure
+    hashJoin
+        hash  对应 内表 test_table
+            seqScan
+        seqScan 对应 外表 row_table

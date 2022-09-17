@@ -128,9 +128,7 @@ void add_paths_to_joinrel(PlannerInfo *root,
                           JoinType joinType,
                           SpecialJoinInfo *specialJoinInfo,
                           List *restrictList) {
-    bool mergejoin_allowed = true;
-    ListCell *lc;
-    Relids joinrelids;
+    bool mergeJoinAllowed = true;
 
     /*
      * PlannerInfo doesn't contain the SpecialJoinInfos created for joins
@@ -139,6 +137,7 @@ void add_paths_to_joinrel(PlannerInfo *root,
      * representing the restriction, consider relids of topmost parent of
      * partitions.
      */
+    Relids joinrelids;
     if (joinRelOptInfo->reloptkind == RELOPT_OTHER_JOINREL) {
         joinrelids = joinRelOptInfo->top_parent_relids;
     } else {
@@ -200,23 +199,30 @@ void add_paths_to_joinrel(PlannerInfo *root,
      * way of implementing a full outer join, so override enable_mergejoin if
      * it's a full join.
      */
-    if (enable_mergejoin || joinType == JOIN_FULL)
+    if (enable_mergejoin || joinType == JOIN_FULL) {
         joinPathExtraData.mergeclause_list = select_mergejoin_clauses(root,
                                                                       joinRelOptInfo,
                                                                       outerRelOptInfo,
                                                                       innerRelOptInfo,
                                                                       restrictList,
                                                                       joinType,
-                                                                      &mergejoin_allowed);
+                                                                      &mergeJoinAllowed);
+    }
 
     /*
      * If it's SEMI, ANTI, or inner_unique join, compute correction factors
      * for cost estimation.  These will be the same for all paths.
      */
-    if (joinType == JOIN_SEMI || joinType == JOIN_ANTI || joinPathExtraData.inner_unique)
-        compute_semi_anti_join_factors(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
-                                       joinType, specialJoinInfo, restrictList,
+    if (joinType == JOIN_SEMI || joinType == JOIN_ANTI || joinPathExtraData.inner_unique) {
+        compute_semi_anti_join_factors(root,
+                                       joinRelOptInfo,
+                                       outerRelOptInfo,
+                                       innerRelOptInfo,
+                                       joinType,
+                                       specialJoinInfo,
+                                       restrictList,
                                        &joinPathExtraData.semifactors);
+    }
 
     /*
      * Decide whether it's sensible to generate parameterized paths for this
@@ -230,6 +236,7 @@ void add_paths_to_joinrel(PlannerInfo *root,
      * plan.  We express the restriction as a Relids set that must overlap the
      * parameterization of any proposed join path.
      */
+    ListCell *lc;
     foreach(lc, root->join_info_list) {
         SpecialJoinInfo *sjinfo2 = (SpecialJoinInfo *) lfirst(lc);
 
@@ -241,18 +248,22 @@ void add_paths_to_joinrel(PlannerInfo *root,
          * presents constraints for joining to anything not in its RHS.
          */
         if (bms_overlap(joinrelids, sjinfo2->min_righthand) &&
-            !bms_overlap(joinrelids, sjinfo2->min_lefthand))
+            !bms_overlap(joinrelids, sjinfo2->min_lefthand)) {
+
             joinPathExtraData.param_source_rels = bms_join(joinPathExtraData.param_source_rels,
-                                                           bms_difference(root->all_baserels,
-                                                                          sjinfo2->min_righthand));
+                                                           bms_difference(root->all_baserels, sjinfo2->min_righthand));
+        }
+
 
         /* full joins constrain both sides symmetrically */
         if (sjinfo2->jointype == JOIN_FULL &&
             bms_overlap(joinrelids, sjinfo2->min_lefthand) &&
-            !bms_overlap(joinrelids, sjinfo2->min_righthand))
+            !bms_overlap(joinrelids, sjinfo2->min_righthand)) {
+
             joinPathExtraData.param_source_rels = bms_join(joinPathExtraData.param_source_rels,
-                                                           bms_difference(root->all_baserels,
-                                                                          sjinfo2->min_lefthand));
+                                                           bms_difference(root->all_baserels, sjinfo2->min_lefthand));
+        }
+
     }
 
     /*
@@ -265,24 +276,33 @@ void add_paths_to_joinrel(PlannerInfo *root,
     joinPathExtraData.param_source_rels = bms_add_members(joinPathExtraData.param_source_rels,
                                                           joinRelOptInfo->lateral_relids);
 
-    /*
-     * 1. Consider mergejoin paths where both relations must be explicitly
-     * sorted.  Skip this if we can't mergejoin.
-     */
-    if (mergejoin_allowed) // 添加 T_MergeJoin 的path
-        sort_inner_and_outer(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
-                             joinType, &joinPathExtraData);
+
+    // 1 consider mergejoin paths where both relations must be explicitly sorted.
+    // 添加 T_MergeJoin 的path
+    if (mergeJoinAllowed) {
+        sort_inner_and_outer(root,
+                             joinRelOptInfo,
+                             outerRelOptInfo,
+                             innerRelOptInfo,
+                             joinType,
+                             &joinPathExtraData);
+    }
 
     /*
-     * 2. Consider paths where the outer relation need not be explicitly
+     * 2 Consider paths where the outer relation need not be explicitly
      * sorted. This includes both nestloops and mergejoins where the outer
      * path is already ordered.  Again, skip this if we can't mergejoin.
      * (That's okay because we know that nestloop can't handle right/full
      * joins at all, so it wouldn't work in the prohibited cases either.)
      */
-    if (mergejoin_allowed)
-        match_unsorted_outer(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
-                             joinType, &joinPathExtraData);
+    if (mergeJoinAllowed) {
+        match_unsorted_outer(root,
+                             joinRelOptInfo,
+                             outerRelOptInfo,
+                             innerRelOptInfo,
+                             joinType,
+                             &joinPathExtraData);
+    }
 
 #ifdef NOT_USED
 
@@ -303,7 +323,7 @@ void add_paths_to_joinrel(PlannerInfo *root,
 #endif
 
     /*
-     * 4. Consider paths where both outer and inner relations must be hashed
+     * 4 Consider paths where both outer and inner relations must be hashed
      * before being joined.  As above, disregard enable_hashjoin for full
      * joins, because there may be no other alternative.
      */
@@ -322,17 +342,26 @@ void add_paths_to_joinrel(PlannerInfo *root,
      * permissions as, give the FDW a chance to push down joins.
      */
     if (joinRelOptInfo->fdwroutine &&
-        joinRelOptInfo->fdwroutine->GetForeignJoinPaths)
-        joinRelOptInfo->fdwroutine->GetForeignJoinPaths(root, joinRelOptInfo,
-                                                        outerRelOptInfo, innerRelOptInfo,
-                                                        joinType, &joinPathExtraData);
+        joinRelOptInfo->fdwroutine->GetForeignJoinPaths) {
+        joinRelOptInfo->fdwroutine->GetForeignJoinPaths(root,
+                                                        joinRelOptInfo,
+                                                        outerRelOptInfo,
+                                                        innerRelOptInfo,
+                                                        joinType,
+                                                        &joinPathExtraData);
+    }
 
     /*
      * 6. Finally, give extensions a chance to manipulate the path list.
      */
-    if (set_join_pathlist_hook)
-        set_join_pathlist_hook(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
-                               joinType, &joinPathExtraData);
+    if (set_join_pathlist_hook) {
+        set_join_pathlist_hook(root,
+                               joinRelOptInfo,
+                               outerRelOptInfo,
+                               innerRelOptInfo,
+                               joinType,
+                               &joinPathExtraData);
+    }
 }
 
 /*

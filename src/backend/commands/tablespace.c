@@ -1260,7 +1260,7 @@ assign_temp_tablespaces(const char *newval, void *extra) {
 }
 
 /*
- * 读取了global变量 temp_tablespaces 得到各个临时表空间对应的oid 保存到 tempTableSpaces
+ * 读取了global变量 temp_tablespaces 得到各个临时表空间对应的oid 保存到 global变量 tempTableSpaces
  *
  * If we have not already done so in the current transaction, parse the
  * temp_tablespaces GUC variable and tell fd.c which tablespace(s) to use

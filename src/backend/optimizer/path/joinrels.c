@@ -761,7 +761,8 @@ static void populate_joinrel_with_paths(PlannerInfo *root,
                                  specialJoinInfo,
                                  restrictList);
 
-            add_paths_to_joinrel(root, joinRelOptInfo,
+            add_paths_to_joinrel(root,
+                                 joinRelOptInfo,
                                  innerRelOptInfo,
                                  outerRelOptInfo,
                                  JOIN_INNER,
@@ -786,25 +787,44 @@ static void populate_joinrel_with_paths(PlannerInfo *root,
                 mark_dummy_rel(innerRelOptInfo);
             }
 
-            add_paths_to_joinrel(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
-                                 JOIN_LEFT, specialJoinInfo,
+            add_paths_to_joinrel(root,
+                                 joinRelOptInfo,
+                                 outerRelOptInfo,
+                                 innerRelOptInfo,
+                                 JOIN_LEFT,
+                                 specialJoinInfo,
                                  restrictList);
 
-            add_paths_to_joinrel(root, joinRelOptInfo, innerRelOptInfo, outerRelOptInfo,
-                                 JOIN_RIGHT, specialJoinInfo,
+            add_paths_to_joinrel(root,
+                                 joinRelOptInfo,
+                                 innerRelOptInfo,
+                                 outerRelOptInfo,
+                                 JOIN_RIGHT,
+                                 specialJoinInfo,
                                  restrictList);
             break;
         case JOIN_FULL:
             if ((is_dummy_rel(outerRelOptInfo) && is_dummy_rel(innerRelOptInfo)) ||
                 restriction_is_constant_false(restrictList, joinRelOptInfo, true)) {
+
                 mark_dummy_rel(joinRelOptInfo);
                 break;
             }
-            add_paths_to_joinrel(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
-                                 JOIN_FULL, specialJoinInfo,
+
+            add_paths_to_joinrel(root,
+                                 joinRelOptInfo,
+                                 outerRelOptInfo,
+                                 innerRelOptInfo,
+                                 JOIN_FULL,
+                                 specialJoinInfo,
                                  restrictList);
-            add_paths_to_joinrel(root, joinRelOptInfo, innerRelOptInfo, outerRelOptInfo,
-                                 JOIN_FULL, specialJoinInfo,
+
+            add_paths_to_joinrel(root,
+                                 joinRelOptInfo,
+                                 innerRelOptInfo,
+                                 outerRelOptInfo,
+                                 JOIN_FULL,
+                                 specialJoinInfo,
                                  restrictList);
 
             /*
@@ -814,13 +834,13 @@ static void populate_joinrel_with_paths(PlannerInfo *root,
              * flexibility of planning for a full join, there's no chance of
              * succeeding later with another pair of input rels.)
              */
-            if (joinRelOptInfo->pathlist == NIL)
+            if (joinRelOptInfo->pathlist == NIL) {
                 ereport(ERROR,
                         (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
                                 errmsg("FULL JOIN is only supported with merge-joinable or hash-joinable join conditions")));
+            }
             break;
         case JOIN_SEMI:
-
             /*
              * We might have a normal semijoin, or a case where we don't have
              * enough rels to do the semijoin but can unique-ify the RHS and
@@ -829,13 +849,20 @@ static void populate_joinrel_with_paths(PlannerInfo *root,
              */
             if (bms_is_subset(specialJoinInfo->min_lefthand, outerRelOptInfo->relids) &&
                 bms_is_subset(specialJoinInfo->min_righthand, innerRelOptInfo->relids)) {
+
                 if (is_dummy_rel(outerRelOptInfo) || is_dummy_rel(innerRelOptInfo) ||
                     restriction_is_constant_false(restrictList, joinRelOptInfo, false)) {
+
                     mark_dummy_rel(joinRelOptInfo);
                     break;
                 }
-                add_paths_to_joinrel(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
-                                     JOIN_SEMI, specialJoinInfo,
+
+                add_paths_to_joinrel(root,
+                                     joinRelOptInfo,
+                                     outerRelOptInfo,
+                                     innerRelOptInfo,
+                                     JOIN_SEMI,
+                                     specialJoinInfo,
                                      restrictList);
             }
 
@@ -848,18 +875,33 @@ static void populate_joinrel_with_paths(PlannerInfo *root,
              * anyway to be sure.)
              */
             if (bms_equal(specialJoinInfo->syn_righthand, innerRelOptInfo->relids) &&
-                create_unique_path(root, innerRelOptInfo, innerRelOptInfo->cheapest_total_path,
+                create_unique_path(root,
+                                   innerRelOptInfo,
+                                   innerRelOptInfo->cheapest_total_path,
                                    specialJoinInfo) != NULL) {
-                if (is_dummy_rel(outerRelOptInfo) || is_dummy_rel(innerRelOptInfo) ||
+
+                if (is_dummy_rel(outerRelOptInfo) ||
+                    is_dummy_rel(innerRelOptInfo) ||
                     restriction_is_constant_false(restrictList, joinRelOptInfo, false)) {
+
                     mark_dummy_rel(joinRelOptInfo);
                     break;
                 }
-                add_paths_to_joinrel(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
-                                     JOIN_UNIQUE_INNER, specialJoinInfo,
+
+                add_paths_to_joinrel(root,
+                                     joinRelOptInfo,
+                                     outerRelOptInfo,
+                                     innerRelOptInfo,
+                                     JOIN_UNIQUE_INNER,
+                                     specialJoinInfo,
                                      restrictList);
-                add_paths_to_joinrel(root, joinRelOptInfo, innerRelOptInfo, outerRelOptInfo,
-                                     JOIN_UNIQUE_OUTER, specialJoinInfo,
+
+                add_paths_to_joinrel(root,
+                                     joinRelOptInfo,
+                                     innerRelOptInfo,
+                                     outerRelOptInfo,
+                                     JOIN_UNIQUE_OUTER,
+                                     specialJoinInfo,
                                      restrictList);
             }
             break;
@@ -869,15 +911,22 @@ static void populate_joinrel_with_paths(PlannerInfo *root,
                 mark_dummy_rel(joinRelOptInfo);
                 break;
             }
+
             if (restriction_is_constant_false(restrictList, joinRelOptInfo, false) &&
-                bms_is_subset(innerRelOptInfo->relids, specialJoinInfo->syn_righthand))
+                bms_is_subset(innerRelOptInfo->relids, specialJoinInfo->syn_righthand)) {
+
                 mark_dummy_rel(innerRelOptInfo);
-            add_paths_to_joinrel(root, joinRelOptInfo, outerRelOptInfo, innerRelOptInfo,
-                                 JOIN_ANTI, specialJoinInfo,
+            }
+
+            add_paths_to_joinrel(root,
+                                 joinRelOptInfo,
+                                 outerRelOptInfo,
+                                 innerRelOptInfo,
+                                 JOIN_ANTI,
+                                 specialJoinInfo,
                                  restrictList);
             break;
         default:
-            /* other values not expected here */
             elog(ERROR, "unrecognized join type: %d", (int) specialJoinInfo->jointype);
             break;
     }

@@ -1084,8 +1084,7 @@ FunctionCall0Coll(FmgrInfo *flinfo, Oid collation) {
     return result;
 }
 
-Datum
-FunctionCall1Coll(FmgrInfo *flinfo, Oid collation, Datum arg1) {
+Datum FunctionCall1Coll(FmgrInfo *flinfo, Oid collation, Datum arg1) {
     LOCAL_FCINFO(fcinfo, 1);
     Datum result;
 

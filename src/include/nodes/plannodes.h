@@ -882,7 +882,7 @@ typedef struct Hash {
      * List of expressions to be hashed for tuples from Hash's outer plan,
      * needed to put them into the hashtable.
      */
-    List *hashkeys;        /* hash keys for the hashjoin condition */
+    List *hashkeys;        /* hash keys for the hash join condition,expr list */
     Oid skewTable;        /* outer join key's table OID, or InvalidOid */
     AttrNumber skewColumn;        /* outer join key's column #, or zero */
     bool skewInherit;    /* is outer join rel an inheritance tree? */

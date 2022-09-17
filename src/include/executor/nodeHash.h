@@ -20,7 +20,7 @@
 struct SharedHashJoinBatch;
 
 extern HashState *ExecInitHash(Hash *node, EState *estate, int eflags);
-extern Node *MultiExecHash(HashState *node);
+extern Node *MultiExecHash(HashState *hashState);
 extern void ExecEndHash(HashState *node);
 extern void ExecReScanHash(HashState *node);
 
@@ -34,26 +34,26 @@ extern void ExecHashTableDetachBatch(HashJoinTable hashtable);
 extern void ExecParallelHashTableSetCurrentBatch(HashJoinTable hashtable,
 												 int batchno);
 
-extern void ExecHashTableInsert(HashJoinTable hashtable,
-								TupleTableSlot *slot,
-								uint32 hashvalue);
+extern void ExecHashTableInsert(HashJoinTable hashJoinTable,
+								TupleTableSlot *tupleTableSlot,
+								uint32 hashValue);
 extern void ExecParallelHashTableInsert(HashJoinTable hashtable,
 										TupleTableSlot *slot,
 										uint32 hashvalue);
 extern void ExecParallelHashTableInsertCurrentBatch(HashJoinTable hashtable,
 													TupleTableSlot *slot,
 													uint32 hashvalue);
-extern bool ExecHashGetHashValue(HashJoinTable hashtable,
-								 ExprContext *econtext,
-								 List *hashkeys,
-								 bool outer_tuple,
-								 bool keep_nulls,
-								 uint32 *hashvalue);
+extern bool ExecHashGetHashValue(HashJoinTable hashJoinTable,
+								 ExprContext *exprContext,
+								 List *hashKeyList,
+								 bool outerTuple,
+								 bool keepNulls,
+								 uint32 *hashValue);
 extern void ExecHashGetBucketAndBatch(HashJoinTable hashtable,
 									  uint32 hashvalue,
 									  int *bucketno,
 									  int *batchno);
-extern bool ExecScanHashBucket(HashJoinState *hjstate, ExprContext *econtext);
+extern bool ExecScanHashBucket(HashJoinState *hashJoinState, ExprContext *exprContext);
 extern bool ExecParallelScanHashBucket(HashJoinState *hjstate, ExprContext *econtext);
 extern void ExecPrepHashTableForUnmatched(HashJoinState *hjstate);
 extern bool ExecScanHashTableForUnmatched(HashJoinState *hjstate,

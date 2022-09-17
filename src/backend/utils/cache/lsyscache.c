@@ -527,7 +527,7 @@ get_op_hash_functions(Oid opno,
 	for (i = 0; i < catlist->n_members; i++)
 	{
 		HeapTuple	tuple = &catlist->members[i]->tuple;
-		Form_pg_amop aform = (Form_pg_amop) GETSTRUCT(tuple);
+		Form_pg_amop aform = (Form_pg_amop) GETSTRUCT(tuple); // pg_amop where oid = 10387
 
 		if (aform->amopmethod == HASH_AM_OID &&
 			aform->amopstrategy == HTEqualStrategyNumber)
@@ -538,7 +538,7 @@ get_op_hash_functions(Oid opno,
 			 * continue looking if so.
 			 */
 			if (lhs_procno)
-			{
+			{   // oid 是 400 对应 F_HASHTEXT
 				*lhs_procno = get_opfamily_proc(aform->amopfamily,
 												aform->amoplefttype,
 												aform->amoplefttype,
@@ -1305,7 +1305,7 @@ op_hashjoinable(Oid opno, Oid inputtype)
 bool
 op_strict(Oid opno)
 {
-	RegProcedure funcid = get_opcode(opno);
+	RegProcedure funcid = get_opcode(opno);// 函数的oid是67 对应 F_TEXTEQ
 
 	if (funcid == (RegProcedure) InvalidOid)
 		elog(ERROR, "operator %u does not exist", opno);

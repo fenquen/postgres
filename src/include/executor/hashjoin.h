@@ -75,8 +75,8 @@ typedef struct HashJoinTupleData {
 } HashJoinTupleData;
 
 #define HJTUPLE_OVERHEAD  MAXALIGN(sizeof(HashJoinTupleData))
-#define HJTUPLE_MINTUPLE(hjtup)  \
-    ((MinimalTuple) ((char *) (hjtup) + HJTUPLE_OVERHEAD))
+#define HJTUPLE_MINTUPLE(hashJoinTuple)  \
+    ((MinimalTuple) ((char *) (hashJoinTuple) + HJTUPLE_OVERHEAD))
 
 /*
  * If the outer relation's distribution is sufficiently nonuniform, we attempt
@@ -108,8 +108,8 @@ typedef struct HashSkewBucket {
 #define SKEW_MIN_OUTER_FRACTION  0.01
 
 /*
- * To reduce palloc overhead, the HashJoinTuples for the current batch are
- * packed in 32kB buffers instead of pallocing each tuple individually.
+ * to reduce palloc overhead, the HashJoinTuples for the current batch are
+ * packed in 32kB buffers instead of palloc each tuple individually.
  */
 typedef struct HashMemoryChunkData {
     int ntuples;        /* number of tuples stored in this chunk */
@@ -124,7 +124,7 @@ typedef struct HashMemoryChunkData {
 
     /*
      * The chunk's tuple buffer starts after the HashMemoryChunkData struct,
-     * at offset HASH_CHUNK_HEADER_SIZE (which must be maxaligned).  Note that
+     * at offset HASH_CHUNK_HEADER_SIZE (which must be max aligned).  Note that
      * that offset is not included in "maxlen" or "used".
      */
 } HashMemoryChunkData;
@@ -290,7 +290,7 @@ typedef struct HashJoinTableData {
 
     bool keepNulls;        /* true to store unmatchable NULL tuples */
 
-    bool skewEnabled;    /* are we using skew optimization? */
+    bool skewEnabled;    /* using skew optimization? batchCount不是1的时候是true */
     HashSkewBucket **skewBucket;    /* hashtable of skew buckets */
     int skewBucketLen;    /* size of skewBucket array (a power of 2!) */
     int nSkewBuckets;    /* number of active skew buckets */

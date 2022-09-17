@@ -385,7 +385,7 @@ slot_attisnull(TupleTableSlot *slot, int attnum) {
 }
 
 /*
- * slot_getattr - fetch one attribute of the slot's contents.
+ * 得到1个由attnum(1起始的)指明的 attribute
  */
 static inline Datum
 slot_getattr(TupleTableSlot *slot, int attnum,

@@ -709,7 +709,7 @@ typedef struct SubscriptingRefState
 
 
 /* functions in execExpr.c */
-extern void ExprEvalPushStep(ExprState *es, const ExprEvalStep *s);
+extern void ExprEvalPushStep(ExprState *exprState, const ExprEvalStep *exprEvalStep);
 
 /* functions in execExprInterp.c */
 extern void ExecReadyInterpretedExpr(ExprState *state);

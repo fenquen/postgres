@@ -156,7 +156,7 @@ PlanState *ExecInitNode(Plan *plan, EState *estate, int eflags) {
             planState = (PlanState *) ExecInitFunctionScan((FunctionScan *) plan, estate, eflags);
             break;
         case T_Result: // control nodes
-            planState = (PlanState *) ExecInitResult((Result *) plan,estate, eflags);
+            planState = (PlanState *) ExecInitResult((Result *) plan, estate, eflags);
             break;
         case T_ProjectSet:
             planState = (PlanState *) ExecInitProjectSet((ProjectSet *) plan, estate, eflags);
@@ -385,40 +385,33 @@ ExecProcNodeInstr(PlanState *node) {
  * function must provide its own instrumentation support.
  * ----------------------------------------------------------------
  */
-Node *
-MultiExecProcNode(PlanState *node) {
-    Node *result;
-
+Node *MultiExecProcNode(PlanState *planState) {
     check_stack_depth();
 
     CHECK_FOR_INTERRUPTS();
 
-    if (node->chgParam != NULL) /* something changed */
-        ExecReScan(node);        /* let ReScan handle this */
+    // something changed, let ReScan handle this
+    if (planState->chgParam != NULL) {
+        ExecReScan(planState);
+    }
 
-    switch (nodeTag(node)) {
-        /*
-         * Only node types that actually support multiexec will be listed
-         */
-
+    Node *result;
+    switch (nodeTag(planState)) {
+        // only node types that actually support multi exec will be listed
         case T_HashState:
-            result = MultiExecHash((HashState *) node);
+            result = MultiExecHash((HashState *) planState);
             break;
-
         case T_BitmapIndexScanState:
-            result = MultiExecBitmapIndexScan((BitmapIndexScanState *) node);
+            result = MultiExecBitmapIndexScan((BitmapIndexScanState *) planState);
             break;
-
         case T_BitmapAndState:
-            result = MultiExecBitmapAnd((BitmapAndState *) node);
+            result = MultiExecBitmapAnd((BitmapAndState *) planState);
             break;
-
         case T_BitmapOrState:
-            result = MultiExecBitmapOr((BitmapOrState *) node);
+            result = MultiExecBitmapOr((BitmapOrState *) planState);
             break;
-
         default:
-            elog(ERROR, "unrecognized node type: %d", (int) nodeTag(node));
+            elog(ERROR, "unrecognized node type: %d", (int) nodeTag(planState));
             result = NULL;
             break;
     }

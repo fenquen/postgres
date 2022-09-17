@@ -100,10 +100,10 @@ typedef struct ExprState {
      * could be thrown away afterwards.
      */
 
-    int steps_len;        /* number of steps currently */
+    int steps_len;        /* number of steps currently 当前的数量 */
     int steps_alloc;    /* allocated length of steps array */
 
-    struct PlanState *parent;    /* parent PlanState node, if any */
+    struct PlanState *parent;    /* 对应的 PlanState node */
     ParamListInfo ext_params;    /* for compiling PARAM_EXTERN nodes */
 
     Datum *innermost_caseval;
@@ -220,7 +220,7 @@ typedef struct ExprContext {
 #define FIELDNO_EXPRCONTEXT_INNERTUPLE 2
     TupleTableSlot *ecxt_innertuple;
 #define FIELDNO_EXPRCONTEXT_OUTERTUPLE 3
-    TupleTableSlot *ecxt_outertuple;
+    TupleTableSlot *ecxt_outertuple; // outer表的
 
     /* Memory contexts for expression evaluation --- see notes above */
     MemoryContext ecxt_per_query_memory;
@@ -1887,6 +1887,7 @@ typedef struct MergeJoinState {
 
 /* these structs are defined in executor/hashjoin.h: */
 typedef struct HashJoinTupleData *HashJoinTuple;
+
 typedef struct HashJoinTableData *HashJoinTable;
 
 typedef struct HashJoinState {
@@ -1896,10 +1897,10 @@ typedef struct HashJoinState {
     List *hj_HashOperators;    /* list of operator OIDs */
     List *hj_Collations;
     HashJoinTable hj_HashTable;
-    uint32 hj_CurHashValue;
-    int hj_CurBucketNo;
+    uint32 hj_CurHashValue; // outer表上的hashValue
+    int hj_CurBucketNo; // outer表上的hashValue对应的buckNo
     int hj_CurSkewBucketNo;
-    HashJoinTuple hj_CurTuple;
+    HashJoinTuple hj_CurTuple; // inner表的
     TupleTableSlot *hj_OuterTupleSlot;
     TupleTableSlot *hj_HashTupleSlot;
     TupleTableSlot *hj_NullOuterTupleSlot;
@@ -2218,7 +2219,7 @@ typedef struct SharedHashInfo {
 typedef struct HashState {
     PlanState ps;                /* its first field is NodeTag */
     HashJoinTable hashtable;    /* hash table for the hashjoin */
-    List *hashkeys;        /* list of ExprState nodes */
+    List *hashkeys;        /* list of ExprState node,通过调用 ExecInitExprList() */
 
     SharedHashInfo *shared_info;    /* one entry per worker */
     HashInstrumentation *hinstrument;    /* this worker's entry */

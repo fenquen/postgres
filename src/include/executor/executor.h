@@ -269,7 +269,7 @@ extern PlanState *ExecInitNode(Plan *plan, EState *estate, int eflags);
 
 extern void ExecSetExecProcNode(PlanState *node, ExecProcNodeMtd function);
 
-extern Node *MultiExecProcNode(PlanState *node);
+extern Node *MultiExecProcNode(PlanState *planState);
 
 extern void ExecEndNode(PlanState *node);
 
@@ -336,7 +336,7 @@ static inline TupleTableSlot *ExecProcNode(PlanState *planState) {
  * Note that a NULL ExprState pointer *cannot* be handed to ExecEvalExpr,
  * although ExecQual and ExecCheck will accept one (and treat it as "true").
  */
-extern ExprState *ExecInitExpr(Expr *node, PlanState *parent);
+extern ExprState *ExecInitExpr(Expr *expr, PlanState *parent);
 
 extern ExprState *ExecInitExprWithParams(Expr *node, ParamListInfo ext_params);
 
@@ -344,7 +344,7 @@ extern ExprState *ExecInitQual(List *qual, PlanState *parent);
 
 extern ExprState *ExecInitCheck(List *qual, PlanState *parent);
 
-extern List *ExecInitExprList(List *nodes, PlanState *parent);
+extern List *ExecInitExprList(List *exprList, PlanState *parent);
 
 extern ExprState *ExecBuildAggTrans(AggState *aggstate, struct AggStatePerPhaseData *phase,
                                     bool doSort, bool doHash);
@@ -392,11 +392,10 @@ extern List *ExecPrepareExprList(List *nodes, EState *estate);
  */
 #ifndef FRONTEND
 
-static inline Datum
-ExecEvalExpr(ExprState *state,
-             ExprContext *econtext,
-             bool *isNull) {
-    return state->evalfunc(state, econtext, isNull);
+static inline Datum ExecEvalExpr(ExprState *exprState,
+                                 ExprContext *exprContext,
+                                 bool *isNull) {
+    return exprState->evalfunc(exprState, exprContext, isNull);
 }
 
 #endif
@@ -503,8 +502,7 @@ ExecQual(ExprState *state, ExprContext *econtext) {
  */
 #ifndef FRONTEND
 
-static inline bool
-ExecQualAndReset(ExprState *state, ExprContext *econtext) {
+static inline bool ExecQualAndReset(ExprState *state, ExprContext *econtext) {
     bool ret = ExecQual(state, econtext);
 
     /* inline ResetExprContext, to avoid ordering issue in this file */

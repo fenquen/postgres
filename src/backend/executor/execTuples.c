@@ -1592,7 +1592,7 @@ ExecFetchSlotMinimalTuple(TupleTableSlot *slot,
         return slot->tts_ops->get_minimal_tuple(slot);
     } else {
         if (shouldFree)
-            *shouldFree = true;
+            *shouldFree = true; // 因为是copy的 故而后续需要free
         return slot->tts_ops->copy_minimal_tuple(slot);
     }
 }

@@ -78,7 +78,7 @@ CATALOG(pg_amop,2602,AccessMethodOperatorRelationId)
 
 	/* ordering opfamily OID, or 0 if search op */
 	Oid			amopsortfamily BKI_DEFAULT(0) BKI_LOOKUP(pg_opfamily);
-} FormData_pg_amop;
+} FormData_pg_amop; // https://www.php.cn/manual/view/20901.html
 
 /* ----------------
  *		Form_pg_amop corresponds to a pointer to a tuple with
