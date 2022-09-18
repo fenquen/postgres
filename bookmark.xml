@@ -1,0 +1,3048 @@
+<project version="4">
+  <component name="BookmarksManager">
+    <option name="groups">
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="937" />
+            </attributes>
+            <option name="description" value="-plannedStmt = pg_plan_query()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="842" />
+            </attributes>
+            <option name="description" value="--ActiveSnapshotSet();" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="851" />
+            </attributes>
+            <option name="description" value="--plannedStmt = planner() 说是会调用优化" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="309" />
+            </attributes>
+            <option name="description" value="---plannedStmt = standard_planner()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="431" />
+            </attributes>
+            <option name="description" value="----root = subquery_planner()逻辑优化" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="685" />
+            </attributes>
+            <option name="description" value="-----pull_up_subqueries(root)子查询上拉" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="1001" />
+            </attributes>
+            <option name="description" value="-----grouping_planner()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="1995" />
+            </attributes>
+            <option name="description" value="------currentRelOptInfo = query_planner()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planmain.c" />
+              <entry key="line" value="156" />
+            </attributes>
+            <option name="description" value="-------add_base_rels_to_query(root,jointree); 生成relOptInfo 注入到了root的simple_rte_array" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/initsplan.c" />
+              <entry key="line" value="124" />
+            </attributes>
+            <option name="description" value="--------build_simple_rel()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/util/relnode.c" />
+              <entry key="line" value="268" />
+            </attributes>
+            <option name="description" value="---------向relOptInfo注入索引get_relation_info()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/util/relnode.c" />
+              <entry key="line" value="317" />
+            </attributes>
+            <option name="description" value="---------root-&gt;simple_rel_array[relid] = relOptInfo;" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planmain.c" />
+              <entry key="line" value="247" />
+            </attributes>
+            <option name="description" value="-------final_rel = make_one_rel()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="256" />
+            </attributes>
+            <option name="description" value="--------set_base_rel_pathlists(root)" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="363" />
+            </attributes>
+            <option name="description" value="---------遍历relOptInfo的simple_rel_array" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="378" />
+            </attributes>
+            <option name="description" value="---------set_relOptInfo_pathlist(root, rel, rti, root-&gt;simple_rte_array[rti]);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="494" />
+            </attributes>
+            <option name="description" value="----------set_plain_rel_pathlist()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="753" />
+            </attributes>
+            <option name="description" value="-----------path = create_seqscan_path()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="762" />
+            </attributes>
+            <option name="description" value="-----------create_index_paths(root, relOptInfo);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/indxpath.c" />
+              <entry key="line" value="313" />
+            </attributes>
+            <option name="description" value="------------get_index_paths()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/indxpath.c" />
+              <entry key="line" value="756" />
+            </attributes>
+            <option name="description" value="-------------indexPathList = build_index_paths()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="500" />
+            </attributes>
+            <option name="description" value="----------set_function_pathlist()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="2332" />
+            </attributes>
+            <option name="description" value="-----------path = create_functionscan_path() 直接 makeNode(Path)" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/util/pathnode.c" />
+              <entry key="line" value="1837" />
+            </attributes>
+            <option name="description" value="------------cost_functionscan() path的startup_cost,total_cost,rows" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="2336" />
+            </attributes>
+            <option name="description" value="-----------add_path(relOptInfo, path);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/util/pathnode.c" />
+              <entry key="line" value="572" />
+            </attributes>
+            <option name="description" value="------------注入relOptInfo的pathList lcons(new_path, parentRelOptInfo-&gt;pathlist);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="547" />
+            </attributes>
+            <option name="description" value="----------set_cheapest(relOptInfo) 注入relOptInfo的cheapest_total_path" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="262" />
+            </attributes>
+            <option name="description" value="--------relOptInfo = make_rel_from_joinlist(root, joinlist)" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="2638" />
+            </attributes>
+            <option name="description" value="---------relOptInfo = find_base_rel(root, ((RangeTblRef *) node)-&gt;rtindex);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="2670" />
+            </attributes>
+            <option name="description" value="---------standard_join_search()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="2198" />
+            </attributes>
+            <option name="description" value="-----grouping_palnner()内部调用fetch_upper_rel()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="2222" />
+            </attributes>
+            <option name="description" value="------遍历currentRelOptInfo的pathlist" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="2306" />
+            </attributes>
+            <option name="description" value="------add_path(final_rel, path);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="1015" />
+            </attributes>
+            <option name="description" value="-----subquery_planner()内部调用fetch_upper_rel(root, UPPERREL_FINAL, NULL);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="1023" />
+            </attributes>
+            <option name="description" value="-----set_cheapest(final_rel);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="437" />
+            </attributes>
+            <option name="description" value="----topPlan = create_plan();" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/createplan.c" />
+              <entry key="line" value="416" />
+            </attributes>
+            <option name="description" value="-----plan = create_plan_recurse()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/createplan.c" />
+              <entry key="line" value="476" />
+            </attributes>
+            <option name="description" value="------plan = create_scan_plan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/createplan.c" />
+              <entry key="line" value="655" />
+            </attributes>
+            <option name="description" value="-------生成functionScan plan=create_functionscan_plan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/createplan.c" />
+              <entry key="line" value="3372" />
+            </attributes>
+            <option name="description" value="--------functionScan = make_functionscan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/createplan.c" />
+              <entry key="line" value="3379" />
+            </attributes>
+            <option name="description" value="--------把path的信息搬到plan copy_generic_path_info(plan, best_path);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/createplan.c" />
+              <entry key="line" value="661" />
+            </attributes>
+            <option name="description" value="-------生成seqScan plan=create_seqscan_plan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/createplan.c" />
+              <entry key="line" value="673" />
+            </attributes>
+            <option name="description" value="-------生成了indexPlan plan=create_indexscan_plan(root,-" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/createplan.c" />
+              <entry key="line" value="481" />
+            </attributes>
+            <option name="description" value="------plan = create_join_plan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/createplan.c" />
+              <entry key="line" value="1025" />
+            </attributes>
+            <option name="description" value="-------生成HashJoin plan = create_hashjoin_plan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/createplan.c" />
+              <entry key="line" value="4360" />
+            </attributes>
+            <option name="description" value="--------hash = make_hash()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/createplan.c" />
+              <entry key="line" value="4383" />
+            </attributes>
+            <option name="description" value="--------hashJoin = make_hashjoin()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="513" />
+            </attributes>
+            <option name="description" value="----topPlan = set_plan_references()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="526" />
+            </attributes>
+            <option name="description" value="----硬生成plannedStmt" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/util/plancat.c" />
+              <entry key="line" value="402" />
+            </attributes>
+            <option name="description" value="-----------indexOptInfo-&gt;tree_height = _bt_getrootheight(indexRelation);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="pg_plan_queries()" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="4007" />
+            </attributes>
+            <option name="description" value="exec_simple_query(queryString);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="974" />
+            </attributes>
+            <option name="description" value="start_xact_command();" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="991" />
+            </attributes>
+            <option name="description" value="parseTreeList = pg_parse_query(queryString);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="1064" />
+            </attributes>
+            <option name="description" value="GetTransactionSnapshot()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/time/snapmgr.c" />
+              <entry key="line" value="350" />
+            </attributes>
+            <option name="description" value="-GetSnapshotData(&amp;CurrentSnapshotData);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="1073" />
+            </attributes>
+            <option name="description" value="query = pg_analyze_and_rewrite()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="1076" />
+            </attributes>
+            <option name="description" value="plannedStmtList = pg_plan_queries()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="1106" />
+            </attributes>
+            <option name="description" value="PortalStart()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/pquery.c" />
+              <entry key="line" value="458" />
+            </attributes>
+            <option name="description" value="-queryDesc = CreateQueryDesc()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/pquery.c" />
+              <entry key="line" value="81" />
+            </attributes>
+            <option name="description" value="--queryDesc的snapshot 注入" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/pquery.c" />
+              <entry key="line" value="480" />
+            </attributes>
+            <option name="description" value="-ExecutorStart()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
+              <entry key="line" value="140" />
+            </attributes>
+            <option name="description" value="--standard_ExecutorStart()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
+              <entry key="line" value="238" />
+            </attributes>
+            <option name="description" value="---InitPlan() 生成和注入 queryDesc-&gt;planstate" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
+              <entry key="line" value="932" />
+            </attributes>
+            <option name="description" value="----planstate = ExecInitNode() 通过plan生成planState" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execProcnode.c" />
+              <entry key="line" value="155" />
+            </attributes>
+            <option name="description" value="-----planState = ExecInitFunctionScan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeFunctionscan.c" />
+              <entry key="line" value="258" />
+            </attributes>
+            <option name="description" value="------planState的ExecProcNode设置 ExecFunctionScan" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeFunctionscan.c" />
+              <entry key="line" value="420" />
+            </attributes>
+            <option name="description" value="------生成tupleTableSlot注入scanstate的ss_ScanTupleSlot" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execProcnode.c" />
+              <entry key="line" value="183" />
+            </attributes>
+            <option name="description" value="-----planState = ExecInitSeqScan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeSeqscan.c" />
+              <entry key="line" value="92" />
+            </attributes>
+            <option name="description" value="------planState的ExecProcNode设置 ExecSeqScan" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeSeqscan.c" />
+              <entry key="line" value="99" />
+            </attributes>
+            <option name="description" value="------open对应的表注入scanState的ss_currentRelation" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeSeqscan.c" />
+              <entry key="line" value="102" />
+            </attributes>
+            <option name="description" value="------生成tupleTableSlot注入scanstate的ss_ScanTupleSlot" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execProcnode.c" />
+              <entry key="line" value="189" />
+            </attributes>
+            <option name="description" value="-----planState=ExecInitIndexScan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeIndexscan.c" />
+              <entry key="line" value="844" />
+            </attributes>
+            <option name="description" value="------planState的ExecProcNode设置 ExecIndexScan" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execProcnode.c" />
+              <entry key="line" value="240" />
+            </attributes>
+            <option name="description" value="-----planState=ExecInitHashJoin()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c" />
+              <entry key="line" value="564" />
+            </attributes>
+            <option name="description" value="------planState的ExecProcNode设置 ExecHashJoin" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c" />
+              <entry key="line" value="587" />
+            </attributes>
+            <option name="description" value="-------生成hashJoinState的innerPlanState是hashState" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execProcnode.c" />
+              <entry key="line" value="269" />
+            </attributes>
+            <option name="description" value="--------hashState=ExecInitHash()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="375" />
+            </attributes>
+            <option name="description" value="---------生成exprStateList注入hashState" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="1138" />
+            </attributes>
+            <option name="description" value="(void) PortalRun()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/pquery.c" />
+              <entry key="line" value="704" />
+            </attributes>
+            <option name="description" value="-nprocessed = PortalRunSelect()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/pquery.c" />
+              <entry key="line" value="860" />
+            </attributes>
+            <option name="description" value="--ExecutorRun()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
+              <entry key="line" value="279" />
+            </attributes>
+            <option name="description" value="---standard_ExecutorRun()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
+              <entry key="line" value="323" />
+            </attributes>
+            <option name="description" value="----真正执行ExecutePlan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
+              <entry key="line" value="1507" />
+            </attributes>
+            <option name="description" value="-----不断的for循环" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
+              <entry key="line" value="1512" />
+            </attributes>
+            <option name="description" value="-----tupleTableSlot = ExecProcNode(planState);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/include/executor/executor.h" />
+              <entry key="line" value="294" />
+            </attributes>
+            <option name="description" value="------调用planState的ExecProcNode函数指针" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeFunctionscan.c" />
+              <entry key="line" value="235" />
+            </attributes>
+            <option name="description" value="-------ExecScan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execScan.c" />
+              <entry key="line" value="175" />
+            </attributes>
+            <option name="description" value="--------tupleTableSlot = ExecScanFetch()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execScan.c" />
+              <entry key="line" value="119" />
+            </attributes>
+            <option name="description" value="---------return (*accessMethod)(scanState);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeFunctionscan.c" />
+              <entry key="line" value="57" />
+            </attributes>
+            <option name="description" value="----------调用FunctionNext()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeFunctionscan.c" />
+              <entry key="line" value="79" />
+            </attributes>
+            <option name="description" value="-----------ExecMakeTableFunctionResult()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execSRF.c" />
+              <entry key="line" value="159" />
+            </attributes>
+            <option name="description" value="------------rsinfo的returnMode默认是SFRM_ValuePerCall" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execSRF.c" />
+              <entry key="line" value="234" />
+            </attributes>
+            <option name="description" value="------------result = FunctionCallInvoke(fcinfo);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeFunctionscan.c" />
+              <entry key="line" value="94" />
+            </attributes>
+            <option name="description" value="-----------tuplestore_gettupleslot(tuplestorestate)" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="998" />
+            </attributes>
+            <option name="description" value="------------重要tuplestore_gettuple()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="1006" />
+            </attributes>
+            <option name="description" value="-------------ExecStoreMinimalTuple()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execTuples.c" />
+              <entry key="line" value="1366" />
+            </attributes>
+            <option name="description" value="--------------tts_minimal_store_tuple()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeSeqscan.c" />
+              <entry key="line" value="42" />
+            </attributes>
+            <option name="description" value="----------调用SeqNext()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeSeqscan.c" />
+              <entry key="line" value="51" />
+            </attributes>
+            <option name="description" value="-----------tableScanDesc=table_beginscan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/include/access/tableam.h" />
+              <entry key="line" value="736" />
+            </attributes>
+            <option name="description" value="------------调用tableam的scan_begin函数指针" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam_handler.c" />
+              <entry key="line" value="2489" />
+            </attributes>
+            <option name="description" value="-------------heap_beginscan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeSeqscan.c" />
+              <entry key="line" value="56" />
+            </attributes>
+            <option name="description" value="-----------table_scan_getnextslot()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/include/access/tableam.h" />
+              <entry key="line" value="874" />
+            </attributes>
+            <option name="description" value="------------调用tableam的scan_getnext函数指针" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam_handler.c" />
+              <entry key="line" value="2492" />
+            </attributes>
+            <option name="description" value="-------------heap_getnextslot" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam.c" />
+              <entry key="line" value="1268" />
+            </attributes>
+            <option name="description" value="--------------heapgettup_pagemode()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam.c" />
+              <entry key="line" value="804" />
+            </attributes>
+            <option name="description" value="---------------heapgetpage(heapScanDesc, page)" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam.c" />
+              <entry key="line" value="366" />
+            </attributes>
+            <option name="description" value="----------------ReadBufferExtended()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam.c" />
+              <entry key="line" value="435" />
+            </attributes>
+            <option name="description" value="----------------确定某个tuple是不是visible HeapTupleSatisfiesVisibility()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam_visibility.c" />
+              <entry key="line" value="1556" />
+            </attributes>
+            <option name="description" value="-----------------HeapTupleSatisfiesMVCC()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam_visibility.c" />
+              <entry key="line" value="972" />
+            </attributes>
+            <option name="description" value="------------------XidInMVCCSnapshot()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam.c" />
+              <entry key="line" value="906" />
+            </attributes>
+            <option name="description" value="---------------currentHeapTupleInDesc是空的架子专门盛放data" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam.c" />
+              <entry key="line" value="1294" />
+            </attributes>
+            <option name="description" value="--------------ExecStoreBufferHeapTuple()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeIndexscan.c" />
+              <entry key="line" value="81" />
+            </attributes>
+            <option name="description" value="----------调用IndexNext()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeIndexscan.c" />
+              <entry key="line" value="105" />
+            </attributes>
+            <option name="description" value="-----------indexScanDesc = index_beginscan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/index/indexam.c" />
+              <entry key="line" value="198" />
+            </attributes>
+            <option name="description" value="------------indexScanDesc = index_beginscan_internal()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/index/indexam.c" />
+              <entry key="line" value="258" />
+            </attributes>
+            <option name="description" value="-------------调用了indexam的ambeginscan函数指针" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtree.c" />
+              <entry key="line" value="130" />
+            </attributes>
+            <option name="description" value="--------------btbeginscan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtree.c" />
+              <entry key="line" value="326" />
+            </attributes>
+            <option name="description" value="---------------indexScanDesc = RelationGetIndexScan()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/index/indexam.c" />
+              <entry key="line" value="210" />
+            </attributes>
+            <option name="description" value="-------------indexScanDesc-&gt;xs_heapfetch = table_index_fetch_begin()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/include/access/tableam.h" />
+              <entry key="line" value="929" />
+            </attributes>
+            <option name="description" value="--------------调用tableam的index_fetch_begin函数指针" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam_handler.c" />
+              <entry key="line" value="2498" />
+            </attributes>
+            <option name="description" value="---------------heapam_index_fetch_begin()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeIndexscan.c" />
+              <entry key="line" value="126" />
+            </attributes>
+            <option name="description" value="-----------index_getnext_slot()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/index/indexam.c" />
+              <entry key="line" value="589" />
+            </attributes>
+            <option name="description" value="------------index_getnext_tid()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/index/indexam.c" />
+              <entry key="line" value="500" />
+            </attributes>
+            <option name="description" value="-------------调用了indexam的amgettuple 函数指针" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtree.c" />
+              <entry key="line" value="132" />
+            </attributes>
+            <option name="description" value="--------------btgettuple()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtree.c" />
+              <entry key="line" value="233" />
+            </attributes>
+            <option name="description" value="---------------_bt_first()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtsearch.c" />
+              <entry key="line" value="1172" />
+            </attributes>
+            <option name="description" value="----------------stack = _bt_search()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtsearch.c" />
+              <entry key="line" value="107" />
+            </attributes>
+            <option name="description" value="-----------------bufP = _bt_getroot()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtsearch.c" />
+              <entry key="line" value="129" />
+            </attributes>
+            <option name="description" value="-----------------bufP = _bt_moveright()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtsearch.c" />
+              <entry key="line" value="145" />
+            </attributes>
+            <option name="description" value="-----------------offsetNumber = _bt_binsrch()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtsearch.c" />
+              <entry key="line" value="1230" />
+            </attributes>
+            <option name="description" value="----------------_bt_readpage()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtsearch.c" />
+              <entry key="line" value="1393" />
+            </attributes>
+            <option name="description" value="-----------------_bt_checkkeys()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtsearch.c" />
+              <entry key="line" value="1399" />
+            </attributes>
+            <option name="description" value="-----------------_bt_saveitem() 逐个的注入btScanOpaque-&gt;currPos.items元素" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtsearch.c" />
+              <entry key="line" value="1247" />
+            </attributes>
+            <option name="description" value="----------------indexScanDesc-&gt;xs_heaptid = currItem-&gt;heapTid;" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/nbtree/nbtree.c" />
+              <entry key="line" value="254" />
+            </attributes>
+            <option name="description" value="---------------_bt_next()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/index/indexam.c" />
+              <entry key="line" value="605" />
+            </attributes>
+            <option name="description" value="------------index_fetch_heap()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/index/indexam.c" />
+              <entry key="line" value="544" />
+            </attributes>
+            <option name="description" value="-------------table_index_fetch_tuple()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/include/access/tableam.h" />
+              <entry key="line" value="978" />
+            </attributes>
+            <option name="description" value="--------------调用tableam的index_fetch_tuple函数指针" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam_handler.c" />
+              <entry key="line" value="2501" />
+            </attributes>
+            <option name="description" value="---------------heapam_index_fetch_tuple()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam_handler.c" />
+              <entry key="line" value="133" />
+            </attributes>
+            <option name="description" value="----------------heap_hot_search_buffer()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/heap/heapam.c" />
+              <entry key="line" value="1542" />
+            </attributes>
+            <option name="description" value="-----------------HeapTupleSatisfiesVisibility()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c" />
+              <entry key="line" value="528" />
+            </attributes>
+            <option name="description" value="-------ExecHashJoinImpl(planState, false);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c" />
+              <entry key="line" value="258" />
+            </attributes>
+            <option name="description" value="--------hashJoinTable = ExecHashTableCreate()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="433" />
+            </attributes>
+            <option name="description" value="---------ExecChooseHashTableSize()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c" />
+              <entry key="line" value="270" />
+            </attributes>
+            <option name="description" value="--------MultiExecProcNode((PlanState *) hashState);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execProcnode.c" />
+              <entry key="line" value="401" />
+            </attributes>
+            <option name="description" value="---------MultiExecHash((HashState *) node);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="126" />
+            </attributes>
+            <option name="description" value="----------MultiExecPrivateHash(hashState)" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="161" />
+            </attributes>
+            <option name="description" value="-----------不断去对hash表seqScan ExecProcNode()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="171" />
+            </attributes>
+            <option name="description" value="-----------ExecHashGetHashValue() 生成inner的hashValue" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="1697" />
+            </attributes>
+            <option name="description" value="------------ExecEvalExpr() 得到hashKey对应的值" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/include/executor/executor.h" />
+              <entry key="line" value="397" />
+            </attributes>
+            <option name="description" value="-------------调用 exprState的evalfunc函数指针" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execExprInterp.c" />
+              <entry key="line" value="1712" />
+            </attributes>
+            <option name="description" value="--------------evalfunc替换到真正干活的" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execExprInterp.c" />
+              <entry key="line" value="1715" />
+            </attributes>
+            <option name="description" value="--------------调用 exprState的evalfunc函数指针" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execExprInterp.c" />
+              <entry key="line" value="1948" />
+            </attributes>
+            <option name="description" value="---------------得到slot指定列上的 slot_getattr()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="1720" />
+            </attributes>
+            <option name="description" value="------------对hashkey计算hash" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="189" />
+            </attributes>
+            <option name="description" value="-----------ExecHashTableInsert() 通过hashValue把inner记录到hashTable相应位置" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="1495" />
+            </attributes>
+            <option name="description" value="------------通过hashValue得到对应的bucket batch" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="1503" />
+            </attributes>
+            <option name="description" value="------------到hashJoinTable管理的内存上分配hashJoinTuple" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="1506" />
+            </attributes>
+            <option name="description" value="------------seqScan test表得到的data拷贝到hashJoinTuple" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+              <entry key="line" value="1519" />
+            </attributes>
+            <option name="description" value="------------拿含有data的tuple落地hashTable对应的bucket" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c" />
+              <entry key="line" value="316" />
+            </attributes>
+            <option name="description" value="-------读取outer表的data且生成hash" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c" />
+              <entry key="line" value="736" />
+            </attributes>
+            <option name="description" value="--------ExecProcNode(outerPlanState) 得到outer表的data" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c" />
+              <entry key="line" value="745" />
+            </attributes>
+            <option name="description" value="--------ExecHashGetHashValue() 生成outer的hashValue" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c" />
+              <entry key="line" value="390" />
+            </attributes>
+            <option name="description" value="-------ExecScanHashBucket() 把当前的outer上的data和各个inner配对" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execExprInterp.c" />
+              <entry key="line" value="650" />
+            </attributes>
+            <option name="description" value="Datum d = op-&gt;d.func.fn_addr(fcinfo);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
+              <entry key="line" value="1535" />
+            </attributes>
+            <option name="description" value="destReceiver-&gt;receiveSlot(tupleTableSlot, destReceiver)" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/common/printtup.c" />
+              <entry key="line" value="358" />
+            </attributes>
+            <option name="description" value="TupleDesc&#9;typeinfo = slot-&gt;tts_tupleDescriptor;" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="调extesion" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="846" />
+            </attributes>
+            <option name="description" value="起点" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="916" />
+            </attributes>
+            <option name="description" value="return READTUP(tuplestorestate, tuplen);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="1396" />
+            </attributes>
+            <option name="description" value="readtup_heap() 读取了临时文件的数据到tuple" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="tuplestore_gettuple()" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="667" />
+            </attributes>
+            <option name="description" value="a" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="680" />
+            </attributes>
+            <option name="description" value="-parse_analyze()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/analyze.c" />
+              <entry key="line" value="132" />
+            </attributes>
+            <option name="description" value="--transformTopLevelStmt()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/analyze.c" />
+              <entry key="line" value="201" />
+            </attributes>
+            <option name="description" value="---transformOptionalSelectInto()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/analyze.c" />
+              <entry key="line" value="248" />
+            </attributes>
+            <option name="description" value="----transformStmt()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/analyze.c" />
+              <entry key="line" value="290" />
+            </attributes>
+            <option name="description" value="-----transformSelectStmt()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/analyze.c" />
+              <entry key="line" value="1150" />
+            </attributes>
+            <option name="description" value="------transformFromClause()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/parse_clause.c" />
+              <entry key="line" value="151" />
+            </attributes>
+            <option name="description" value="-------transformFromClauseItem()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/parse_clause.c" />
+              <entry key="line" value="1079" />
+            </attributes>
+            <option name="description" value="--------transformRangeFunction()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/parse_clause.c" />
+              <entry key="line" value="590" />
+            </attributes>
+            <option name="description" value="---------transformExpr()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/parse_expr.c" />
+              <entry key="line" value="277" />
+            </attributes>
+            <option name="description" value="----------transformFuncCall()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/parse_expr.c" />
+              <entry key="line" value="1446" />
+            </attributes>
+            <option name="description" value="-----------transformExprRecurse()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/parse_expr.c" />
+              <entry key="line" value="220" />
+            </attributes>
+            <option name="description" value="------------transformTypeCast()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/parser/parse_expr.c" />
+              <entry key="line" value="1467" />
+            </attributes>
+            <option name="description" value="-----------ParseFuncOrColumn()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+              <entry key="line" value="687" />
+            </attributes>
+            <option name="description" value="-pg_rewrite_query()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="pg_analyze_and_rewrite" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execSRF.c" />
+              <entry key="line" value="604" />
+            </attributes>
+            <option name="description" value="ExecPrepTuplestoreResult" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execSRF.c" />
+              <entry key="line" value="781" />
+            </attributes>
+            <option name="description" value="-把fcinfo的tuplestorestate迁移到了setExprState" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execSRF.c" />
+              <entry key="line" value="610" />
+            </attributes>
+            <option name="description" value="goto restart 再回到之前" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execSRF.c" />
+              <entry key="line" value="482" />
+            </attributes>
+            <option name="description" value="tuplestore_gettupleslot(tuplestorestate)" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execSRF.c" />
+              <entry key="line" value="502" />
+            </attributes>
+            <option name="description" value="tuplestore_end(setExprState-&gt;funcResultStore);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="如何用吸饱data的tuplestorestate" />
+      </GroupState>
+      <GroupState>
+        <option name="name" value="如何使用setExprState上的tuplestorestate" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="700" />
+            </attributes>
+            <option name="description" value="-heapTuple = tuplestorestate-&gt;copytup(tuplestorestate, heapTuple);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="1369" />
+            </attributes>
+            <option name="description" value="--MinimalTuple minimalTuple = minimal_tuple_from_heap_tuple((HeapTuple) tup);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="702" />
+            </attributes>
+            <option name="description" value="-tuplestore_puttuple_common()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="748" />
+            </attributes>
+            <option name="description" value="--因为栏位数量不足需要扩大grow_memtuples(tuplestorestate);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="766" />
+            </attributes>
+            <option name="description" value="--准备临时的表空间 PrepareTempTablespaces()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="773" />
+            </attributes>
+            <option name="description" value="--准备临时表空间上的临时文件 BufFileCreateTemp()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="800" />
+            </attributes>
+            <option name="description" value="--WRITETUP(tuplestorestate, tuple);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="1384" />
+            </attributes>
+            <option name="description" value="---BufFileWrite() 也是先写到缓存上" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/file/buffile.c" />
+              <entry key="line" value="187" />
+            </attributes>
+            <option name="description" value="---PrepareTempTablespaces()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/file/buffile.c" />
+              <entry key="line" value="189" />
+            </attributes>
+            <option name="description" value="---OpenTemporaryFile(interXact)" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/file/fd.c" />
+              <entry key="line" value="1415" />
+            </attributes>
+            <option name="description" value="----OpenTempFileInTablespace()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/file/fd.c" />
+              <entry key="line" value="1461" />
+            </attributes>
+            <option name="description" value="-----得到临时目录的path  TempTablespacePath()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/file/buffile.c" />
+              <entry key="line" value="537" />
+            </attributes>
+            <option name="description" value="----BufFileDumpBuffer() 当缓存量写满了BLACKZ" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/file/buffile.c" />
+              <entry key="line" value="437" />
+            </attributes>
+            <option name="description" value="-----单个的临时文件大小限制是MAX_PHYSICAL_FILESIZE" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/file/buffile.c" />
+              <entry key="line" value="441" />
+            </attributes>
+            <option name="description" value="-----当拓展到新的文件后bufFile-&gt;curOffset = 0L;" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/file/buffile.c" />
+              <entry key="line" value="453" />
+            </attributes>
+            <option name="description" value="-----FileWrite()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/file/fd.c" />
+              <entry key="line" value="1856" />
+            </attributes>
+            <option name="description" value="------系统调用pwrite()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/file/buffile.c" />
+              <entry key="line" value="488" />
+            </attributes>
+            <option name="description" value="-----落地到文件后 bufFile-&gt;pos=0" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="tuplestore_puttuple" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="318" />
+            </attributes>
+            <option name="description" value="state = tuplestore_begin_common()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="262" />
+            </attributes>
+            <option name="description" value="-tupleStoreState-&gt;status = TSS_INMEM;" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="267" />
+            </attributes>
+            <option name="description" value="-tupleStoreState-&gt;availMem = tupleStoreState-&gt;allowedMem;" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/sort/tuplestore.c" />
+              <entry key="line" value="281" />
+            </attributes>
+            <option name="description" value="-tupleStoreState-&gt;memtuples = (void **) palloc(tupleStoreState-&gt;memtupsize * sizeof(void *));" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="tuplestore_begin_heap" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/table/table.c" />
+              <entry key="line" value="37" />
+            </attributes>
+            <option name="description" value="-relation_open()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/common/relation.c" />
+              <entry key="line" value="51" />
+            </attributes>
+            <option name="description" value="--LockRelationOid()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/lmgr.c" />
+              <entry key="line" value="106" />
+            </attributes>
+            <option name="description" value="---SetLocktagRelationOid()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/lmgr.c" />
+              <entry key="line" value="94" />
+            </attributes>
+            <option name="description" value="----SET_LOCKTAG_RELATION()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/lmgr.c" />
+              <entry key="line" value="109" />
+            </attributes>
+            <option name="description" value="---LockAcquireExtended()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/access/common/relation.c" />
+              <entry key="line" value="55" />
+            </attributes>
+            <option name="description" value="--RelationIdGetRelation()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/cache/relcache.c" />
+              <entry key="line" value="2000" />
+            </attributes>
+            <option name="description" value="---RelationBuildDesc() 生成 relation" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/cache/relcache.c" />
+              <entry key="line" value="1061" />
+            </attributes>
+            <option name="description" value="----ScanPgRelation()得到pgClassTuple" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/cache/relcache.c" />
+              <entry key="line" value="1084" />
+            </attributes>
+            <option name="description" value="----palloc生成relation" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/cache/relcache.c" />
+              <entry key="line" value="405" />
+            </attributes>
+            <option name="description" value="-----heap_copytuple(pgClassTuple)" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/cache/relcache.c" />
+              <entry key="line" value="1133" />
+            </attributes>
+            <option name="description" value="----RelationBuildTupleDesc(relation);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/cache/relcache.c" />
+              <entry key="line" value="1209" />
+            </attributes>
+            <option name="description" value="----RelationInitPhysicalAddr(relation);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/cache/relcache.c" />
+              <entry key="line" value="1216" />
+            </attributes>
+            <option name="description" value="----heap_freetuple(pgClassTuple);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/cache/relcache.c" />
+              <entry key="line" value="1247" />
+            </attributes>
+            <option name="description" value="----RelationCacheInsert(relation, true);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="table_open" />
+      </GroupState>
+      <GroupState>
+        <option name="name" value="pg_extension系列" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/postmaster/postmaster.c" />
+              <entry key="line" value="1700" />
+            </attributes>
+            <option name="description" value="-BgWriterPID = StartBackgroundWriter();" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/postmaster/postmaster.c" />
+              <entry key="line" value="5390" />
+            </attributes>
+            <option name="description" value="--AuxiliaryProcessMain(argc, argv);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/bootstrap/bootstrap.c" />
+              <entry key="line" value="437" />
+            </attributes>
+            <option name="description" value="---BackgroundWriterMain();" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/postmaster/bgwriter.c" />
+              <entry key="line" value="261" />
+            </attributes>
+            <option name="description" value="----BgBufferSync" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="2016" />
+            </attributes>
+            <option name="description" value="-----StrategySyncStart()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="2172" />
+            </attributes>
+            <option name="description" value="-----SyncOneBuffer()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="2285" />
+            </attributes>
+            <option name="description" value="------FlushBuffer()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="2621" />
+            </attributes>
+            <option name="description" value="-------smgrwrite()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/smgr/smgr.c" />
+              <entry key="line" value="95" />
+            </attributes>
+            <option name="description" value="--------mdwrite()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/smgr/md.c" />
+              <entry key="line" value="690" />
+            </attributes>
+            <option name="description" value="---------register_dirty_segment()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="bgwriter" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/buf_table.c" />
+              <entry key="line" value="87" />
+            </attributes>
+            <option name="description" value="----到共享内存上的SharedBufHash寻找" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/s_lock.c" />
+              <entry key="line" value="126" />
+            </attributes>
+            <option name="description" value="------pg_usleep()调用select实现;" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/freelist.c" />
+              <entry key="line" value="298" />
+            </attributes>
+            <option name="description" value="----ClockSweepTick()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="579" />
+            </attributes>
+            <option name="description" value="ReadBufferExtended" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="650" />
+            </attributes>
+            <option name="description" value="-ReadBuffer_common" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="753" />
+            </attributes>
+            <option name="description" value="--BufferAlloc" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="1009" />
+            </attributes>
+            <option name="description" value="---LWLockAcquire()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="1012" />
+            </attributes>
+            <option name="description" value="---BufTableLookup()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="1021" />
+            </attributes>
+            <option name="description" value="---PinBuffer()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="1537" />
+            </attributes>
+            <option name="description" value="----GetPrivateRefCountEntry" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="1550" />
+            </attributes>
+            <option name="description" value="----WaitBufHdrUnlocked()要是别人用着要等待" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="3958" />
+            </attributes>
+            <option name="description" value="-----perform_spin_delay();" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="1050" />
+            </attributes>
+            <option name="description" value="---没有在bufferpool中找到对应buffer 需要生成" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="1055" />
+            </attributes>
+            <option name="description" value="---生成bufferDesc StrategyGetBuffer()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="1176" />
+            </attributes>
+            <option name="description" value="---bufId = BufTableInsert(&amp;newTag, newHash, bufferDesc-&gt;buf_id);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="874" />
+            </attributes>
+            <option name="description" value="--smgrextend()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/smgr/smgr.c" />
+              <entry key="line" value="101" />
+            </attributes>
+            <option name="description" value="---mdextend()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/smgr/md.c" />
+              <entry key="line" value="414" />
+            </attributes>
+            <option name="description" value="----mdfd_getseg()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/smgr/md.c" />
+              <entry key="line" value="1123" />
+            </attributes>
+            <option name="description" value="-----mdextend()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/smgr/md.c" />
+              <entry key="line" value="420" />
+            </attributes>
+            <option name="description" value="----FileWrite()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/bufmgr.c" />
+              <entry key="line" value="893" />
+            </attributes>
+            <option name="description" value="--smgrread()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/smgr/smgr.c" />
+              <entry key="line" value="103" />
+            </attributes>
+            <option name="description" value="---mdread()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/smgr/md.c" />
+              <entry key="line" value="585" />
+            </attributes>
+            <option name="description" value="----mdfd_getseg" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/smgr/md.c" />
+              <entry key="line" value="1091" />
+            </attributes>
+            <option name="description" value="-----要逐个open seg文件直达目标在的那个" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/smgr/md.c" />
+              <entry key="line" value="596" />
+            </attributes>
+            <option name="description" value="----FileRead()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="readbuffer" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/buffer/buf_init.c" />
+              <entry key="line" value="77" />
+            </attributes>
+            <option name="description" value="buffer是事先在共享内存上分配的有1000个大小是BLCKSZ" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="buffer" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/lwlock.c" />
+              <entry key="line" value="1619" />
+            </attributes>
+            <option name="description" value="LWLockRelease" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/lwlock.c" />
+              <entry key="line" value="1674" />
+            </attributes>
+            <option name="description" value="-LWLockWakeup(lwLock);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/lwlock.c" />
+              <entry key="line" value="918" />
+            </attributes>
+            <option name="description" value="--pg_write_barrier();" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/lwlock.c" />
+              <entry key="line" value="920" />
+            </attributes>
+            <option name="description" value="--waiter-&gt;lwWaiting = false;" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="LWLockRelease" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/lwlock.c" />
+              <entry key="line" value="1064" />
+            </attributes>
+            <option name="description" value="LWLockAcquire" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/lwlock.c" />
+              <entry key="line" value="1123" />
+            </attributes>
+            <option name="description" value="-LWLockAttemptLock" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/lwlock.c" />
+              <entry key="line" value="1141" />
+            </attributes>
+            <option name="description" value="-LWLockQueueSelf" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/lwlock.c" />
+              <entry key="line" value="1170" />
+            </attributes>
+            <option name="description" value="-PGSemaphoreLock()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_sema.c" />
+              <entry key="line" value="408" />
+            </attributes>
+            <option name="description" value="--系统调用 semop(sema-&gt;semId, &amp;sops, 1);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="LWLockAcquire" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/include/storage/lwlock.h" />
+              <entry key="line" value="88" />
+            </attributes>
+            <option name="description" value="extern PGDLLIMPORT LWLockPadded *MainLWLockArray;" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/utils/init/postinit.c" />
+              <entry key="line" value="444" />
+            </attributes>
+            <option name="description" value="CreateSharedMemoryAndSemaphores(PostPortNumber);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/ipci.c" />
+              <entry key="line" value="116" />
+            </attributes>
+            <option name="description" value="-add_size(size, PGSemaphoreShmemSize(numSemas));" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/ipci.c" />
+              <entry key="line" value="119" />
+            </attributes>
+            <option name="description" value="-add_size(size, BufferShmemSize());" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/ipci.c" />
+              <entry key="line" value="120" />
+            </attributes>
+            <option name="description" value="-add_size(size, LockShmemSize());" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/ipci.c" />
+              <entry key="line" value="160" />
+            </attributes>
+            <option name="description" value="-PGSharedMemoryCreate" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
+              <entry key="line" value="645" />
+            </attributes>
+            <option name="description" value="--调mmap CreateAnonymousSegment" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
+              <entry key="line" value="559" />
+            </attributes>
+            <option name="description" value="---系统调用 mmap()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
+              <entry key="line" value="671" />
+            </attributes>
+            <option name="description" value="--调shmget和shmat InternalIpcMemoryCreate" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
+              <entry key="line" value="160" />
+            </attributes>
+            <option name="description" value="---系统调用 shmget()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
+              <entry key="line" value="253" />
+            </attributes>
+            <option name="description" value="---系统调用 shmat()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
+              <entry key="line" value="781" />
+            </attributes>
+            <option name="description" value="--拿 sharedMemAddr 头部 copy到 mmap内存" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/ipci.c" />
+              <entry key="line" value="187" />
+            </attributes>
+            <option name="description" value="-CreateLWLocks();" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/ipci.c" />
+              <entry key="line" value="208" />
+            </attributes>
+            <option name="description" value="-InitProcGlobal();" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/proc.c" />
+              <entry key="line" value="201" />
+            </attributes>
+            <option name="description" value="--ShmemAlloc(TotalProcs * sizeof(PGPROC));" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/lmgr/proc.c" />
+              <entry key="line" value="230" />
+            </attributes>
+            <option name="description" value="--procs[i].sem = PGSemaphoreCreate();" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/ipci.c" />
+              <entry key="line" value="244" />
+            </attributes>
+            <option name="description" value="-dsm_postmaster_startup()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/dsm.c" />
+              <entry key="line" value="170" />
+            </attributes>
+            <option name="description" value="--dsm_impl_op" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/dsm_impl.c" />
+              <entry key="line" value="169" />
+            </attributes>
+            <option name="description" value="---dsm_impl_posix" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/dsm_impl.c" />
+              <entry key="line" value="256" />
+            </attributes>
+            <option name="description" value="----系统调用 shm_open" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/dsm_impl.c" />
+              <entry key="line" value="286" />
+            </attributes>
+            <option name="description" value="----dsm_impl_posix_resize" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/dsm_impl.c" />
+              <entry key="line" value="353" />
+            </attributes>
+            <option name="description" value="-----系统调用 ftruncate(fd, size);" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/dsm_impl.c" />
+              <entry key="line" value="310" />
+            </attributes>
+            <option name="description" value="----系统调用 mmap" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="共享内存 CreateSharedMemoryAndSemaphores" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_sema.c" />
+              <entry key="line" value="345" />
+            </attributes>
+            <option name="description" value="PGSemaphoreCreate()" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_sema.c" />
+              <entry key="line" value="358" />
+            </attributes>
+            <option name="description" value="-IpcSemaphoreSetCreate(SEMAS_PER_SET)" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_sema.c" />
+              <entry key="line" value="373" />
+            </attributes>
+            <option name="description" value="-把set中的单个semaphore的value设为1" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="PGSemaphoreCreate()" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="306" />
+            </attributes>
+            <option name="description" value="planner_hook" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/path/allpaths.c" />
+              <entry key="line" value="524" />
+            </attributes>
+            <option name="description" value="set_rel_pathlist_hook" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/plan/planner.c" />
+              <entry key="line" value="2339" />
+            </attributes>
+            <option name="description" value="create_upper_paths_hook" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/optimizer/util/plancat.c" />
+              <entry key="line" value="446" />
+            </attributes>
+            <option name="description" value="get_relation_info_hook" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="钩子" />
+      </GroupState>
+      <GroupState>
+        <option name="name" value="heap" />
+      </GroupState>
+      <GroupState>
+        <option name="bookmarks">
+          <BookmarkState>
+            <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/common/relpath.c" />
+              <entry key="line" value="136" />
+            </attributes>
+            <option name="description" value="表的数据文件path规则" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+        </option>
+        <option name="name" value="其它" />
+      </GroupState>
+    </option>
+  </component>
+  <component name="BranchesTreeState">
+    <expand>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:origin" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:upstream" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </expand>
+    <select />
+  </component>
+  <component name="DatabaseView">
+    <expand>
+      <path>
+        <item name="Root Group" type="25e4ec8d:DvRootDsGroup" />
+        <item name="postgres@localhost: DSN" type="27e358d6:DataSourceNode" />
+      </path>
+      <path>
+        <item name="Root Group" type="25e4ec8d:DvRootDsGroup" />
+        <item name="postgres@localhost: DSN" type="27e358d6:DataSourceNode" />
+        <item name="postgres: database" type="162271b6:PgImplModel$Database" />
+      </path>
+      <path>
+        <item name="Root Group" type="25e4ec8d:DvRootDsGroup" />
+        <item name="postgres@localhost: DSN" type="27e358d6:DataSourceNode" />
+        <item name="postgres: database" type="162271b6:PgImplModel$Database" />
+        <item name="public: schema" type="983ebcf7:PgImplModel$Schema" />
+      </path>
+      <path>
+        <item name="Root Group" type="25e4ec8d:DvRootDsGroup" />
+        <item name="postgres@localhost: DSN" type="27e358d6:DataSourceNode" />
+        <item name="postgres: database" type="162271b6:PgImplModel$Database" />
+        <item name="public: schema" type="983ebcf7:PgImplModel$Schema" />
+        <item name="Family of 2 table (host: schema public)" type="28178dcc:BaseModel$BaseNamingIdentifyingFamily" />
+      </path>
+    </expand>
+    <select />
+  </component>
+  <component name="FileEditorManager">
+    <leaf SIDE_TABS_SIZE_LIMIT_KEY="-1">
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="485">
+              <caret line="404" column="7" lean-forward="true" selection-start-line="404" selection-start-column="7" selection-end-line="404" selection-end-column="7" />
+              <folding>
+                <element signature="e#17406#18213#0" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/executor/execProcnode.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="221">
+              <caret line="351" selection-start-line="351" selection-end-line="351" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/executor/executor.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="221">
+              <caret line="294" selection-start-line="294" selection-end-line="294" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="das://059bf7e3-c7fd-48b0-b0fc-20807dd814b6/database/postgres/schema/public/table/row_table">
+          <provider selected="true" editor-type-id="com.intellij.database.editor.DatabaseTableFileEditorProvider">
+            <state lastOpenedTimestamp="1663481079518" presentationMode="TABLE" projectRestartId="166a2695-ac11-4e91-9443-f9e463749dec" pageSize="500">
+              <filtering>
+                <filter text="" />
+              </filtering>
+              <sorting>
+                <sort text="" />
+              </sorting>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="84">
+              <caret line="1787" column="5" selection-start-line="1787" selection-start-column="5" selection-end-line="1787" selection-end-column="5" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/record.txt">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="600">
+              <caret line="40" column="77" lean-forward="true" selection-start-line="40" selection-start-column="2" selection-end-line="40" selection-end-column="77" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/executor/execMain.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="124">
+              <caret line="1512" selection-start-line="1512" selection-end-line="1512" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="das://059bf7e3-c7fd-48b0-b0fc-20807dd814b6/database/postgres/schema/public/table/test_table">
+          <provider selected="true" editor-type-id="com.intellij.database.editor.DatabaseTableFileEditorProvider">
+            <state lastOpenedTimestamp="1663481134541" presentationMode="TABLE" projectRestartId="166a2695-ac11-4e91-9443-f9e463749dec" pageSize="500">
+              <filtering>
+                <filter text="" />
+              </filtering>
+              <sorting>
+                <sort text="" />
+              </sorting>
+              <column-attributes>
+                <column name="ctid" position="-1" binaryDisplayType="DETECT" />
+              </column-attributes>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/executor/hashjoin.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="281">
+              <caret line="285" column="35" selection-start-line="285" selection-start-column="35" selection-end-line="285" selection-end-column="35" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/executor/execTuples.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="281">
+              <caret line="1354" column="16" selection-start-line="1354" selection-start-column="16" selection-end-line="1354" selection-end-column="16" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+    </leaf>
+  </component>
+  <component name="FileTypeUsageLocalSummary">
+    <fileType name="DIFF">
+      <summary usageCount="1" lastUsed="1663480547859" />
+    </fileType>
+    <fileType name="Database Element">
+      <summary usageCount="2" lastUsed="1663481134577" />
+    </fileType>
+    <fileType name="ObjectiveC">
+      <summary usageCount="49" lastUsed="1663496819009" />
+    </fileType>
+    <fileType name="PLAIN_TEXT">
+      <summary usageCount="3" lastUsed="1663481091253" />
+    </fileType>
+    <fileType name="SQL">
+      <summary usageCount="1" lastUsed="1663481033701" />
+    </fileType>
+  </component>
+  <component name="GitSEFilterConfiguration">{
+}</component>
+  <component name="IdeDocumentHistory">
+    <changedPaths>
+      <option value="$PROJECT_DIR$/src/backend/executor/nodeHash.c" />
+      <option value="$PROJECT_DIR$/src/include/nodes/execnodes.h" />
+      <option value="$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c" />
+      <option value="$PROJECT_DIR$/record.txt" />
+    </changedPaths>
+  </component>
+  <component name="IgnoredFileRootStore">
+    <option name="generatedRoots">
+      <set>
+        <option value="$PROJECT_DIR$/.idea" />
+      </set>
+    </option>
+  </component>
+  <component name="LanguageUsageStatistics">
+    <language id="ObjectiveC">
+      <summary usageCount="49" lastUsage="1663496819009" />
+    </language>
+    <language id="SQL">
+      <summary usageCount="1" lastUsage="1663481033701" />
+    </language>
+    <language id="TEXT">
+      <summary usageCount="3" lastUsage="1663481091253" />
+    </language>
+  </component>
+  <component name="ProjectView">
+    <navigator currentView="ProjectPane" proportions="" version="1" />
+    <panes>
+      <pane id="ProjectPane">
+        <subPane>
+          <expand>
+            <path>
+              <item name="postgres" type="b2602c69:ProjectViewProjectNode" />
+              <item name="postgres" type="462c0819:PsiDirectoryNode" />
+            </path>
+          </expand>
+          <select />
+        </subPane>
+      </pane>
+      <pane id="Scope" />
+    </panes>
+  </component>
+  <component name="TerminalArrangementManager">
+    <option name="myTabStates">
+      <TerminalTabState tabName="Local" currentWorkingDirectory="$PROJECT_DIR$" commandHistoryFileName="postgres-history" />
+      <TerminalTabState tabName="psql" userDefinedTabTitle="true" currentWorkingDirectory="$USER_HOME$/program/pg12/bin" commandHistoryFileName="postgres-history1" />
+      <TerminalTabState tabName="server" userDefinedTabTitle="true" currentWorkingDirectory="$USER_HOME$/program/pg12/bin" commandHistoryFileName="postgres-history2" />
+    </option>
+    <option name="mySelectedTabIndex" value="2" />
+  </component>
+  <component name="TimeTrackingManager">
+    <option name="totallyTimeSpent" value="11561000" />
+  </component>
+  <component name="TodoView">
+    <todo-panel id="selected-file">
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+    <todo-panel id="all">
+      <are-packages-shown value="true" />
+      <is-autoscroll-to-source value="true" />
+    </todo-panel>
+  </component>
+  <component name="ToolWindowManager">
+    <editor active="true" />
+    <layout>
+      <window_info content_ui="combo" id="Project" order="0" weight="0.17792968" />
+      <window_info id="Structure" order="1" side_tool="true" />
+      <window_info anchor="bottom" id="Version Control" order="0" weight="0.29157427" />
+      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info anchor="bottom" id="Run" order="2" />
+      <window_info anchor="bottom" id="Debug" order="3" show_stripe_button="false" weight="0.3285292" />
+      <window_info anchor="bottom" id="Python Packages" order="4" show_stripe_button="false" weight="0.3300074" />
+      <window_info anchor="bottom" id="TODO" order="5" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Inspection" order="6" weight="0.4" />
+      <window_info anchor="bottom" id="Database Changes" order="7" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Problems View" order="8" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Terminal" order="9" weight="0.27457502" />
+      <window_info anchor="bottom" id="Services" order="10" />
+      <window_info anchor="bottom" id="Commit" order="11" weight="0.26644495" />
+      <window_info anchor="bottom" id="Pull Requests" order="12" />
+      <window_info anchor="right" id="Bookmarks" order="0" weight="0.2919922" />
+      <window_info anchor="right" id="Database" order="1" weight="0.3298828" />
+      <window_info anchor="right" id="Notifications" order="2" show_stripe_button="false" weight="0.25" />
+      <window_info anchor="right" id="make" order="3" side_tool="true" />
+    </layout>
+    <layout-to-restore>
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.17792968" />
+      <window_info id="Structure" order="1" side_tool="true" />
+      <window_info anchor="bottom" id="Version Control" order="0" weight="0.29157427" />
+      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info anchor="bottom" id="Run" order="2" />
+      <window_info anchor="bottom" id="Debug" order="3" visible="true" weight="0.3285292" />
+      <window_info anchor="bottom" id="Python Packages" order="4" show_stripe_button="false" weight="0.3300074" />
+      <window_info anchor="bottom" id="TODO" order="5" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Inspection" order="6" weight="0.4" />
+      <window_info anchor="bottom" id="Database Changes" order="7" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Problems View" order="8" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Terminal" order="9" weight="0.27457502" />
+      <window_info anchor="bottom" id="Services" order="10" />
+      <window_info anchor="bottom" id="Commit" order="11" weight="0.26644495" />
+      <window_info anchor="bottom" id="Pull Requests" order="12" />
+      <window_info anchor="right" id="Bookmarks" order="0" weight="0.2919922" />
+      <window_info anchor="right" id="Database" order="1" visible="true" weight="0.3298828" />
+      <window_info anchor="right" id="Notifications" order="2" show_stripe_button="false" weight="0.25" />
+      <window_info anchor="right" id="make" order="3" side_tool="true" />
+    </layout-to-restore>
+    <recentWindows>
+      <value>Debug</value>
+      <value>Terminal</value>
+      <value>Database</value>
+      <value>Bookmarks</value>
+      <value>Project</value>
+      <value>Commit</value>
+      <value>Version Control</value>
+      <value>Python Packages</value>
+    </recentWindows>
+  </component>
+  <component name="WindowStateProjectService">
+    <state width="2518" height="416" key="GridCell.Tab.0.bottom" timestamp="1663506365417">
+      <screen x="0" y="25" width="2560" height="1353" />
+    </state>
+    <state width="2518" height="416" key="GridCell.Tab.0.bottom/0.25.2560.1353@0.25.2560.1353" timestamp="1663506365417" />
+    <state width="2518" height="416" key="GridCell.Tab.0.center" timestamp="1663506365417">
+      <screen x="0" y="25" width="2560" height="1353" />
+    </state>
+    <state width="2518" height="416" key="GridCell.Tab.0.center/0.25.2560.1353@0.25.2560.1353" timestamp="1663506365417" />
+    <state width="2518" height="416" key="GridCell.Tab.0.left" timestamp="1663506365417">
+      <screen x="0" y="25" width="2560" height="1353" />
+    </state>
+    <state width="2518" height="416" key="GridCell.Tab.0.left/0.25.2560.1353@0.25.2560.1353" timestamp="1663506365417" />
+    <state width="2518" height="416" key="GridCell.Tab.0.right" timestamp="1663506365417">
+      <screen x="0" y="25" width="2560" height="1353" />
+    </state>
+    <state width="2518" height="416" key="GridCell.Tab.0.right/0.25.2560.1353@0.25.2560.1353" timestamp="1663506365417" />
+    <state width="2518" height="416" key="GridCell.Tab.1.bottom" timestamp="1663506365417">
+      <screen x="0" y="25" width="2560" height="1353" />
+    </state>
+    <state width="2518" height="416" key="GridCell.Tab.1.bottom/0.25.2560.1353@0.25.2560.1353" timestamp="1663506365417" />
+    <state width="2518" height="416" key="GridCell.Tab.1.center" timestamp="1663506365417">
+      <screen x="0" y="25" width="2560" height="1353" />
+    </state>
+    <state width="2518" height="416" key="GridCell.Tab.1.center/0.25.2560.1353@0.25.2560.1353" timestamp="1663506365417" />
+    <state width="2518" height="416" key="GridCell.Tab.1.left" timestamp="1663506365417">
+      <screen x="0" y="25" width="2560" height="1353" />
+    </state>
+    <state width="2518" height="416" key="GridCell.Tab.1.left/0.25.2560.1353@0.25.2560.1353" timestamp="1663506365417" />
+    <state width="2518" height="416" key="GridCell.Tab.1.right" timestamp="1663506365417">
+      <screen x="0" y="25" width="2560" height="1353" />
+    </state>
+    <state width="2518" height="416" key="GridCell.Tab.1.right/0.25.2560.1353@0.25.2560.1353" timestamp="1663506365417" />
+    <state x="833" y="323" width="930" height="931" key="search.everywhere.popup" timestamp="1663481110623">
+      <screen x="0" y="25" width="2560" height="1353" />
+    </state>
+    <state x="625" y="244" width="697" height="683" key="search.everywhere.popup/0.25.1920.993@0.25.1920.993" timestamp="1663468857995" />
+    <state x="833" y="323" width="930" height="931" key="search.everywhere.popup/0.25.2560.1353@0.25.2560.1353" timestamp="1663481110623" />
+  </component>
+  <component name="editorHistoryManager">
+    <entry file="file://$PROJECT_DIR$/src/backend/optimizer/util/relnode.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4020">
+          <caret line="268" selection-start-line="268" selection-end-line="268" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/optimizer/util/plancat.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="666">
+          <caret line="402" column="63" selection-start-line="402" selection-start-column="63" selection-end-line="402" selection-end-column="63" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/access/heap/heapam_handler.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1995">
+          <caret line="133" selection-start-line="133" selection-end-line="133" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/access/tableam.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="14670">
+          <caret line="978" selection-start-line="978" selection-end-line="978" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/catalog/pg_am_d.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="555">
+          <caret line="37" column="8" selection-start-line="37" selection-start-column="8" selection-end-line="37" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/nodes/pathnodes.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="11865">
+          <caret line="791" column="8" selection-start-line="791" selection-start-column="8" selection-end-line="791" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/storage/itemptr.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="705">
+          <caret line="47" column="23" selection-start-line="47" selection-start-column="23" selection-end-line="47" selection-end-column="23" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/storage/bufpage.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2400">
+          <caret line="160" column="11" selection-start-line="160" selection-start-column="11" selection-end-line="160" selection-end-column="11" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/storage/itemid.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="420">
+          <caret line="28" column="2" selection-start-line="28" selection-start-column="2" selection-end-line="28" selection-end-column="2" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/access/heapam.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1185">
+          <caret line="79" column="11" selection-start-line="79" selection-start-column="11" selection-end-line="79" selection-end-column="11" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/access/index/indexam.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="281">
+          <caret line="500" selection-start-line="500" selection-end-line="500" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/access/heap/heapam.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="281">
+          <caret line="1542" selection-start-line="1542" selection-end-line="1542" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/executor/nodeIndexscan.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="281">
+          <caret line="81" selection-start-line="81" selection-end-line="81" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/executor/execExprInterp.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="281">
+          <caret line="1948" selection-start-line="1948" selection-end-line="1948" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/nodes/execnodes.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="281">
+          <caret line="1017" column="8" selection-start-line="1017" selection-start-column="8" selection-end-line="1017" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/executor/execTuples.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="281">
+          <caret line="1354" column="16" selection-start-line="1354" selection-start-column="16" selection-end-line="1354" selection-end-column="16" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$APPLICATION_CONFIG_DIR$/consoles/db/059bf7e3-c7fd-48b0-b0fc-20807dd814b6/console_1.sql">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/executor/hashjoin.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="281">
+          <caret line="285" column="35" selection-start-line="285" selection-start-column="35" selection-end-line="285" selection-end-column="35" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/executor/nodeHash.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="84">
+          <caret line="1787" column="5" selection-start-line="1787" selection-start-column="5" selection-end-line="1787" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/executor/execMain.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="124">
+          <caret line="1512" selection-start-line="1512" selection-end-line="1512" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/executor/executor.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="221">
+          <caret line="294" selection-start-line="294" selection-end-line="294" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/executor/execProcnode.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="221">
+          <caret line="351" selection-start-line="351" selection-end-line="351" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/record.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="600">
+          <caret line="40" column="77" lean-forward="true" selection-start-line="40" selection-start-column="2" selection-end-line="40" selection-end-column="77" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="das://059bf7e3-c7fd-48b0-b0fc-20807dd814b6/database/postgres/schema/public/table/row_table">
+      <provider selected="true" editor-type-id="com.intellij.database.editor.DatabaseTableFileEditorProvider">
+        <state lastOpenedTimestamp="1663481079518" presentationMode="TABLE" projectRestartId="166a2695-ac11-4e91-9443-f9e463749dec" pageSize="500">
+          <filtering>
+            <filter text="" />
+          </filtering>
+          <sorting>
+            <sort text="" />
+          </sorting>
+        </state>
+      </provider>
+    </entry>
+    <entry file="das://059bf7e3-c7fd-48b0-b0fc-20807dd814b6/database/postgres/schema/public/table/test_table">
+      <provider selected="true" editor-type-id="com.intellij.database.editor.DatabaseTableFileEditorProvider">
+        <state lastOpenedTimestamp="1663481134541" presentationMode="TABLE" projectRestartId="166a2695-ac11-4e91-9443-f9e463749dec" pageSize="500">
+          <filtering>
+            <filter text="" />
+          </filtering>
+          <sorting>
+            <sort text="" />
+          </sorting>
+          <column-attributes>
+            <column name="ctid" position="-1" binaryDisplayType="DETECT" />
+          </column-attributes>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/executor/nodeHashjoin.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="485">
+          <caret line="404" column="7" lean-forward="true" selection-start-line="404" selection-start-column="7" selection-end-line="404" selection-end-column="7" />
+          <folding>
+            <element signature="e#17406#18213#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+  </component>
+</project>
