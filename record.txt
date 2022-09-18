@@ -13,10 +13,32 @@
   ./psql postgres
 
 
+create table test_table
+(
+    addr varchar(255)
+);
+
+create table row_table
+(
+    id   integer not null
+        constraint pk_row_table
+            primary key,
+    addr varchar(255),
+    a    varchar,
+    sale integer
+);
+create index index_sale_row_table    on row_table (sale);
+
+
+
   explain select * from row_table where id=1 and sale=1;
+
   INSERT INTO row_table (id, addr,a,sale) SELECT d, 'a','a',d FROM generate_series(1,20000) d;
+  insert into test_table (addr) values 'addr';
 
   select * from test_table LEFT JOIN row_table on test_table.addr = row_table.addr;
+
+  select * from test_table, row_table where test_table.addr = row_table.addr;
 
 data/global/pg_contorl内容是ControlFileData二进制
     详见 ReadControlFile
@@ -269,6 +291,8 @@ indexRelation上的各个page都含BTPageOpaque
 
 hash structure
     hashJoin
-        hash  对应 内表 test_table
+        hash  对应 inner表 test_table
             seqScan
-        seqScan 对应 外表 row_table
+        seqScan 对应 outer表 row_table
+
+    outer表上得到1行data后会到

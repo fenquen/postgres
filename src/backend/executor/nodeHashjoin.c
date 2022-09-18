@@ -313,6 +313,7 @@ static pg_attribute_always_inline TupleTableSlot *ExecHashJoinImpl(PlanState *pl
                 if (parallel) {
                     outerTupleTableSlot = ExecParallelHashJoinOuterGetTuple(outerPlanState, hashJoinState, &hashValue);
                 } else {
+                    // 读取outer表的1行data且计算hash
                     outerTupleTableSlot = ExecHashJoinOuterGetTuple(outerPlanState,
                                                                     hashJoinState,
                                                                     &hashValue); // outer表的hashValue
@@ -385,8 +386,8 @@ static pg_attribute_always_inline TupleTableSlot *ExecHashJoinImpl(PlanState *pl
                         continue;
                     }
                 } else {
-
                     // out of matches; check for possible outer-join fill
+                    // 当前的outer上的data和各个inner配对
                     if (!ExecScanHashBucket(hashJoinState, exprContext)) {
                         hashJoinState->hj_JoinState = HJ_FILL_OUTER_TUPLE;
                         continue;

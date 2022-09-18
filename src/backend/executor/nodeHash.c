@@ -185,8 +185,8 @@ static void MultiExecPrivateHash(HashState *hashState) {
                                         bucketNumber);
 
                 hashJoinTable->skewTuples += 1;
-            } else {
-                // not subject to skew optimization, insert normally
+            } else { // not subject to skew optimization, insert normally
+                // 通过hashValue把inner记录到hashTable相应位置
                 ExecHashTableInsert(hashJoinTable, tupleTableSlot, hashValue);
             }
 
@@ -1694,6 +1694,7 @@ bool ExecHashGetHashValue(HashJoinTable hashJoinTable,
 
         // get the join attribute value of the tuple
         bool isNull;
+        // 得到hashKey对应到的值
         Datum hashKeyValue = ExecEvalExpr(hashKeyExprState, exprContext, &isNull);
 
         /*
@@ -1714,7 +1715,6 @@ bool ExecHashGetHashValue(HashJoinTable hashJoinTable,
                 MemoryContextSwitchTo(oldContext);
                 return false;    /* cannot match */
             }
-
             // else, leave hashkey unmodified, equivalent to hashcode 0
         } else {
             // execute 计算hash的函数,目前已知的是 oid是400的 F_HASHTEXT hashtext()

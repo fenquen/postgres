@@ -220,7 +220,7 @@ typedef struct ExprContext {
 #define FIELDNO_EXPRCONTEXT_INNERTUPLE 2
     TupleTableSlot *ecxt_innertuple;
 #define FIELDNO_EXPRCONTEXT_OUTERTUPLE 3
-    TupleTableSlot *ecxt_outertuple; // outer表的
+    TupleTableSlot *ecxt_outertuple; // 当前对应的outer表的
 
     /* Memory contexts for expression evaluation --- see notes above */
     MemoryContext ecxt_per_query_memory;
