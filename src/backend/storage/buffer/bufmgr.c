@@ -630,9 +630,6 @@ Buffer ReadBufferExtended(Relation relation,
                           BlockNumber blockNumber,
                           ReadBufferMode readBufferMode,
                           BufferAccessStrategy bufferAccessStrategy) {
-    bool hit;
-    Buffer buffer;
-
     // Open it at the smgr level if not already done */
     RelationOpenSmgr(relation);
 
@@ -648,13 +645,14 @@ Buffer ReadBufferExtended(Relation relation,
     // Read the buffer, and update pgstat counters to reflect a cache hit or miss.
     pgstat_count_buffer_read(relation);
 
-    buffer = ReadBuffer_common(relation->rd_smgr,
-                               relation->rd_rel->relpersistence,
-                               forkNumber,
-                               blockNumber,
-                               readBufferMode,
-                               bufferAccessStrategy,
-                               &hit);
+    bool hit;
+    Buffer buffer = ReadBuffer_common(relation->rd_smgr,
+                                      relation->rd_rel->relpersistence,
+                                      forkNumber,
+                                      blockNumber,
+                                      readBufferMode,
+                                      bufferAccessStrategy,
+                                      &hit);
 
     if (hit) {
         pgstat_count_buffer_hit(relation);

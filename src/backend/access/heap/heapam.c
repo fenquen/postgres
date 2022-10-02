@@ -70,8 +70,8 @@
 #include "utils/spccache.h"
 
 
-static HeapTuple heap_prepare_insert(Relation relation, HeapTuple tup,
-                                     TransactionId xid, CommandId cid, int options);
+static HeapTuple heap_prepare_insert(Relation relation, HeapTuple heapTuple,
+                                     TransactionId xid, CommandId commandId, int options);
 
 static XLogRecPtr log_heap_update(Relation reln, Buffer oldbuf,
                                   Buffer newbuf, HeapTuple oldtup,
@@ -1767,7 +1767,6 @@ ReleaseBulkInsertStatePin(BulkInsertState bistate) {
     bistate->current_buf = InvalidBuffer;
 }
 
-
 /*
  *	heap_insert		- insert tuple into a heap
  *
@@ -1781,39 +1780,40 @@ ReleaseBulkInsertStatePin(BulkInsertState bistate) {
  * options, and there additionally is HEAP_INSERT_SPECULATIVE which is used to
  * implement table_tuple_insert_speculative().
  *
- * On return the header fields of *tup are updated to match the stored tuple;
- * in particular tup->t_self receives the actual TID where the tuple was
+ * On return the header fields of *heapTuple are updated to match the stored tuple;
+ * in particular heapTuple->t_self receives the actual TID where the tuple was
  * stored.  But note that any toasting of fields within the tuple data is NOT
- * reflected into *tup.
+ * reflected into *heapTuple.
  */
-void
-heap_insert(Relation relation, HeapTuple tup, CommandId cid,
-            int options, BulkInsertState bistate) {
+void heap_insert(Relation relation,
+                 HeapTuple heapTuple,
+                 CommandId commandId,
+                 int options,
+                 BulkInsertState bulkInsertState) {
     TransactionId xid = GetCurrentTransactionId();
-    HeapTuple heaptup;
-    Buffer buffer;
+
     Buffer vmbuffer = InvalidBuffer;
-    bool all_visible_cleared = false;
+    bool allVisibleCleared = false;
 
     /* Cheap, simplistic check that the tuple matches the rel's rowtype. */
-    Assert(HeapTupleHeaderGetNatts(tup->t_data) <=
-           RelationGetNumberOfAttributes(relation));
+    Assert(HeapTupleHeaderGetNatts(heapTuple->t_data) <= RelationGetNumberOfAttributes(relation));
 
-    /*
-	 * Fill in tuple header fields and toast the tuple if necessary.
-	 *
-	 * Note: below this point, heaptup is the data we actually intend to store
-	 * into the relation; tup is the caller's original untoasted data.
-	 */
-    heaptup = heap_prepare_insert(relation, tup, xid, cid, options);
+    // 设置tuple的1系列的标志
+    HeapTuple heaptup = heap_prepare_insert(relation,
+                                            heapTuple,
+                                            xid,
+                                            commandId,
+                                            options);
 
-    /*
-	 * Find buffer to insert this tuple into.  If the page is all visible,
-	 * this will also pin the requisite visibility map page.
-	 */
-    buffer = RelationGetBufferForTuple(relation, heaptup->t_len,
-                                       InvalidBuffer, options, bistate,
-                                       &vmbuffer, NULL);
+    // 得到用来落地的buffer,需要通过data的长度得到合适的
+    // if the page is all visible this will also pin the requisite visibility map page
+    Buffer buffer = RelationGetBufferForTuple(relation,
+                                              heaptup->t_len,
+                                              InvalidBuffer, // 对应 otherBuffer
+                                              options,
+                                              bulkInsertState,
+                                              &vmbuffer,
+                                              NULL);
 
     /*
 	 * We're about to do the actual insert -- but check for conflict first, to
@@ -1835,15 +1835,18 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
     /* NO EREPORT(ERROR) from here till changes are logged */
     START_CRIT_SECTION();
 
-    RelationPutHeapTuple(relation, buffer, heaptup,
+    RelationPutHeapTuple(relation,
+                         buffer,
+                         heaptup,
                          (options & HEAP_INSERT_SPECULATIVE) != 0);
 
     if (PageIsAllVisible(BufferGetPage(buffer))) {
-        all_visible_cleared = true;
+        allVisibleCleared = true;
         PageClearAllVisible(BufferGetPage(buffer));
         visibilitymap_clear(relation,
                             ItemPointerGetBlockNumber(&(heaptup->t_self)),
-                            vmbuffer, VISIBILITYMAP_VALID_BITS);
+                            vmbuffer,
+                            VISIBILITYMAP_VALID_BITS);
     }
 
     /*
@@ -1888,7 +1891,7 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 
         xlrec.offnum = ItemPointerGetOffsetNumber(&heaptup->t_self);
         xlrec.flags = 0;
-        if (all_visible_cleared)
+        if (allVisibleCleared)
             xlrec.flags |= XLH_INSERT_ALL_VISIBLE_CLEARED;
         if (options & HEAP_INSERT_SPECULATIVE)
             xlrec.flags |= XLH_INSERT_IS_SPECULATIVE;
@@ -1941,20 +1944,18 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
     /*
 	 * If tuple is cachable, mark it for invalidation from the caches in case
 	 * we abort.  Note it is OK to do this after releasing the buffer, because
-	 * the heaptup data structure is all in local memory, not in the shared
-	 * buffer.
+	 * the heaptup data structure is all in local memory, not in the shared buffer.
 	 */
     CacheInvalidateHeapTuple(relation, heaptup, NULL);
 
     /* Note: speculative insertions are counted too, even if aborted later */
     pgstat_count_heap_insert(relation, 1);
 
-    /*
-	 * If heaptup is a private copy, release it.  Don't forget to copy t_self
-	 * back to the caller's image, too.
-	 */
-    if (heaptup != tup) {
-        tup->t_self = heaptup->t_self;
+
+    // If heaptup is a private copy, release it.
+    // Don't forget to copy t_self back to the caller's image, too.
+    if (heaptup != heapTuple) {
+        heapTuple->t_self = heaptup->t_self;
         heap_freetuple(heaptup);
     }
 }
@@ -1965,9 +1966,11 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
  * version of the tuple if it was toasted, or the original tuple if not. Note
  * that in any case, the header fields are also set in the original tuple.
  */
-static HeapTuple
-heap_prepare_insert(Relation relation, HeapTuple tup, TransactionId xid,
-                    CommandId cid, int options) {
+static HeapTuple heap_prepare_insert(Relation relation,
+                                     HeapTuple heapTuple,
+                                     TransactionId xid,
+                                     CommandId commandId,
+                                     int options) {
     /*
 	 * Parallel operations are required to be strictly read-only in a parallel
 	 * worker.  Parallel inserts are not safe even in the leader in the
@@ -1976,35 +1979,41 @@ heap_prepare_insert(Relation relation, HeapTuple tup, TransactionId xid,
 	 * of a lock group, but we don't prohibit that case here because there are
 	 * useful special cases that we can safely allow, such as CREATE TABLE AS.
 	 */
-    if (IsParallelWorker())
+    if (IsParallelWorker()) {
         ereport(ERROR,
-                (errcode(ERRCODE_INVALID_TRANSACTION_STATE),
-                        errmsg("cannot insert tuples in a parallel worker")));
+                (errcode(ERRCODE_INVALID_TRANSACTION_STATE), errmsg("cannot insert tuples in a parallel worker")));
+    }
 
-    tup->t_data->t_infomask &= ~(HEAP_XACT_MASK);
-    tup->t_data->t_infomask2 &= ~(HEAP2_XACT_MASK);
-    tup->t_data->t_infomask |= HEAP_XMAX_INVALID;
-    HeapTupleHeaderSetXmin(tup->t_data, xid);
-    if (options & HEAP_INSERT_FROZEN)
-        HeapTupleHeaderSetXminFrozen(tup->t_data);
+    heapTuple->t_data->t_infomask &= ~(HEAP_XACT_MASK);
+    heapTuple->t_data->t_infomask2 &= ~(HEAP2_XACT_MASK);
+    heapTuple->t_data->t_infomask |= HEAP_XMAX_INVALID;
 
-    HeapTupleHeaderSetCmin(tup->t_data, cid);
-    HeapTupleHeaderSetXmax(tup->t_data, 0); /* for cleanliness */
-    tup->t_tableOid = RelationGetRelid(relation);
+    // 设置 t_xmin
+    HeapTupleHeaderSetXmin(heapTuple->t_data, xid);
+
+    if (options & HEAP_INSERT_FROZEN) {
+        HeapTupleHeaderSetXminFrozen(heapTuple->t_data);
+    }
+
+    HeapTupleHeaderSetCmin(heapTuple->t_data, commandId);
+    HeapTupleHeaderSetXmax(heapTuple->t_data, 0); /* for cleanliness */
+    heapTuple->t_tableOid = RelationGetRelid(relation);
 
     /*
 	 * If the new tuple is too big for storage or contains already toasted
 	 * out-of-line attributes from some other relation, invoke the toaster.
 	 */
-    if (relation->rd_rel->relkind != RELKIND_RELATION &&
-        relation->rd_rel->relkind != RELKIND_MATVIEW) {
+    if (relation->rd_rel->relkind != RELKIND_RELATION && relation->rd_rel->relkind != RELKIND_MATVIEW) {
         /* toast table entries should never be recursively toasted */
-        Assert(!HeapTupleHasExternal(tup));
-        return tup;
-    } else if (HeapTupleHasExternal(tup) || tup->t_len > TOAST_TUPLE_THRESHOLD)
-        return toast_insert_or_update(relation, tup, NULL, options);
-    else
-        return tup;
+        Assert(!HeapTupleHasExternal(heapTuple));
+        return heapTuple;
+    }
+
+    if (HeapTupleHasExternal(heapTuple) || heapTuple->t_len > TOAST_TUPLE_THRESHOLD) {
+        return toast_insert_or_update(relation, heapTuple, NULL, options);
+    }
+
+    return heapTuple;
 }
 
 /*

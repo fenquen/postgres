@@ -80,19 +80,17 @@ extern const ExtensibleNodeMethods *GetExtensibleNodeMethods(const char *name, b
 #define CUSTOMPATH_SUPPORT_BACKWARD_SCAN    0x0001
 #define CUSTOMPATH_SUPPORT_MARK_RESTORE        0x0002
 
-/*
- * Custom path methods.  Mostly, we just need to know how to convert a CustomPath to a plan.
- */
+// custom path method. need to know how to convert customPath to plan.
 typedef struct CustomPathMethods {
     const char *CustomName;
 
-    /* Convert Path to a Plan */
+    // convert path to plan
     struct Plan *(*PlanCustomPath)(PlannerInfo *root,
-                                   RelOptInfo *rel,
-                                   struct CustomPath *best_path,
-                                   List *tlist,
-                                   List *clauses,
-                                   List *custom_plans);
+                                   RelOptInfo *relOptInfo,
+                                   struct CustomPath *customPath,
+                                   List *targetEntryList,
+                                   List *restrictInfoList,
+                                   List *subPlanList); // customPath的custom_paths对应的各个plan
 
     struct List *(*ReparameterizeCustomPathByChild)(PlannerInfo *root,
                                                     List *custom_private,
@@ -106,7 +104,7 @@ typedef struct CustomPathMethods {
 typedef struct CustomScanMethods {
     const char *CustomName;
 
-    /* Create execution state (CustomScanState) from a CustomScan plan node */
+    /* a plan to planState */
     Node *(*CreateCustomScanState)(CustomScan *cscan);
 } CustomScanMethods;
 

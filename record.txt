@@ -296,3 +296,11 @@ hash structure
         seqScan 对应 outer表 row_table
 
     outer表上得到1行data后会到
+
+由timescaledb来的知识
+    insert into test_table values ('a') 对应的plan是 modifyTable
+    它的小弟位于 List *plans属性 通常是 result的plan(是这个plan是result) 对应 sql的 'a'
+
+
+#define BufferGetPage(buffer) ((Page)BufferGetBlock(buffer))
+    Block是void*指针 page是pointer  对应 整个的block起点 该起点也是 pageHeader起点

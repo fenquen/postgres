@@ -440,12 +440,13 @@ GetTopTransactionIdIfAny(void) {
  * transaction), assigning one if it's not yet set.  Be careful to call this
  * only inside a valid xact.
  */
-TransactionId
-GetCurrentTransactionId(void) {
+TransactionId GetCurrentTransactionId(void) {
     TransactionState s = CurrentTransactionState;
 
-    if (!FullTransactionIdIsValid(s->fullTransactionId))
+    if (!FullTransactionIdIsValid(s->fullTransactionId)) {
         AssignTransactionId(s);
+    }
+
     return XidFromFullTransactionId(s->fullTransactionId);
 }
 

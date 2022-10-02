@@ -291,7 +291,7 @@ typedef struct StdRdOptions
 
 /*
  * RelationGetFillFactor
- *		Returns the relation's fillfactor.  Note multiple eval of argument!
+ *		Returns the relation's fill factor.  Note multiple eval of argument!
  */
 #define RelationGetFillFactor(relation, defaultff) \
 	((relation)->rd_options ? \
@@ -306,7 +306,7 @@ typedef struct StdRdOptions
 
 /*
  * RelationGetTargetPageFreeSpace
- *		Returns the relation's desired freespace per page in bytes.
+ *		Returns the relation's desired frees pace per page in bytes.
  */
 #define RelationGetTargetPageFreeSpace(relation, defaultff) \
 	(BLCKSZ * (100 - RelationGetFillFactor(relation, defaultff)) / 100)

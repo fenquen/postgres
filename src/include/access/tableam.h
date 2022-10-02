@@ -1048,9 +1048,8 @@ extern void table_tuple_get_latest_tid(TableScanDesc scan, ItemPointer tid);
  * Some AMs might modify the data underlying the tuple as a side-effect. If so
  * they ought to mark the relevant buffer dirty.
  */
-static inline bool
-table_tuple_satisfies_snapshot(Relation rel, TupleTableSlot *slot,
-                               Snapshot snapshot) {
+static inline bool table_tuple_satisfies_snapshot(Relation rel, TupleTableSlot *slot,
+                                                  Snapshot snapshot) {
     return rel->rd_tableam->tuple_satisfies_snapshot(rel, slot, snapshot);
 }
 
@@ -1059,10 +1058,9 @@ table_tuple_satisfies_snapshot(Relation rel, TupleTableSlot *slot,
  * to compute what snapshots to conflict with when replaying WAL records for
  * page-level index vacuums.
  */
-static inline TransactionId
-table_compute_xid_horizon_for_tuples(Relation rel,
-                                     ItemPointerData *items,
-                                     int nitems) {
+static inline TransactionId table_compute_xid_horizon_for_tuples(Relation rel,
+                                                                 ItemPointerData *items,
+                                                                 int nitems) {
     return rel->rd_tableam->compute_xid_horizon_for_tuples(rel, items, nitems);
 }
 
@@ -1073,18 +1071,18 @@ table_compute_xid_horizon_for_tuples(Relation rel,
  */
 
 /*
- * Insert a tuple from a slot into table AM routine.
+ * Insert a tuple from a tupleTableSlot into table AM routine.
  *
  * The options bitmask allows the caller to specify options that may change the
  * behaviour of the AM. The AM will ignore options that it does not support.
  *
  * If the TABLE_INSERT_SKIP_WAL option is specified, the new tuple doesn't
- * need to be logged to WAL, even for a non-temp relation. It is the AMs
+ * need to be logged to WAL, even for a non-temp targetRelation. It is the AMs
  * choice whether this optimization is supported.
  *
  * If the TABLE_INSERT_SKIP_FSM option is specified, AMs are free to not reuse
- * free space in the relation. This can save some cycles when we know the
- * relation is new and doesn't contain useful amounts of free space.
+ * free space in the targetRelation. This can save some cycles when we know the
+ * targetRelation is new and doesn't contain useful amounts of free space.
  * TABLE_INSERT_SKIP_FSM is commonly passed directly to
  * RelationGetBufferForTuple. See that method for more information.
  *
@@ -1096,25 +1094,30 @@ table_compute_xid_horizon_for_tuples(Relation rel,
  *
  * TABLE_INSERT_NO_LOGICAL force-disables the emitting of logical decoding
  * information for the tuple. This should solely be used during table rewrites
- * where RelationIsLogicallyLogged(relation) is not yet accurate for the new
- * relation.
+ * where RelationIsLogicallyLogged(targetRelation) is not yet accurate for the new
+ * targetRelation.
  *
  * Note that most of these options will be applied when inserting into the
  * heap's TOAST table, too, if the tuple requires any out-of-line data.
  *
- * The BulkInsertState object (if any; bistate can be NULL for default
+ * The BulkInsertState object (if any; bulkInsertStateData can be NULL for default
  * behavior) is also just passed through to RelationGetBufferForTuple. If
- * `bistate` is provided, table_finish_bulk_insert() needs to be called.
+ * `bulkInsertStateData` is provided, table_finish_bulk_insert() needs to be called.
  *
- * On return the slot's tts_tid and tts_tableOid are updated to reflect the
- * insertion. But note that any toasting of fields within the slot is NOT
+ * On return the tupleTableSlot's tts_tid and tts_tableOid are updated to reflect the
+ * insertion. But note that any toasting of fields within the tupleTableSlot is NOT
  * reflected in the slots contents.
  */
-static inline void
-table_tuple_insert(Relation rel, TupleTableSlot *slot, CommandId cid,
-                   int options, struct BulkInsertStateData *bistate) {
-    rel->rd_tableam->tuple_insert(rel, slot, cid, options,
-                                  bistate);
+static inline void table_tuple_insert(Relation targetRelation,
+                                      TupleTableSlot *tupleTableSlot,
+                                      CommandId commandId,
+                                      int options,
+                                      struct BulkInsertStateData *bulkInsertStateData) {
+    targetRelation->rd_tableam->tuple_insert(targetRelation,
+                                             tupleTableSlot,
+                                             commandId,
+                                             options,
+                                             bulkInsertStateData);
 }
 
 /*

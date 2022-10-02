@@ -385,7 +385,7 @@ typedef struct OnConflictSetState {
  * Normally, a ResultRelInfo refers to a table that is in the query's range
  * table; then ri_RangeTableIndex is the RT index and ri_RelationDesc is
  * just a copy of the relevant es_relations[] entry.  However, in some
- * situations we create ResultRelInfos for relations that are not in the
+ * situations we create ResultRelInfo for relations that are not in the
  * range table, namely for targets of tuple routing in a partitioned table,
  * and when firing triggers in tables other than the target tables (See
  * ExecGetTriggerResultRel).  In these situations, ri_RangeTableIndex is 0
@@ -398,7 +398,7 @@ typedef struct ResultRelInfo {
     /* result relation's range table index, or 0 if not in range table */
     Index ri_RangeTableIndex;
 
-    /* relation descriptor for result relation */
+    /* relation descriptor for result relation 对dml来时它是要修改的表 */
     Relation ri_RelationDesc;
 
     /* # of indices existing on result relation */
@@ -515,7 +515,7 @@ typedef struct EState {
     /* Info about target table(s) for insert/update/delete queries: */
     ResultRelInfo *es_result_relations; /* array of ResultRelInfos */
     int es_num_result_relations;    /* length of array */
-    ResultRelInfo *es_result_relation_info; /* currently active array elt */
+    ResultRelInfo *es_result_relation_info; /* currently active array elt ,对insert来说是当前要insert的表 */
 
     /*
      * Info about the partition root table(s) for insert/update/delete queries
@@ -1146,9 +1146,8 @@ typedef struct ModifyTableState {
     int mt_whichplan;    /* which one is being executed (0..n-1) */
     TupleTableSlot **mt_scans;    /* input tuple corresponding to underlying
 								 * plans */
-    ResultRelInfo *resultRelInfo;    /* per-subplan target relations */
-    ResultRelInfo *rootResultRelInfo;    /* root target relation (partitioned
-										 * table root) */
+    ResultRelInfo *resultRelInfo;    /* per-subplan target relations,对应了目标表 */
+    ResultRelInfo *rootResultRelInfo;    /* root target relation (partitioned table root) */
     List **mt_arowmarks;    /* per-subplan ExecAuxRowMark lists */
     EPQState mt_epqstate;    /* for evaluating EvalPlanQual rechecks */
     bool fireBSTriggers; /* do we need to fire stmt triggers? */

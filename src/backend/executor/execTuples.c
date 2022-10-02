@@ -1533,27 +1533,29 @@ ExecStoreHeapTupleDatum(Datum data, TupleTableSlot *slot) {
  * will also affect the slot's contents. While that is not the nicest
  * behaviour, all such modifications are in the process of being removed.
  */
-HeapTuple
-ExecFetchSlotHeapTuple(TupleTableSlot *slot, bool materialize, bool *shouldFree) {
-    /*
-     * sanity checks
-     */
+HeapTuple ExecFetchSlotHeapTuple(TupleTableSlot *slot,
+                                 bool materialize,
+                                 bool *shouldFree) {
+
     Assert(slot != NULL);
     Assert(!TTS_EMPTY(slot));
 
-    /* Materialize the tuple so that the slot "owns" it, if requested. */
-    if (materialize)
+    // materialize the tuple so that the slot "owns" it, if requested
+    if (materialize) {
         slot->tts_ops->materialize(slot);
+    }
 
     if (slot->tts_ops->get_heap_tuple == NULL) {
-        if (shouldFree)
+        if (shouldFree) {
             *shouldFree = true;
+        }
         return slot->tts_ops->copy_heap_tuple(slot);
-    } else {
-        if (shouldFree)
-            *shouldFree = false;
-        return slot->tts_ops->get_heap_tuple(slot);
     }
+
+    if (shouldFree) {
+        *shouldFree = false;
+    }
+    return slot->tts_ops->get_heap_tuple(slot);
 }
 
 /* --------------------------------

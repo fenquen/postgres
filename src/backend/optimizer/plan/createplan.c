@@ -136,7 +136,7 @@ static RecursiveUnion *create_recursiveunion_plan(PlannerInfo *root, RecursiveUn
 static LockRows *create_lockrows_plan(PlannerInfo *root, LockRowsPath *best_path,
                                       int flags);
 
-static ModifyTable *create_modifytable_plan(PlannerInfo *root, ModifyTablePath *best_path);
+static ModifyTable *create_modifytable_plan(PlannerInfo *root, ModifyTablePath *modifyTablePath);
 
 static Limit *create_limit_plan(PlannerInfo *root, LimitPath *best_path,
                                 int flags);
@@ -191,8 +191,8 @@ static ForeignScan *create_foreignscan_plan(PlannerInfo *root, ForeignPath *best
                                             List *tlist, List *scan_clauses);
 
 static CustomScan *create_customscan_plan(PlannerInfo *root,
-                                          CustomPath *best_path,
-                                          List *tlist, List *scan_clauses);
+                                          CustomPath *customPath,
+                                          List *targetEntryList, List *restrictInfoList);
 
 static NestLoop *create_nestloop_plan(PlannerInfo *root, NestPath *best_path);
 
@@ -447,10 +447,7 @@ Plan *create_plan(PlannerInfo *root, Path *best_path) {
     return plan;
 }
 
-/*
- * create_plan_recurse
- *	  Recursive of create_plan().
- */
+// recursive of create_plan()
 static Plan *create_plan_recurse(PlannerInfo *root, Path *best_path, int flags) {
     Plan *plan;
 
@@ -487,7 +484,7 @@ static Plan *create_plan_recurse(PlannerInfo *root, Path *best_path, int flags) 
         case T_MergeAppend:
             plan = create_merge_append_plan(root, (MergeAppendPath *) best_path, flags);
             break;
-        case T_Result:
+        case T_Result: // 这里 pathType 和 type 不是相同
             if (IsA(best_path, ProjectionPath)) {
                 plan = create_projection_plan(root, (ProjectionPath *) best_path, flags);
             } else if (IsA(best_path, MinMaxAggPath)) {
@@ -781,7 +778,7 @@ static List *build_path_tlist(PlannerInfo *root, Path *path) {
 
     ListCell *listCell;
     foreach(listCell, path->pathtarget->exprs) {
-        Node *node = (Node *) lfirst(listCell);
+        Node *node = (Node *) lfirst(listCell);// 当path是projectionPath时候 这个node会是Const
 
         /*
 		 * If it's a parameterized path, there might be lateral references in
@@ -1780,7 +1777,7 @@ static Plan *
 create_projection_plan(PlannerInfo *root, ProjectionPath *best_path, int flags) {
     Plan *plan;
     Plan *subplan;
-    List *tlist;
+    List *tlist;// targetEntryList
     bool needs_result_node = false;
 
     /*
@@ -1833,7 +1830,7 @@ create_projection_plan(PlannerInfo *root, ProjectionPath *best_path, int flags) 
 	 * than create_projection_path did, we'll have made slightly wrong cost
 	 * estimates; but label the plan with the cost estimates we actually used,
 	 * not "corrected" ones.  (XXX this could be cleaned up if we moved more
-	 * of the sortcolumn setup logic into Path creation, but that would add
+	 * of the sort column setup logic into Path creation, but that would add
 	 * expense to creating Paths we might end up not using.)
 	 */
     if (!needs_result_node) {
@@ -2515,29 +2512,22 @@ create_lockrows_plan(PlannerInfo *root, LockRowsPath *best_path,
     return plan;
 }
 
-/*
- * create_modifytable_plan
- *	  Create a ModifyTable plan for 'best_path'.
- *
- *	  Returns a Plan node.
- */
-static ModifyTable *
-create_modifytable_plan(PlannerInfo *root, ModifyTablePath *best_path) {
-    ModifyTable *plan;
-    List *subplans = NIL;
-    ListCell *subpaths,
-            *subroots;
-
-    /* Build the plan for each input path */
-    forboth(subpaths, best_path->subpaths,
-            subroots, best_path->subroots) {
-        Path *subpath = (Path *) lfirst(subpaths);
-        PlannerInfo *subroot = (PlannerInfo *) lfirst(subroots);
-        Plan *subplan;
+// hyperTableModifyPath
+//    modifyTablePath
+//      chunkDispatchPath
+//          projectionPath (pathType是result)-> groupResultPath(pathType也是result)
+static ModifyTable *create_modifytable_plan(PlannerInfo *root, ModifyTablePath *modifyTablePath) {
+    // 先把小弟path对应的plan生成
+    List *subPlanList = NIL;
+    ListCell *listCellSubPath;
+    ListCell *listCellSubRoot;
+    forboth(listCellSubPath, modifyTablePath->subpaths, listCellSubRoot, modifyTablePath->subroots) {
+        Path *subPath = (Path *) lfirst(listCellSubPath);
+        PlannerInfo *subRoot = (PlannerInfo *) lfirst(listCellSubRoot);
 
         /*
 		 * In an inherited UPDATE/DELETE, reference the per-child modified
-		 * subroot while creating Plans from Paths for the child rel.  This is
+		 * subRoot while creating Plans from Paths for the child rel.  This is
 		 * a kluge, but otherwise it's too hard to ensure that Plan creation
 		 * functions (particularly in FDWs) don't depend on the contents of
 		 * "root" matching what they saw at Path creation time.  The main
@@ -2546,32 +2536,32 @@ create_modifytable_plan(PlannerInfo *root, ModifyTablePath *best_path) {
 		 * and have it "stick" for subsequent processing such as setrefs.c.
 		 * That's not great, but it seems better than the alternative.
 		 */
-        subplan = create_plan_recurse(subroot, subpath, CP_EXACT_TLIST);
+        Plan *subPlan = create_plan_recurse(subRoot, subPath, CP_EXACT_TLIST);
 
-        /* Transfer resname/resjunk labeling, too, to keep executor happy */
-        apply_tlist_labeling(subplan->targetlist, subroot->processed_tlist);
+        // transfer resname/resjunk labeling too to keep executor happy
+        apply_tlist_labeling(subPlan->targetlist, subRoot->processed_tlist);
 
-        subplans = lappend(subplans, subplan);
+        subPlanList = lappend(subPlanList, subPlan);
     }
 
-    plan = make_modifytable(root,
-                            best_path->operation,
-                            best_path->canSetTag,
-                            best_path->nominalRelation,
-                            best_path->rootRelation,
-                            best_path->partColsUpdated,
-                            best_path->resultRelations,
-                            subplans,
-                            best_path->subroots,
-                            best_path->withCheckOptionLists,
-                            best_path->returningLists,
-                            best_path->rowMarks,
-                            best_path->onconflict,
-                            best_path->epqParam);
+    ModifyTable *modifyTable = make_modifytable(root,
+                                                modifyTablePath->operation,
+                                                modifyTablePath->canSetTag,
+                                                modifyTablePath->nominalRelation,
+                                                modifyTablePath->rootRelation,
+                                                modifyTablePath->partColsUpdated,
+                                                modifyTablePath->resultRelations,
+                                                subPlanList,
+                                                modifyTablePath->subroots,
+                                                modifyTablePath->withCheckOptionLists,
+                                                modifyTablePath->returningLists,
+                                                modifyTablePath->rowMarks,
+                                                modifyTablePath->onconflict,
+                                                modifyTablePath->epqParam);
 
-    copy_generic_path_info(&plan->plan, &best_path->path);
+    copy_generic_path_info(&modifyTable->plan, &modifyTablePath->path);
 
-    return plan;
+    return modifyTable;
 }
 
 /*
@@ -3821,60 +3811,52 @@ create_foreignscan_plan(PlannerInfo *root, ForeignPath *best_path,
     return scan_plan;
 }
 
-/*
- * create_customscan_plan
- *
- * Transform a CustomPath into a Plan.
- */
-static CustomScan *
-create_customscan_plan(PlannerInfo *root, CustomPath *best_path,
-                       List *tlist, List *scan_clauses) {
-    CustomScan *cplan;
-    RelOptInfo *rel = best_path->path.parent;
-    List *custom_plans = NIL;
-    ListCell *lc;
+// Transform a path into a Plan.
+static CustomScan *create_customscan_plan(PlannerInfo *root,
+                                          CustomPath *customPath,
+                                          List *targetEntryList,
+                                          List *restrictInfoList) {
+    RelOptInfo *relOptInfo = customPath->path.parent;
 
-    /* Recursively transform child paths. */
-    foreach(lc, best_path->custom_paths) {
-        Plan *plan = create_plan_recurse(root, (Path *) lfirst(lc),
-                                         CP_EXACT_TLIST);
-
-        custom_plans = lappend(custom_plans, plan);
+    // recursively transform child paths
+    List *subPlanList = NIL;
+    ListCell *listCell;
+    foreach(listCell, customPath->custom_paths) { // modifyTablePath
+        Plan *plan = create_plan_recurse(root, (Path *) lfirst(listCell), CP_EXACT_TLIST);
+        subPlanList = lappend(subPlanList, plan);
     }
 
     /*
 	 * Sort clauses into the best execution order, although custom-scan
 	 * provider can reorder them again.
 	 */
-    scan_clauses = order_qual_clauses(root, scan_clauses);
+    restrictInfoList = order_qual_clauses(root, restrictInfoList);
 
-    // invoke custom plan provider to create the Plan node represented by the CustomPath.
-    cplan = castNode(CustomScan, best_path->methods->PlanCustomPath(root,
-                                                                    rel,
-                                                                    best_path,
-                                                                    tlist,
-                                                                    scan_clauses,
-                                                                    custom_plans));
+    // 使用自定的函数把 customPath 转换成为 customPlan
+    CustomScan *cplan = castNode(CustomScan, customPath->methods->PlanCustomPath(root,
+                                                                                 relOptInfo,
+                                                                                 customPath,
+                                                                                 targetEntryList,
+                                                                                 restrictInfoList,
+                                                                                 subPlanList));
 
     // copy cost data from Path to Plan; no need to make custom-plan providers do this
-    copy_generic_path_info(&cplan->scan.plan, &best_path->path);
+    copy_generic_path_info(&cplan->scan.plan, &customPath->path);
 
     /* Likewise, copy the relids that are represented by this custom scan */
-    cplan->custom_relids = best_path->path.parent->relids;
+    cplan->custom_relids = customPath->path.parent->relids;
 
     /*
 	 * Replace any outer-relation variables with nestloop params in the qual
 	 * and custom_exprs expressions.  We do this last so that the custom-plan
 	 * provider doesn't have to be involved.  (Note that parts of custom_exprs
 	 * could have come from join clauses, so doing this beforehand on the
-	 * scan_clauses wouldn't work.)  We assume custom_scan_tlist contains no
+	 * restrictInfoList wouldn't work.)  We assume custom_scan_tlist contains no
 	 * such variables.
 	 */
-    if (best_path->path.param_info) {
-        cplan->scan.plan.qual = (List *)
-                replace_nestloop_params(root, (Node *) cplan->scan.plan.qual);
-        cplan->custom_exprs = (List *)
-                replace_nestloop_params(root, (Node *) cplan->custom_exprs);
+    if (customPath->path.param_info) {
+        cplan->scan.plan.qual = (List *) replace_nestloop_params(root, (Node *) cplan->scan.plan.qual);
+        cplan->custom_exprs = (List *) replace_nestloop_params(root, (Node *) cplan->custom_exprs);
     }
 
     return cplan;
@@ -6340,18 +6322,20 @@ make_project_set(List *tlist,
     return node;
 }
 
-/*
- * make_modifytable
- *	  Build a ModifyTable plan node
- */
-static ModifyTable *
-make_modifytable(PlannerInfo *root,
-                 CmdType operation, bool canSetTag,
-                 Index nominalRelation, Index rootRelation,
-                 bool partColsUpdated,
-                 List *resultRelations, List *subplans, List *subroots,
-                 List *withCheckOptionLists, List *returningLists,
-                 List *rowMarks, OnConflictExpr *onconflict, int epqParam) {
+static ModifyTable *make_modifytable(PlannerInfo *root,
+                                     CmdType operation,
+                                     bool canSetTag,
+                                     Index nominalRelation,
+                                     Index rootRelation,
+                                     bool partColsUpdated,
+                                     List *resultRelations,
+                                     List *subplans,
+                                     List *subroots,
+                                     List *withCheckOptionLists,
+                                     List *returningLists,
+                                     List *rowMarks,
+                                     OnConflictExpr *onconflict,
+                                     int epqParam) {
     ModifyTable *node = makeNode(ModifyTable);
     List *fdw_private_list;
     Bitmapset *direct_modify_plans;
@@ -6361,10 +6345,8 @@ make_modifytable(PlannerInfo *root,
 
     Assert(list_length(resultRelations) == list_length(subplans));
     Assert(list_length(resultRelations) == list_length(subroots));
-    Assert(withCheckOptionLists == NIL ||
-           list_length(resultRelations) == list_length(withCheckOptionLists));
-    Assert(returningLists == NIL ||
-           list_length(resultRelations) == list_length(returningLists));
+    Assert(withCheckOptionLists == NIL || list_length(resultRelations) == list_length(withCheckOptionLists));
+    Assert(returningLists == NIL || list_length(resultRelations) == list_length(returningLists));
 
     node->plan.lefttree = NULL;
     node->plan.righttree = NULL;
@@ -6474,6 +6456,7 @@ make_modifytable(PlannerInfo *root,
         fdw_private_list = lappend(fdw_private_list, fdw_private);
         i++;
     }
+
     node->fdwPrivLists = fdw_private_list;
     node->fdwDirectModifyPlans = direct_modify_plans;
 

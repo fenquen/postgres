@@ -17,7 +17,7 @@
 
 extern void ExecComputeStoredGenerated(EState *estate, TupleTableSlot *slot);
 
-extern ModifyTableState *ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags);
+extern ModifyTableState *ExecInitModifyTable(ModifyTable *modifyTable, EState *estate, int eflags);
 extern void ExecEndModifyTable(ModifyTableState *node);
 extern void ExecReScanModifyTable(ModifyTableState *node);
 

@@ -523,7 +523,7 @@ PlannedStmt *standard_planner(Query *query,
         lfirst(lp) = set_plan_references(subroot, subplan);
     }
 
-    /* build the PlannedStmt plannedStmt */
+    // build plannedStmt
     PlannedStmt *plannedStmt = makeNode(PlannedStmt);
     plannedStmt->commandType = query->commandType;
     plannedStmt->queryId = query->queryId;

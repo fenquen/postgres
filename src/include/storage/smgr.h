@@ -36,75 +36,94 @@
  * SMgrRelations that do not have an "owner" are considered to be transient,
  * and are deleted at end of transaction.
  */
-typedef struct SMgrRelationData
-{
-	/* rnode is the hashtable lookup key, so it must be first! */
-	RelFileNodeBackend smgr_rnode;	/* relation physical identifier */
+typedef struct SMgrRelationData {
+    /* rnode is the hashtable lookup key, so it must be first! */
+    RelFileNodeBackend smgr_rnode;    /* relation physical identifier */
 
-	/* pointer to owning pointer, or NULL if none */
-	struct SMgrRelationData **smgr_owner;
+    /* pointer to owning pointer, or NULL if none */
+    struct SMgrRelationData **smgr_owner;
 
-	/*
-	 * These next three fields are not actually used or manipulated by smgr,
-	 * except that they are reset to InvalidBlockNumber upon a cache flush
-	 * event (in particular, upon truncation of the relation).  Higher levels
-	 * store cached state here so that it will be reset when truncation
-	 * happens.  In all three cases, InvalidBlockNumber means "unknown".
-	 */
-	BlockNumber smgr_targblock; /* current insertion target block */
-	BlockNumber smgr_fsm_nblocks;	/* last known size of fsm fork */
-	BlockNumber smgr_vm_nblocks;	/* last known size of vm fork */
+    /*
+     * These next three fields are not actually used or manipulated by smgr,
+     * except that they are reset to InvalidBlockNumber upon a cache flush
+     * event (in particular, upon truncation of the relation).  Higher levels
+     * store cached state here so that it will be reset when truncation
+     * happens.  In all three cases, InvalidBlockNumber means "unknown".
+     */
+    BlockNumber smgr_targblock; /* current insertion target block */
+    BlockNumber smgr_fsm_nblocks;    /* last known size of fsm fork */
+    BlockNumber smgr_vm_nblocks;    /* last known size of vm fork */
 
-	/* additional public fields may someday exist here */
+    /* additional public fields may someday exist here */
 
-	/*
-	 * Fields below here are intended to be private to smgr.c and its
-	 * submodules.  Do not touch them from elsewhere.
-	 */
-	int			smgr_which;		/* storage manager selector */
+    /*
+     * Fields below here are intended to be private to smgr.c and its
+     * submodules.  Do not touch them from elsewhere.
+     */
+    int smgr_which;        /* storage manager selector */
 
-	/*
-	 * for md.c; per-fork arrays of the number of open segments
-	 * (md_num_open_segs) and the segments themselves (md_seg_fds).
-	 */
-	int	md_num_open_segs[MAX_FORKNUM + 1]; // 记录了各个的fork当前open的segment数量
-	struct _MdfdVec *md_seg_fds[MAX_FORKNUM + 1];
+    /*
+     * for md.c; per-fork arrays of the number of open segments
+     * (md_num_open_segs) and the segments themselves (md_seg_fds).
+     */
+    int md_num_open_segs[MAX_FORKNUM + 1]; // 记录了各个的fork当前open的segment数量
+    struct _MdfdVec *md_seg_fds[MAX_FORKNUM + 1];
 
-	/* if unowned, list link in list of all unowned SMgrRelations */
-	dlist_node	node;
+    /* if unowned, list link in list of all unowned SMgrRelations */
+    dlist_node node;
 } SMgrRelationData;
 
 typedef SMgrRelationData *SMgrRelation;
 
 #define SmgrIsTemp(smgr) \
-	RelFileNodeBackendIsTemp((smgr)->smgr_rnode)
+    RelFileNodeBackendIsTemp((smgr)->smgr_rnode)
 
 extern void smgrinit(void);
+
 extern SMgrRelation smgropen(RelFileNode relFileNode, BackendId backendId);
+
 extern bool smgrexists(SMgrRelation reln, ForkNumber forknum);
+
 extern void smgrsetowner(SMgrRelation *owner, SMgrRelation reln);
+
 extern void smgrclearowner(SMgrRelation *owner, SMgrRelation reln);
+
 extern void smgrclose(SMgrRelation reln);
+
 extern void smgrcloseall(void);
+
 extern void smgrclosenode(RelFileNodeBackend rnode);
+
 extern void smgrcreate(SMgrRelation reln, ForkNumber forknum, bool isRedo);
+
 extern void smgrdounlink(SMgrRelation reln, bool isRedo);
+
 extern void smgrdounlinkall(SMgrRelation *rels, int nrels, bool isRedo);
+
 extern void smgrdounlinkfork(SMgrRelation reln, ForkNumber forknum, bool isRedo);
+
 extern void smgrextend(SMgrRelation sMgrRelation, ForkNumber forkNumber,
                        BlockNumber blockNumber, char *buffer, bool skipFsync);
+
 extern void smgrprefetch(SMgrRelation reln, ForkNumber forknum,
-						 BlockNumber blocknum);
+                         BlockNumber blocknum);
+
 extern void smgrread(SMgrRelation sMgrRelation, ForkNumber forkNumber,
                      BlockNumber blockNumber, char *buffer);
+
 extern void smgrwrite(SMgrRelation reln, ForkNumber forknum,
-					  BlockNumber blocknum, char *buffer, bool skipFsync);
+                      BlockNumber blocknum, char *buffer, bool skipFsync);
+
 extern void smgrwriteback(SMgrRelation reln, ForkNumber forknum,
-						  BlockNumber blocknum, BlockNumber nblocks);
+                          BlockNumber blocknum, BlockNumber nblocks);
+
 extern BlockNumber smgrnblocks(SMgrRelation reln, ForkNumber forknum);
+
 extern void smgrtruncate(SMgrRelation reln, ForkNumber forknum,
-						 BlockNumber nblocks);
+                         BlockNumber nblocks);
+
 extern void smgrimmedsync(SMgrRelation reln, ForkNumber forknum);
+
 extern void AtEOXact_SMgr(void);
 
-#endif							/* SMGR_H */
+#endif                            /* SMGR_H */

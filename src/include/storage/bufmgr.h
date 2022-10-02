@@ -146,8 +146,7 @@ extern PGDLLIMPORT int32 *LocalRefCount;
 )
 
 /*
- * BufferGetPage
- *		Returns the page associated with a buffer.
+ * Returns the page associated with a buffer.
  *
  * When this is called as part of a scan, there may be a need for a nearby
  * call to TestForOldSnapshot().  See the definition of that for details.

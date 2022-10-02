@@ -220,22 +220,31 @@ heapam_tuple_satisfies_snapshot(Relation rel, TupleTableSlot *slot,
  * ----------------------------------------------------------------------------
  */
 
-static void
-heapam_tuple_insert(Relation relation, TupleTableSlot *slot, CommandId cid,
-                    int options, BulkInsertState bistate) {
+static void heapam_tuple_insert(Relation relation,
+                                TupleTableSlot *tupleTableSlot,
+                                CommandId commandId,
+                                int options,
+                                BulkInsertState bulkInsertStateData) {
     bool shouldFree = true;
-    HeapTuple tuple = ExecFetchSlotHeapTuple(slot, true, &shouldFree);
+    HeapTuple heapTuple = ExecFetchSlotHeapTuple(tupleTableSlot, true, &shouldFree);
 
-    /* Update the tuple with table oid */
-    slot->tts_tableOid = RelationGetRelid(relation);
-    tuple->t_tableOid = slot->tts_tableOid;
+    /* Update the heapTuple with table oid */
+    tupleTableSlot->tts_tableOid = RelationGetRelid(relation);
 
-    /* Perform the insertion, and copy the resulting ItemPointer */
-    heap_insert(relation, tuple, cid, options, bistate);
-    ItemPointerCopy(&tuple->t_self, &slot->tts_tid);
+    heapTuple->t_tableOid = tupleTableSlot->tts_tableOid;
 
-    if (shouldFree)
-        pfree(tuple);
+    // perform the insertion, and copy the resulting ItemPointer
+    heap_insert(relation,
+                heapTuple,
+                commandId,
+                options,
+                bulkInsertStateData);
+
+    ItemPointerCopy(&heapTuple->t_self, &tupleTableSlot->tts_tid);
+
+    if (shouldFree) {
+        pfree(heapTuple);
+    }
 }
 
 static void

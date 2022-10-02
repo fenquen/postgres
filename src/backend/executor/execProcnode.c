@@ -137,25 +137,19 @@ static TupleTableSlot *ExecProcNodeInstr(PlanState *node);
 PlanState *ExecInitNode(Plan *plan, EState *estate, int eflags) {
     PlanState *planState;
 
-    ListCell *l;
-
     // do nothing when we get to the end of a leaf on tree.
     if (plan == NULL) {
         return NULL;
     }
 
-    /*
-     * Make sure there's enough stack available. Need to check here, in
-     * addition to ExecProcNode() (via ExecProcNodeFirst()), to ensure the
-     * stack isn't overrun while initializing the node tree.
-     */
+    // to ensure the stack isn't overrun while initializing the node tree.
     check_stack_depth();
 
     switch (nodeTag(plan)) {
         case T_FunctionScan:
             planState = (PlanState *) ExecInitFunctionScan((FunctionScan *) plan, estate, eflags);
             break;
-        case T_Result: // control nodes
+        case T_Result: // control nodes,insert对应的modifyTable的subPlan是它
             planState = (PlanState *) ExecInitResult((Result *) plan, estate, eflags);
             break;
         case T_ProjectSet:
@@ -288,8 +282,9 @@ PlanState *ExecInitNode(Plan *plan, EState *estate, int eflags) {
 
     // initialize any initPlans present in this node.  The planner put them in a separate list for us.
     List *subPlanList = NIL;
-    foreach(l, plan->initPlan) {
-        SubPlan *subPlan = (SubPlan *) lfirst(l);
+    ListCell *listCell;
+    foreach(listCell, plan->initPlan) {
+        SubPlan *subPlan = (SubPlan *) lfirst(listCell);
 
         Assert(IsA(subPlan, SubPlan));
         SubPlanState *subPlanState = ExecInitSubPlan(subPlan, planState);

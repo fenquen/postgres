@@ -1312,7 +1312,7 @@ struct CustomPathMethods;
 typedef struct CustomPath {
     Path path;
     uint32 flags;            /* mask of CUSTOMPATH_* flags, see nodes/extensible.h */
-    List *custom_paths;    /* list of child Path nodes, if any */
+    List *custom_paths;    /* list of child path */
     List *custom_private;
     const struct CustomPathMethods *methods;
 } CustomPath;
@@ -1709,7 +1709,7 @@ typedef struct ModifyTablePath {
     Path path;
     CmdType operation;        /* INSERT, UPDATE, or DELETE */
     bool canSetTag;        /* do we set the command tag/es_processed? */
-    Index nominalRelation;    /* Parent RT index for use of EXPLAIN */
+    Index nominalRelation;    /* Parent RT index for use of EXPLAIN ,由timescaledb知道它对应目标表*/
     Index rootRelation;    /* Root RT index, if target is partitioned */
     bool partColsUpdated;    /* some part key in hierarchy updated */
     List *resultRelations;    /* integer list of RT indexes */
