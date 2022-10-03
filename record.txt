@@ -34,7 +34,7 @@ create index index_sale_row_table    on row_table (sale);
   explain select * from row_table where id=1 and sale=1;
 
   INSERT INTO row_table (id, addr,a,sale) SELECT d, 'a','a',d FROM generate_series(1,20000) d;
-  insert into test_table (addr) values 'addr';
+  insert into test_table (addr) values ('addr');
 
   select * from test_table LEFT JOIN row_table on test_table.addr = row_table.addr;
 

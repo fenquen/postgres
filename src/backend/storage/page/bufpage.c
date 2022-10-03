@@ -556,22 +556,17 @@ PageRepairFragmentation(Page page) {
  * Note: this should usually only be used on index pages.  Use
  * PageGetHeapFreeSpace on heap pages.
  */
-Size
-PageGetFreeSpace(Page page) {
-    int space;
+Size PageGetFreeSpace(Page page) {
 
-    /*
-     * Use signed arithmetic here so that we behave sensibly if pd_lower >
-     * pd_upper.
-     */
-    space = (int) ((PageHeader) page)->pd_upper -
-            (int) ((PageHeader) page)->pd_lower;
-
-    if (space < (int) sizeof(ItemIdData))
+    // use signed arithmetic here so that we behave sensibly if pd_lower > pd_upper.
+    int freeSpace = (int) ((PageHeader) page)->pd_upper - (int) ((PageHeader) page)->pd_lower;
+    if (freeSpace < (int) sizeof(ItemIdData)) {
         return 0;
-    space -= sizeof(ItemIdData);
+    }
 
-    return (Size) space;
+    freeSpace -= sizeof(ItemIdData);
+
+    return (Size) freeSpace;
 }
 
 /*
@@ -638,8 +633,8 @@ PageGetExactFreeSpace(Page page) {
  * on the number of line pointers, we make this extra check.)
  */
 Size PageGetHeapFreeSpace(Page page) {
-    Size space = PageGetFreeSpace(page);
-    if (space > 0) {
+    Size freeSpace = PageGetFreeSpace(page);
+    if (freeSpace > 0) {
         // Are there already MaxHeapTuplesPerPage line pointers in the page?
         OffsetNumber nline = PageGetMaxOffsetNumber(page);
         if (nline >= MaxHeapTuplesPerPage) {
@@ -657,16 +652,16 @@ Size PageGetHeapFreeSpace(Page page) {
                 if (offnum > nline) {
                     // the hint is wrong, but we can't clear it here since we
                     // don't have the ability to mark the page dirty.
-                    space = 0;
+                    freeSpace = 0;
                 }
             } else {
                 // Although the hint might be wrong, PageAddItem will believe it anyway, so we must believe it too.
-                space = 0;
+                freeSpace = 0;
             }
         }
     }
 
-    return space;
+    return freeSpace;
 }
 
 

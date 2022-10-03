@@ -1169,15 +1169,12 @@ AtSubStart_ResourceOwner(void) {
  */
 
 /*
- *	RecordTransactionCommit
- *
  * Returns latest XID among xact and its children, or InvalidTransactionId
  * if the xact has no XID.  (We compute that here just because it's easier.)
  *
  * If you change this function, see RecordTransactionCommitPrepared also.
  */
-static TransactionId
-RecordTransactionCommit(void) {
+static TransactionId RecordTransactionCommit(void) {
     TransactionId xid = GetTopTransactionIdIfAny();
     bool markXidCommitted = TransactionIdIsValid(xid);
     TransactionId latestXid = InvalidTransactionId;
@@ -1423,11 +1420,7 @@ AtCCI_LocalCache(void) {
     CommandEndInvalidationMessages();
 }
 
-/*
- *	AtCommit_Memory
- */
-static void
-AtCommit_Memory(void) {
+static void AtCommit_Memory(void) {
     /*
 	 * Now that we're "out" of a transaction, have the system allocate things
 	 * in the top memory context instead of per-transaction contexts.
@@ -1978,44 +1971,35 @@ StartTransaction(void) {
 }
 
 
-/*
- *	CommitTransaction
- *
- * NB: if you change this routine, better look at PrepareTransaction too!
- */
-static void
-CommitTransaction(void) {
-    TransactionState s = CurrentTransactionState;
-    TransactionId latestXid;
-    bool is_parallel_worker;
+// if you change this routine, better look at PrepareTransaction too!
+static void CommitTransaction() {
+    TransactionState transactionState = CurrentTransactionState;
 
-    is_parallel_worker = (s->blockState == TBLOCK_PARALLEL_INPROGRESS);
+    bool is_parallel_worker = (transactionState->blockState == TBLOCK_PARALLEL_INPROGRESS);
 
-    /* Enforce parallel mode restrictions during parallel worker commit. */
-    if (is_parallel_worker)
+    /* enforce parallel mode restrictions during parallel worker commit. */
+    if (is_parallel_worker) {
         EnterParallelMode();
+    }
 
     ShowTransactionState("CommitTransaction");
 
-    /*
-	 * check the current transaction state
-	 */
-    if (s->state != TRANS_INPROGRESS)
-        elog(WARNING, "CommitTransaction while in %s state",
-             TransStateAsString(s->state));
-    Assert(s->parent == NULL);
+    // check the current transaction state
+    if (transactionState->state != TRANS_INPROGRESS) {
+        elog(WARNING, "CommitTransaction while in %s state", TransStateAsString(transactionState->state));
+    }
+
+    Assert(transactionState->parent == NULL);
 
     /*
 	 * Do pre-commit processing that involves calling user-defined code, such
 	 * as triggers.  SECURITY_RESTRICTED_OPERATION contexts must not queue an
 	 * action that would run here, because that would bypass the sandbox.
 	 * Since closing cursors could queue trigger actions, triggers could open
-	 * cursors, etc, we have to keep looping until there's nothing left to do.
+	 * cursors, etc, we have to keep looping until there'transactionState nothing left to do.
 	 */
     for (;;) {
-        /*
-		 * Fire all currently pending deferred triggers.
-		 */
+        // fire all currently pending deferred triggers.
         AfterTriggerFireDeferred();
 
         /*
@@ -2023,25 +2007,24 @@ CommitTransaction(void) {
 		 * If there weren't any, we are done ... otherwise loop back to check
 		 * if they queued deferred triggers.  Lather, rinse, repeat.
 		 */
-        if (!PreCommit_Portals(false))
+        if (!PreCommit_Portals(false)) {
             break;
+        }
     }
 
     /*
-	 * The remaining actions cannot call any user-defined code, so it's safe
+	 * The remaining actions cannot call any user-defined code, so it'transactionState safe
 	 * to start shutting down within-transaction services.  But note that most
 	 * of this stuff could still throw an error, which would switch us into
 	 * the transaction-abort path.
 	 */
+    CallXactCallbacks(is_parallel_worker ? XACT_EVENT_PARALLEL_PRE_COMMIT : XACT_EVENT_PRE_COMMIT);
 
-    CallXactCallbacks(is_parallel_worker ? XACT_EVENT_PARALLEL_PRE_COMMIT
-                                         : XACT_EVENT_PRE_COMMIT);
-
-    /* If we might have parallel workers, clean them up now. */
+    // If we might have parallel workers, clean them up now. */
     if (IsInParallelMode())
         AtEOXact_Parallel(true);
 
-    /* Shut down the deferred-trigger manager */
+    // shut down the deferred-trigger manager */
     AfterTriggerEndXact(true);
 
     /*
@@ -2066,41 +2049,32 @@ CommitTransaction(void) {
 	 * purposes.  This should be done as late as we can put it and still allow
 	 * errors to be raised for failure patterns found at commit.  This is not
 	 * appropriate in a parallel worker however, because we aren't committing
-	 * the leader's transaction and its serializable state will live on.
+	 * the leader'transactionState transaction and its serializable state will live on.
 	 */
     if (!is_parallel_worker)
         PreCommit_CheckForSerializationFailure();
 
-    /* Prevent cancel/die interrupt while cleaning up */
+    // Prevent cancel/die interrupt while cleaning up */
     HOLD_INTERRUPTS();
 
-    /* Commit updates to the relation map --- do this as late as possible */
+    // Commit updates to the relation map --- do this as late as possible */
     AtEOXact_RelationMap(true, is_parallel_worker);
 
     /*
-	 * set the current transaction state information appropriately during
-	 * commit processing
+	 * set the current transaction state information appropriately during commit processing
 	 */
-    s->state = TRANS_COMMIT;
-    s->parallelModeLevel = 0;
+    transactionState->state = TRANS_COMMIT;
+    transactionState->parallelModeLevel = 0;
 
+    TransactionId latestXid;
     if (!is_parallel_worker) {
-        /*
-		 * We need to mark our XIDs as committed in pg_xact.  This is where we
-		 * durably commit.
-		 */
+        // We need to mark our XIDs as committed in pg_xact.  This is where we durably commit.
         latestXid = RecordTransactionCommit();
     } else {
-        /*
-		 * We must not mark our XID committed; the parallel master is
-		 * responsible for that.
-		 */
+        // We must not mark our XID committed; the parallel master is responsible for that.
         latestXid = InvalidTransactionId;
 
-        /*
-		 * Make sure the master will know about any WAL we wrote before it
-		 * commits.
-		 */
+        // make sure the master will know about any WAL we wrote before it commits.
         ParallelWorkerReportLastRecEnd(XactLastRecEnd);
     }
 
@@ -2115,7 +2089,7 @@ CommitTransaction(void) {
 
     /*
 	 * This is all post-commit cleanup.  Note that if an error is raised here,
-	 * it's too late to abort the transaction.  This should be just
+	 * it'transactionState too late to abort the transaction.  This should be just
 	 * noncritical resource releasing.
 	 *
 	 * The ordering of operations is not entirely random.  The idea is:
@@ -2128,18 +2102,17 @@ CommitTransaction(void) {
 	 * the ResourceOwner mechanism.  The other calls here are for backend-wide
 	 * state.
 	 */
-
-    CallXactCallbacks(is_parallel_worker ? XACT_EVENT_PARALLEL_COMMIT
-                                         : XACT_EVENT_COMMIT);
+    CallXactCallbacks(is_parallel_worker ? XACT_EVENT_PARALLEL_COMMIT : XACT_EVENT_COMMIT);
 
     ResourceOwnerRelease(TopTransactionResourceOwner,
                          RESOURCE_RELEASE_BEFORE_LOCKS,
-                         true, true);
+                         true,
+                         true);
 
-    /* Check we've released all buffer pins */
+    // released all buffer pins
     AtEOXact_Buffers(true);
 
-    /* Clean up the relation cache */
+    // clean up the relation cache
     AtEOXact_RelationCache(true);
 
     /*
@@ -2155,10 +2128,13 @@ CommitTransaction(void) {
 
     ResourceOwnerRelease(TopTransactionResourceOwner,
                          RESOURCE_RELEASE_LOCKS,
-                         true, true);
+                         true,
+                         true);
+
     ResourceOwnerRelease(TopTransactionResourceOwner,
                          RESOURCE_RELEASE_AFTER_LOCKS,
-                         true, true);
+                         true,
+                         true);
 
     /*
 	 * Likewise, dropping of files deleted during the transaction is best done
@@ -2172,6 +2148,7 @@ CommitTransaction(void) {
     smgrDoPendingDeletes(true);
 
     AtCommit_Notify();
+
     AtEOXact_GUC(true, 1);
     AtEOXact_SPI(true);
     AtEOXact_Enum();
@@ -2184,32 +2161,30 @@ CommitTransaction(void) {
     AtEOXact_PgStat(true, is_parallel_worker);
     AtEOXact_Snapshot(true, false);
     AtEOXact_ApplyLauncher(true);
+
     pgstat_report_xact_timestamp(0);
 
     CurrentResourceOwner = NULL;
     ResourceOwnerDelete(TopTransactionResourceOwner);
-    s->curTransactionOwner = NULL;
+    transactionState->curTransactionOwner = NULL;
     CurTransactionResourceOwner = NULL;
     TopTransactionResourceOwner = NULL;
 
     AtCommit_Memory();
 
-    s->fullTransactionId = InvalidFullTransactionId;
-    s->subTransactionId = InvalidSubTransactionId;
-    s->nestingLevel = 0;
-    s->gucNestLevel = 0;
-    s->childXids = NULL;
-    s->nChildXids = 0;
-    s->maxChildXids = 0;
+    transactionState->fullTransactionId = InvalidFullTransactionId;
+    transactionState->subTransactionId = InvalidSubTransactionId;
+    transactionState->nestingLevel = 0;
+    transactionState->gucNestLevel = 0;
+    transactionState->childXids = NULL;
+    transactionState->nChildXids = 0;
+    transactionState->maxChildXids = 0;
 
     XactTopFullTransactionId = InvalidFullTransactionId;
     nParallelCurrentXids = 0;
 
-    /*
-	 * done with commit processing, set current transaction state back to
-	 * default
-	 */
-    s->state = TRANS_DEFAULT;
+    // done with commit processing, set current transaction state back to default
+    transactionState->state = TRANS_DEFAULT;
 
     RESUME_INTERRUPTS();
 }
@@ -2829,18 +2804,14 @@ RestoreTransactionCharacteristics(void) {
     XactDeferrable = save_XactDeferrable;
 }
 
+void CommitTransactionCommand(void) {
+    TransactionState transactionState = CurrentTransactionState;
 
-/*
- *	CommitTransactionCommand
- */
-void
-CommitTransactionCommand(void) {
-    TransactionState s = CurrentTransactionState;
-
-    if (s->chain)
+    if (transactionState->chain) {
         SaveTransactionCharacteristics();
+    }
 
-    switch (s->blockState) {
+    switch (transactionState->blockState) {
         /*
 			 * These shouldn't happen.  TBLOCK_DEFAULT means the previous
 			 * StartTransactionCommand didn't set the STARTED state
@@ -2850,7 +2821,7 @@ CommitTransactionCommand(void) {
         case TBLOCK_DEFAULT:
         case TBLOCK_PARALLEL_INPROGRESS:
             elog(FATAL, "CommitTransactionCommand: unexpected state %s",
-                 BlockStateAsString(s->blockState));
+                 BlockStateAsString(transactionState->blockState));
             break;
 
             /*
@@ -2859,7 +2830,7 @@ CommitTransactionCommand(void) {
 			 */
         case TBLOCK_STARTED:
             CommitTransaction();
-            s->blockState = TBLOCK_DEFAULT;
+            transactionState->blockState = TBLOCK_DEFAULT;
             break;
 
             /*
@@ -2869,7 +2840,7 @@ CommitTransactionCommand(void) {
 			 * CommandCounterIncrement.)
 			 */
         case TBLOCK_BEGIN:
-            s->blockState = TBLOCK_INPROGRESS;
+            transactionState->blockState = TBLOCK_INPROGRESS;
             break;
 
             /*
@@ -2889,11 +2860,11 @@ CommitTransactionCommand(void) {
 			 */
         case TBLOCK_END:
             CommitTransaction();
-            s->blockState = TBLOCK_DEFAULT;
-            if (s->chain) {
+            transactionState->blockState = TBLOCK_DEFAULT;
+            if (transactionState->chain) {
                 StartTransaction();
-                s->blockState = TBLOCK_INPROGRESS;
-                s->chain = false;
+                transactionState->blockState = TBLOCK_INPROGRESS;
+                transactionState->chain = false;
                 RestoreTransactionCharacteristics();
             }
             break;
@@ -2914,11 +2885,11 @@ CommitTransactionCommand(void) {
 			 */
         case TBLOCK_ABORT_END:
             CleanupTransaction();
-            s->blockState = TBLOCK_DEFAULT;
-            if (s->chain) {
+            transactionState->blockState = TBLOCK_DEFAULT;
+            if (transactionState->chain) {
                 StartTransaction();
-                s->blockState = TBLOCK_INPROGRESS;
-                s->chain = false;
+                transactionState->blockState = TBLOCK_INPROGRESS;
+                transactionState->chain = false;
                 RestoreTransactionCharacteristics();
             }
             break;
@@ -2931,11 +2902,11 @@ CommitTransactionCommand(void) {
         case TBLOCK_ABORT_PENDING:
             AbortTransaction();
             CleanupTransaction();
-            s->blockState = TBLOCK_DEFAULT;
-            if (s->chain) {
+            transactionState->blockState = TBLOCK_DEFAULT;
+            if (transactionState->chain) {
                 StartTransaction();
-                s->blockState = TBLOCK_INPROGRESS;
-                s->chain = false;
+                transactionState->blockState = TBLOCK_INPROGRESS;
+                transactionState->chain = false;
                 RestoreTransactionCharacteristics();
             }
             break;
@@ -2946,7 +2917,7 @@ CommitTransactionCommand(void) {
 			 */
         case TBLOCK_PREPARE:
             PrepareTransaction();
-            s->blockState = TBLOCK_DEFAULT;
+            transactionState->blockState = TBLOCK_DEFAULT;
             break;
 
             /*
@@ -2957,7 +2928,7 @@ CommitTransactionCommand(void) {
 			 */
         case TBLOCK_SUBBEGIN:
             StartSubTransaction();
-            s->blockState = TBLOCK_SUBINPROGRESS;
+            transactionState->blockState = TBLOCK_SUBINPROGRESS;
             break;
 
             /*
@@ -2969,11 +2940,11 @@ CommitTransactionCommand(void) {
         case TBLOCK_SUBRELEASE:
             do {
                 CommitSubTransaction();
-                s = CurrentTransactionState;    /* changed by pop */
-            } while (s->blockState == TBLOCK_SUBRELEASE);
+                transactionState = CurrentTransactionState;    /* changed by pop */
+            } while (transactionState->blockState == TBLOCK_SUBRELEASE);
 
-            Assert(s->blockState == TBLOCK_INPROGRESS ||
-                   s->blockState == TBLOCK_SUBINPROGRESS);
+            Assert(transactionState->blockState == TBLOCK_INPROGRESS ||
+                   transactionState->blockState == TBLOCK_SUBINPROGRESS);
             break;
 
             /*
@@ -2988,26 +2959,26 @@ CommitTransactionCommand(void) {
         case TBLOCK_SUBCOMMIT:
             do {
                 CommitSubTransaction();
-                s = CurrentTransactionState;    /* changed by pop */
-            } while (s->blockState == TBLOCK_SUBCOMMIT);
+                transactionState = CurrentTransactionState;    /* changed by pop */
+            } while (transactionState->blockState == TBLOCK_SUBCOMMIT);
             /* If we had a COMMIT command, finish off the main xact too */
-            if (s->blockState == TBLOCK_END) {
-                Assert(s->parent == NULL);
+            if (transactionState->blockState == TBLOCK_END) {
+                Assert(transactionState->parent == NULL);
                 CommitTransaction();
-                s->blockState = TBLOCK_DEFAULT;
-                if (s->chain) {
+                transactionState->blockState = TBLOCK_DEFAULT;
+                if (transactionState->chain) {
                     StartTransaction();
-                    s->blockState = TBLOCK_INPROGRESS;
-                    s->chain = false;
+                    transactionState->blockState = TBLOCK_INPROGRESS;
+                    transactionState->chain = false;
                     RestoreTransactionCharacteristics();
                 }
-            } else if (s->blockState == TBLOCK_PREPARE) {
-                Assert(s->parent == NULL);
+            } else if (transactionState->blockState == TBLOCK_PREPARE) {
+                Assert(transactionState->parent == NULL);
                 PrepareTransaction();
-                s->blockState = TBLOCK_DEFAULT;
+                transactionState->blockState = TBLOCK_DEFAULT;
             } else
-                elog(ERROR, "CommitTransactionCommand: unexpected state %s",
-                     BlockStateAsString(s->blockState));
+                elog(ERROR, "CommitTransactionCommand: unexpected state %transactionState",
+                     BlockStateAsString(transactionState->blockState));
             break;
 
             /*
@@ -3021,7 +2992,7 @@ CommitTransactionCommand(void) {
             break;
 
             /*
-			 * As above, but it's not dead yet, so abort first.
+			 * As above, but it'transactionState not dead yet, so abort first.
 			 */
         case TBLOCK_SUBABORT_PENDING:
             AbortSubTransaction();
@@ -3039,22 +3010,22 @@ CommitTransactionCommand(void) {
             int savepointLevel;
 
             /* save name and keep Cleanup from freeing it */
-            name = s->name;
-            s->name = NULL;
-            savepointLevel = s->savepointLevel;
+            name = transactionState->name;
+            transactionState->name = NULL;
+            savepointLevel = transactionState->savepointLevel;
 
             AbortSubTransaction();
             CleanupSubTransaction();
 
             DefineSavepoint(NULL);
-            s = CurrentTransactionState;    /* changed by push */
-            s->name = name;
-            s->savepointLevel = savepointLevel;
+            transactionState = CurrentTransactionState;    /* changed by push */
+            transactionState->name = name;
+            transactionState->savepointLevel = savepointLevel;
 
             /* This is the same as TBLOCK_SUBBEGIN case */
-            AssertState(s->blockState == TBLOCK_SUBBEGIN);
+            AssertState(transactionState->blockState == TBLOCK_SUBBEGIN);
             StartSubTransaction();
-            s->blockState = TBLOCK_SUBINPROGRESS;
+            transactionState->blockState = TBLOCK_SUBINPROGRESS;
         }
             break;
 
@@ -3067,21 +3038,21 @@ CommitTransactionCommand(void) {
             int savepointLevel;
 
             /* save name and keep Cleanup from freeing it */
-            name = s->name;
-            s->name = NULL;
-            savepointLevel = s->savepointLevel;
+            name = transactionState->name;
+            transactionState->name = NULL;
+            savepointLevel = transactionState->savepointLevel;
 
             CleanupSubTransaction();
 
             DefineSavepoint(NULL);
-            s = CurrentTransactionState;    /* changed by push */
-            s->name = name;
-            s->savepointLevel = savepointLevel;
+            transactionState = CurrentTransactionState;    /* changed by push */
+            transactionState->name = name;
+            transactionState->savepointLevel = savepointLevel;
 
             /* This is the same as TBLOCK_SUBBEGIN case */
-            AssertState(s->blockState == TBLOCK_SUBBEGIN);
+            AssertState(transactionState->blockState == TBLOCK_SUBBEGIN);
             StartSubTransaction();
-            s->blockState = TBLOCK_SUBINPROGRESS;
+            transactionState->blockState = TBLOCK_SUBINPROGRESS;
         }
             break;
     }
@@ -5291,7 +5262,7 @@ xactGetCommittedChildren(TransactionId **ptr) {
 
 
 /*
- * Log the commit record for a plain or twophase transaction commit.
+ * Log the commit record for a plain or two phase transaction commit.
  *
  * A 2pc commit will be emitted when twophase_xid is valid, a plain one
  * otherwise.

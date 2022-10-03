@@ -118,42 +118,50 @@ static Buffer ReadBufferBI(Relation relation,
  * For each heap page which is all-visible, acquire a pin on the appropriate
  * visibility map page, if we haven't already got one.
  *
- * buffer2 may be InvalidBuffer, if only one buffer is involved.  buffer1
- * must not be InvalidBuffer.  If both buffers are specified, block1 must
- * be less than block2.
+ * buffer2 may be InvalidBuffer  when only one buffer is involved.
+ * buffer1 must not be InvalidBuffer.
+ * If both buffers are specified, blockNumber1 must be less than block2.
  */
-static void
-GetVisibilityMapPins(Relation relation, Buffer buffer1, Buffer buffer2,
-                     BlockNumber block1, BlockNumber block2,
-                     Buffer *vmbuffer1, Buffer *vmbuffer2) {
-    bool need_to_pin_buffer1;
-    bool need_to_pin_buffer2;
+static void GetVisibilityMapPins(Relation relation,
+                                 Buffer buffer1,
+                                 Buffer buffer2,
+                                 BlockNumber blockNumber1,
+                                 BlockNumber block2,
+                                 Buffer *vmbuffer1,
+                                 Buffer *vmbuffer2) {
+
 
     Assert(BufferIsValid(buffer1));
-    Assert(buffer2 == InvalidBuffer || block1 <= block2);
+    Assert(buffer2 == InvalidBuffer || blockNumber1 <= block2);
 
     while (1) {
-        /* Figure out which pins we need but don't have. */
-        need_to_pin_buffer1 = PageIsAllVisible(BufferGetPage(buffer1))
-                              && !visibilitymap_pin_ok(block1, *vmbuffer1);
-        need_to_pin_buffer2 = buffer2 != InvalidBuffer
-                              && PageIsAllVisible(BufferGetPage(buffer2))
-                              && !visibilitymap_pin_ok(block2, *vmbuffer2);
-        if (!need_to_pin_buffer1 && !need_to_pin_buffer2)
+        // figure out which pins we need
+        bool needToPinBuffer1 = PageIsAllVisible(BufferGetPage(buffer1))
+                                && !visibilitymap_pin_ok(blockNumber1, *vmbuffer1);
+
+        bool needToPinBuffer2 = buffer2 != InvalidBuffer
+                                && PageIsAllVisible(BufferGetPage(buffer2))
+                                && !visibilitymap_pin_ok(block2, *vmbuffer2);
+
+        if (!needToPinBuffer1 && !needToPinBuffer2) {
             return;
+        }
 
-        /* We must unlock both buffers before doing any I/O. */
+        // unlock both buffers before doing any I/O
         LockBuffer(buffer1, BUFFER_LOCK_UNLOCK);
-        if (buffer2 != InvalidBuffer && buffer2 != buffer1)
+        if (buffer2 != InvalidBuffer && buffer2 != buffer1) {
             LockBuffer(buffer2, BUFFER_LOCK_UNLOCK);
+        }
 
-        /* Get pins. */
-        if (need_to_pin_buffer1)
-            visibilitymap_pin(relation, block1, vmbuffer1);
-        if (need_to_pin_buffer2)
+        // get pins
+        if (needToPinBuffer1) {
+            visibilitymap_pin(relation, blockNumber1, vmbuffer1);
+        }
+        if (needToPinBuffer2) {
             visibilitymap_pin(relation, block2, vmbuffer2);
+        }
 
-        /* Relock buffers. */
+        // relock buffers
         LockBuffer(buffer1, BUFFER_LOCK_EXCLUSIVE);
         if (buffer2 != InvalidBuffer && buffer2 != buffer1)
             LockBuffer(buffer2, BUFFER_LOCK_EXCLUSIVE);
@@ -165,7 +173,7 @@ GetVisibilityMapPins(Relation relation, Buffer buffer1, Buffer buffer2,
          * scenario, we'll need to make a second pass through this loop.
          */
         if (buffer2 == InvalidBuffer || buffer1 == buffer2
-            || (need_to_pin_buffer1 && need_to_pin_buffer2))
+            || (needToPinBuffer1 && needToPinBuffer2))
             break;
     }
 }

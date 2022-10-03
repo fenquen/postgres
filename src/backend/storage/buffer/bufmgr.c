@@ -2300,8 +2300,7 @@ static int SyncOneBuffer(int bufferId,
  *		ResourceOwner mechanism.  This routine is just a debugging
  *		cross-check that no pins remain.
  */
-void
-AtEOXact_Buffers(bool isCommit) {
+void AtEOXact_Buffers(bool isCommit) {
     CheckForBufferLeaks();
 
     AtEOXact_LocalBuffers(isCommit);

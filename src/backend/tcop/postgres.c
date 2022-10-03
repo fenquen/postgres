@@ -985,10 +985,7 @@ static void exec_simple_query(const char *queryString) {
     // Switch to appropriate context for constructing parse trees.
     MemoryContext oldMemoryContext = MemoryContextSwitchTo(MessageContext);
 
-    /*
-     * do basic parsing of the query or queries (this should be safe even if
-     * we are in aborted transaction state!)
-     */
+    // do basic parsing of the query or queries (this should be safe even if we are in aborted transaction state!)
     List *parseTreeList = pg_parse_query(queryString);
 
     /* Log immediately if dictated by log_statement */
@@ -2405,9 +2402,8 @@ static void start_xact_command(void) {
     enable_statement_timeout();
 }
 
-static void
-finish_xact_command(void) {
-    /* cancel active statement timeout after each command */
+static void finish_xact_command(void) {
+    // cancel active statement timeout after each command
     disable_statement_timeout();
 
     if (xact_started) {

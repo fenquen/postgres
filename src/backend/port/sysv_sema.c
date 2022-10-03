@@ -17,11 +17,16 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/file.h>
+
 #ifdef HAVE_SYS_IPC_H
+
 #include <sys/ipc.h>
+
 #endif
 #ifdef HAVE_SYS_SEM_H
+
 #include <sys/sem.h>
+
 #endif
 
 #include "miscadmin.h"
@@ -31,21 +36,21 @@
 
 
 typedef struct PGSemaphoreData {
-	int			semId;			/* 隶属的 semaphore set id */
-	int			semNum;			/* 在 隶属的semaphore set 索引 */
+    int semId;            /* 隶属的 semaphore set id */
+    int semNum;            /* 在 隶属的semaphore set 索引 */
 } PGSemaphoreData;
 
 #ifndef HAVE_UNION_SEMUN
 union semun
 {
-	int			val;
-	struct semid_ds *buf;
-	unsigned short *array;
+    int			val;
+    struct semid_ds *buf;
+    unsigned short *array;
 };
 #endif
 
-typedef key_t IpcSemaphoreKey;	/* semaphore key passed to semget(2) */
-typedef int IpcSemaphoreId;		/* semaphore ID returned by semget(2) */
+typedef key_t IpcSemaphoreKey;    /* semaphore key passed to semget(2) */
+typedef int IpcSemaphoreId;        /* semaphore ID returned by semget(2) */
 
 /*
  * SEMAS_PER_SET is the number of useful semaphores in each semaphore set
@@ -53,31 +58,37 @@ typedef int IpcSemaphoreId;		/* semaphore ID returned by semget(2) */
  * per set) parameter, which is often around 25.  (Less than, because we
  * allocate one extra sema in each set for identification purposes.)
  */
-#define SEMAS_PER_SET	16
+#define SEMAS_PER_SET    16
 
-#define IPCProtection	(0600)	/* access/modify by user only */
+#define IPCProtection    (0600)    /* access/modify by user only */
 
-#define PGSemaMagic		537		/* must be less than SEMVMX */
+#define PGSemaMagic        537        /* must be less than SEMVMX */
 
 
 static PGSemaphore sharedSemas; /* array of PGSemaphoreData in shared memory */
-static int	numSharedSemas;		/* number of PGSemaphoreDatas used so far */
-static int	maxSharedSemas;		/* allocated size of PGSemaphoreData array */
-static IpcSemaphoreId *mySemaSets;	/* IDs of sema sets acquired so far */
-static int	numSemaSets;		/* semaphore set 数量, number of sema sets acquired so far */
-static int	maxSemaSets;		/* allocated size of mySemaSets array */
+static int numSharedSemas;        /* number of PGSemaphoreDatas used so far */
+static int maxSharedSemas;        /* allocated size of PGSemaphoreData array */
+static IpcSemaphoreId *mySemaSets;    /* IDs of sema sets acquired so far */
+static int numSemaSets;        /* semaphore set 数量, number of sema sets acquired so far */
+static int maxSemaSets;        /* allocated size of mySemaSets array */
 static IpcSemaphoreKey nextSemaKey; /* next key to try using */
-static int	nextSemaNumber;		/* next free sem num in last sema set */
+static int nextSemaNumber;        /* next free sem num in last sema set */
 
 
 static IpcSemaphoreId InternalIpcSemaphoreCreate(IpcSemaphoreKey semKey,
-												 int numSems);
+                                                 int numSems);
+
 static void IpcSemaphoreInitialize(IpcSemaphoreId semId, int semNum,
-								   int value);
+                                   int value);
+
 static void IpcSemaphoreKill(IpcSemaphoreId semId);
-static int	IpcSemaphoreGetValue(IpcSemaphoreId semId, int semNum);
+
+static int IpcSemaphoreGetValue(IpcSemaphoreId semId, int semNum);
+
 static pid_t IpcSemaphoreGetLastPID(IpcSemaphoreId semId, int semNum);
+
 static IpcSemaphoreId IpcSemaphoreCreate(int semCountOneSet);
+
 static void ReleaseSemaphores(int status, Datum arg);
 
 
@@ -91,42 +102,42 @@ static void ReleaseSemaphores(int status, Datum arg);
  * print out an error and abort.  Other types of errors suggest nonrecoverable problems.
  */
 static IpcSemaphoreId InternalIpcSemaphoreSetCreate(IpcSemaphoreKey semKey, int numSems) {
-	int			semId;
 
-	semId = semget(semKey, numSems, IPC_CREAT | IPC_EXCL | IPCProtection);
+    int semId = semget(semKey, numSems, IPC_CREAT | IPC_EXCL | IPCProtection);
+    if (semId < 0) {
+        int saved_errno = errno;
 
-	if (semId < 0) {
-		int			saved_errno = errno;
-
-		/*
-		 * Fail quietly if error indicates a collision with existing set. One
-		 * would expect EEXIST, given that we said IPC_EXCL, but perhaps we
-		 * could get a permission violation instead?  Also, EIDRM might occur
-		 * if an old set is slated for destruction but not gone yet.
-		 */
-		if (saved_errno == EEXIST || saved_errno == EACCES
-#ifdef EIDRM
-			|| saved_errno == EIDRM
+        /*
+         * Fail quietly if error indicates a collision with existing set. One
+         * would expect EEXIST, given that we said IPC_EXCL, but perhaps we
+         * could get a permission violation instead?  Also, EIDRM might occur
+         * if an old set is slated for destruction but not gone yet.
+         */
+        if (saved_errno == EEXIST || saved_errno == EACCES
+            #ifdef EIDRM
+            || saved_errno == EIDRM
 #endif
-			) {
+                ) {
             return -1;
         }
 
-		// abort
-		ereport(FATAL,
-				(errmsg("could not create semaphores: %m"),
-				 errdetail("Failed system call was semget(%lu, %d, 0%o).",(unsigned long) semKey, numSems, IPC_CREAT | IPC_EXCL | IPCProtection),
-				 (saved_errno == ENOSPC) ?
-				 errhint("This error does *not* mean that you have run out of disk space.  "
-						 "It occurs when either the system limit for the maximum number of "
-						 "semaphore sets (SEMMNI), or the system wide maximum number of "
-						 "semaphores (SEMMNS), would be exceeded.  You need to raise the "
-						 "respective kernel parameter.  Alternatively, reduce PostgreSQL's "
-						 "consumption of semaphores by reducing its max_connections parameter.\n"
-						 "The PostgreSQL documentation contains more information about configuring your system for PostgreSQL.") : 0));
-	}
+        // abort
+        ereport(FATAL,
+                (errmsg("could not create semaphores: %m"),
+                        errdetail("Failed system call was semget(%lu, %d, 0%o).", (unsigned long) semKey, numSems,
+                                  IPC_CREAT | IPC_EXCL | IPCProtection),
+                        (saved_errno == ENOSPC) ?
+                        errhint("This error does *not* mean that you have run out of disk space.  "
+                                "It occurs when either the system limit for the maximum number of "
+                                "semaphore sets (SEMMNI), or the system wide maximum number of "
+                                "semaphores (SEMMNS), would be exceeded.  You need to raise the "
+                                "respective kernel parameter.  Alternatively, reduce PostgreSQL's "
+                                "consumption of semaphores by reducing its max_connections parameter.\n"
+                                "The PostgreSQL documentation contains more information about configuring your system for PostgreSQL.")
+                                                : 0));
+    }
 
-	return semId;
+    return semId;
 }
 
 /*
@@ -150,31 +161,30 @@ static void IpcSemaphoreInitialize(IpcSemaphoreId semId, int semNum, int value) 
  * IpcSemaphoreKill(semId)	- removes a semaphore set
  */
 static void
-IpcSemaphoreKill(IpcSemaphoreId semId)
-{
-	union semun semun;
+IpcSemaphoreKill(IpcSemaphoreId semId) {
+    union semun semun;
 
-	semun.val = 0;				/* unused, but keep compiler quiet */
+    semun.val = 0;                /* unused, but keep compiler quiet */
 
-	if (semctl(semId, 0, IPC_RMID, semun) < 0)
-		elog(LOG, "semctl(%d, 0, IPC_RMID, ...) failed: %m", semId);
+    if (semctl(semId, 0, IPC_RMID, semun) < 0)
+        elog(LOG, "semctl(%d, 0, IPC_RMID, ...) failed: %m", semId);
 }
 
 /* Get the current value (semval) of the semaphore */
 static int IpcSemaphoreGetValue(IpcSemaphoreId semId, int semNum) {
-	union semun dummy;			/* for Solaris */
-	dummy.val = 0;				/* unused */
+    union semun dummy;            /* for Solaris */
+    dummy.val = 0;                /* unused */
 
-	return semctl(semId, semNum, GETVAL, dummy);
+    return semctl(semId, semNum, GETVAL, dummy);
 }
 
 /* Get the PID of the last process to do semop() on the semaphore */
 static pid_t IpcSemaphoreGetLastPID(IpcSemaphoreId semId, int semNum) {
     // for Solaris, unused
-	union semun dummy;
-	dummy.val = 0;
+    union semun dummy;
+    dummy.val = 0;
 
-	return semctl(semId, semNum, GETPID, dummy);
+    return semctl(semId, semNum, GETPID, dummy);
 }
 
 
@@ -191,20 +201,20 @@ static pid_t IpcSemaphoreGetLastPID(IpcSemaphoreId semId, int semNum) {
  * The idea here is to detect and re-use keys that may have been assigned by a crashed postmaster or backend.
  */
 static IpcSemaphoreId IpcSemaphoreSetCreate(int semCountOneSet) {
-	IpcSemaphoreId semId;
-	union semun semun;
-	PGSemaphoreData mysema;
+    IpcSemaphoreId semId;
+    union semun semun;
+    PGSemaphoreData mysema;
 
-	/* Loop till we find a free IPC key */
-	for (nextSemaKey++;;nextSemaKey++) {
+    /* Loop till we find a free IPC key */
+    for (nextSemaKey++;; nextSemaKey++) {
 
-		// try to create new semaphore set */
-		semId = InternalIpcSemaphoreSetCreate(nextSemaKey, semCountOneSet + 1);
-		if (semId >= 0) { // success
+        // try to create new semaphore set */
+        semId = InternalIpcSemaphoreSetCreate(nextSemaKey, semCountOneSet + 1);
+        if (semId >= 0) { // success
             break;
         }
 
-		/* See if it looks to be leftover from a dead Postgres process */
+        /* See if it looks to be leftover from a dead Postgres process */
         // flag 0 意味着该函数直接是尝试得到 已经存在的id是nextSemaKey的set
         semId = semget(nextSemaKey, semCountOneSet + 1, 0);
         if (semId < 0) {  // failed: must be some other app's */
@@ -218,7 +228,7 @@ static IpcSemaphoreId IpcSemaphoreSetCreate(int semCountOneSet) {
         }
 
         // 也是对最后1个元素
-		// If the creator PID is my own (pg体系) PID or does not belong to any extant process, it's safe to zap it.
+        // If the creator PID is my own (pg体系) PID or does not belong to any extant process, it's safe to zap it.
         pid_t creatorPID = IpcSemaphoreGetLastPID(semId, semCountOneSet);
         if (creatorPID <= 0) { // failed
             continue;
@@ -230,43 +240,43 @@ static IpcSemaphoreId IpcSemaphoreSetCreate(int semCountOneSet) {
             }
         }
 
-		/*
-		 * The sema set appears to be from a dead Postgres process, or from a
-		 * previous cycle of life in this same process.  Zap it, if possible.
-		 * This probably shouldn't fail, but if it does, assume the sema set
-		 * belongs to someone else after all, and continue quietly.
-		 */
+        /*
+         * The sema set appears to be from a dead Postgres process, or from a
+         * previous cycle of life in this same process.  Zap it, if possible.
+         * This probably shouldn't fail, but if it does, assume the sema set
+         * belongs to someone else after all, and continue quietly.
+         */
         // unused, but keep compiler quiet */
-		semun.val = 0;
-		if (semctl(semId, 0, IPC_RMID, semun) < 0) {
-			continue;
+        semun.val = 0;
+        if (semctl(semId, 0, IPC_RMID, semun) < 0) {
+            continue;
         }
 
-		// Now try again to create the sema set.
-		semId = InternalIpcSemaphoreSetCreate(nextSemaKey, semCountOneSet + 1);
-		if (semId >= 0) {
-			break;
+        // Now try again to create the sema set.
+        semId = InternalIpcSemaphoreSetCreate(nextSemaKey, semCountOneSet + 1);
+        if (semId >= 0) {
+            break;
         }
 
         // Can only get here if some other process managed to create the same
         // sema key before we did.  Let him have that one, loop around to try next key
-	}
+    }
 
-	/*
-	 * OK, we created a new sema set.  Mark it as created by this process.
-	 * We do this by setting the spare semaphore to PGSemaMagic-1
-	 * then incrementing it with semop().
-	 * That leaves it with value PGSemaMagic and sempid referencing this process.
-	 */
+    /*
+     * OK, we created a new sema set.  Mark it as created by this process.
+     * We do this by setting the spare semaphore to PGSemaMagic-1
+     * then incrementing it with semop().
+     * That leaves it with value PGSemaMagic and sempid referencing this process.
+     */
     // 对最后的元素调用了调用了SETVAL
-	IpcSemaphoreInitialize(semId, semCountOneSet, PGSemaMagic - 1);
+    IpcSemaphoreInitialize(semId, semCountOneSet, PGSemaMagic - 1);
 
-	mysema.semId = semId;
-	mysema.semNum = semCountOneSet;
+    mysema.semId = semId;
+    mysema.semNum = semCountOneSet;
 
-	PGSemaphoreUnlock(&mysema);
+    PGSemaphoreUnlock(&mysema);
 
-	return semId;
+    return semId;
 }
 
 
@@ -274,9 +284,8 @@ static IpcSemaphoreId IpcSemaphoreSetCreate(int semCountOneSet) {
  * Report amount of shared memory needed for semaphores
  */
 Size
-PGSemaphoreShmemSize(int maxSemas)
-{
-	return mul_size(maxSemas, sizeof(PGSemaphoreData));
+PGSemaphoreShmemSize(int maxSemas) {
+    return mul_size(maxSemas, sizeof(PGSemaphoreData));
 }
 
 /*
@@ -301,26 +310,26 @@ PGSemaphoreShmemSize(int maxSemas)
  * have clobbered.)
  */
 void PGReserveSemaphores(int maxSemas, int port) {
-	/*
-	 * We must use ShmemAllocUnlocked(), since the spinlock protecting
-	 * ShmemAlloc() won't be ready yet.  (This ordering is necessary when we
-	 * are emulating spinlocks with semaphores.)
-	 */
-	sharedSemas = (PGSemaphore) ShmemAllocUnlocked(PGSemaphoreShmemSize(maxSemas));
-	numSharedSemas = 0;
-	maxSharedSemas = maxSemas;
+    /*
+     * We must use ShmemAllocUnlocked(), since the spinlock protecting
+     * ShmemAlloc() won't be ready yet.  (This ordering is necessary when we
+     * are emulating spinlocks with semaphores.)
+     */
+    sharedSemas = (PGSemaphore) ShmemAllocUnlocked(PGSemaphoreShmemSize(maxSemas));
+    numSharedSemas = 0;
+    maxSharedSemas = maxSemas;
 
-	maxSemaSets = (maxSemas + SEMAS_PER_SET - 1) / SEMAS_PER_SET;
-	mySemaSets = (IpcSemaphoreId *)malloc(maxSemaSets * sizeof(IpcSemaphoreId));
-	if (mySemaSets == NULL) {
-		elog(PANIC, "out of memory");
+    maxSemaSets = (maxSemas + SEMAS_PER_SET - 1) / SEMAS_PER_SET;
+    mySemaSets = (IpcSemaphoreId *) malloc(maxSemaSets * sizeof(IpcSemaphoreId));
+    if (mySemaSets == NULL) {
+        elog(PANIC, "out of memory");
     }
 
-	numSemaSets = 0;
-	nextSemaKey = port * 1000;
-	nextSemaNumber = SEMAS_PER_SET; /* force sema set alloc on 1st call */
+    numSemaSets = 0;
+    nextSemaKey = port * 1000;
+    nextSemaNumber = SEMAS_PER_SET; /* force sema set alloc on 1st call */
 
-	on_shmem_exit(ReleaseSemaphores, 0);
+    on_shmem_exit(ReleaseSemaphores, 0);
 }
 
 /*
@@ -329,13 +338,12 @@ void PGReserveSemaphores(int maxSemas, int port) {
  * (called as an on_shmem_exit callback, hence funny argument list)
  */
 static void
-ReleaseSemaphores(int status, Datum arg)
-{
-	int			i;
+ReleaseSemaphores(int status, Datum arg) {
+    int i;
 
-	for (i = 0; i < numSemaSets; i++)
-		IpcSemaphoreKill(mySemaSets[i]);
-	free(mySemaSets);
+    for (i = 0; i < numSemaSets; i++)
+        IpcSemaphoreKill(mySemaSets[i]);
+    free(mySemaSets);
 }
 
 /*
@@ -344,10 +352,10 @@ ReleaseSemaphores(int status, Datum arg)
  * Allocate a PGSemaphore structure with initial count 1
  */
 PGSemaphore PGSemaphoreCreate(void) {
-	PGSemaphore pgSemaphore;
+    PGSemaphore pgSemaphore;
 
-	/* Can't do this in a backend, because static state is postmaster's */
-	Assert(!IsUnderPostmaster);
+    /* Can't do this in a backend, because static state is postmaster's */
+    Assert(!IsUnderPostmaster);
 
     /* 当前的 set满了 ,time to allocate another semaphore set */
     if (nextSemaNumber >= SEMAS_PER_SET) {
@@ -382,35 +390,34 @@ PGSemaphore PGSemaphoreCreate(void) {
  * Reset a previously-initialized PGSemaphore to have count 0
  */
 void
-PGSemaphoreReset(PGSemaphore sema)
-{
-	IpcSemaphoreInitialize(sema->semId, sema->semNum, 0);
+PGSemaphoreReset(PGSemaphore sema) {
+    IpcSemaphoreInitialize(sema->semId, sema->semNum, 0);
 }
 
 // Lock a semaphore (decrement count), blocking if count would be < 0
 void PGSemaphoreLock(PGSemaphore pgSemaphore) {
-	int	errStatus;
-	struct sembuf sops;
+    int errStatus;
+    struct sembuf sops;
 
     sops.sem_num = pgSemaphore->semNum;
-	sops.sem_op = -1; // decrement
+    sops.sem_op = -1; // decrement
     sops.sem_flg = 0;
 
-	/*
-	 * Note: if errStatus is -1 and errno == EINTR then it means we returned
-	 * from the operation prematurely because we were sent a signal.  So we
-	 * try and lock the semaphore again.
-	 *
-	 * We used to check interrupts here, but that required servicing
-	 * interrupts directly from signal handlers. Which is hard to do safely
-	 * and portably.
-	 */
-	do {
-		errStatus = semop(pgSemaphore->semId, &sops, 1);
-	} while (errStatus < 0 && errno == EINTR);
+    /*
+     * Note: if errStatus is -1 and errno == EINTR then it means we returned
+     * from the operation prematurely because we were sent a signal.  So we
+     * try and lock the semaphore again.
+     *
+     * We used to check interrupts here, but that required servicing
+     * interrupts directly from signal handlers. Which is hard to do safely
+     * and portably.
+     */
+    do {
+        errStatus = semop(pgSemaphore->semId, &sops, 1);
+    } while (errStatus < 0 && errno == EINTR);
 
-	if (errStatus < 0) {
-		elog(FATAL, "semop(id=%d) failed: %m", pgSemaphore->semId);
+    if (errStatus < 0) {
+        elog(FATAL, "semop(id=%d) failed: %m", pgSemaphore->semId);
     }
 }
 
@@ -444,39 +451,36 @@ void PGSemaphoreUnlock(PGSemaphore sema) {
  * Lock a semaphore only if able to do so without blocking
  */
 bool
-PGSemaphoreTryLock(PGSemaphore sema)
-{
-	int			errStatus;
-	struct sembuf sops;
+PGSemaphoreTryLock(PGSemaphore sema) {
+    int errStatus;
+    struct sembuf sops;
 
-	sops.sem_op = -1;			/* decrement */
-	sops.sem_flg = IPC_NOWAIT;	/* but don't block */
-	sops.sem_num = sema->semNum;
+    sops.sem_op = -1;            /* decrement */
+    sops.sem_flg = IPC_NOWAIT;    /* but don't block */
+    sops.sem_num = sema->semNum;
 
-	/*
-	 * Note: if errStatus is -1 and errno == EINTR then it means we returned
-	 * from the operation prematurely because we were sent a signal.  So we
-	 * try and lock the semaphore again.
-	 */
-	do
-	{
-		errStatus = semop(sema->semId, &sops, 1);
-	} while (errStatus < 0 && errno == EINTR);
+    /*
+     * Note: if errStatus is -1 and errno == EINTR then it means we returned
+     * from the operation prematurely because we were sent a signal.  So we
+     * try and lock the semaphore again.
+     */
+    do {
+        errStatus = semop(sema->semId, &sops, 1);
+    } while (errStatus < 0 && errno == EINTR);
 
-	if (errStatus < 0)
-	{
-		/* Expect EAGAIN or EWOULDBLOCK (platform-dependent) */
+    if (errStatus < 0) {
+        /* Expect EAGAIN or EWOULDBLOCK (platform-dependent) */
 #ifdef EAGAIN
-		if (errno == EAGAIN)
-			return false;		/* failed to lock it */
+        if (errno == EAGAIN)
+            return false;        /* failed to lock it */
 #endif
 #if defined(EWOULDBLOCK) && (!defined(EAGAIN) || (EWOULDBLOCK != EAGAIN))
-		if (errno == EWOULDBLOCK)
-			return false;		/* failed to lock it */
+            if (errno == EWOULDBLOCK)
+                return false;		/* failed to lock it */
 #endif
-		/* Otherwise we got trouble */
-		elog(FATAL, "semop(id=%d) failed: %m", sema->semId);
-	}
+        /* Otherwise we got trouble */
+        elog(FATAL, "semop(id=%d) failed: %m", sema->semId);
+    }
 
-	return true;
+    return true;
 }
