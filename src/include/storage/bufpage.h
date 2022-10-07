@@ -86,11 +86,7 @@ typedef Pointer Page;
  */
 typedef uint16 LocationIndex;
 
-
-/*
- * For historical reasons, the 64-bit LSN value is stored as two 32-bit
- * values.
- */
+// for historical reasons, the 64-bit LSN value is stored as two 32-bit values.
 typedef struct {
     uint32 xlogid;            /* high bits */
     uint32 xrecoff;        /* low bits */
@@ -148,9 +144,8 @@ typedef struct {
  */
 
 typedef struct PageHeaderData {
-    /* XXX LSN is member of *any* block, not only page-organized ones */
-    PageXLogRecPtr pd_lsn;        /* LSN: next byte after last byte of xlog
-								 * record for last change to this page */
+    /* XXX LSN(Log sequence number) is member of *any* block, not only page-organized ones */
+    PageXLogRecPtr pd_lsn;        /* LSN: next byte after last byte of xlog record for last change to this page */
     uint16 pd_checksum;    /* checksum */
     uint16 pd_flags;        /* flag bits, see below */
     LocationIndex pd_lower;        /* offset to start of free space */
@@ -177,8 +172,7 @@ typedef PageHeaderData *PageHeader;
  */
 #define PD_HAS_FREE_LINES    0x0001    /* are there any unused line pointers? */
 #define PD_PAGE_FULL        0x0002    /* not enough free space for new tuple? */
-#define PD_ALL_VISIBLE        0x0004    /* all tuples on page are visible to
-									 * everyone */
+#define PD_ALL_VISIBLE        0x0004    /* all tuples on page are visible to everyone */
 
 #define PD_VALID_FLAG_BITS    0x0007    /* OR of all valid pd_flags bits */
 

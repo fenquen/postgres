@@ -1760,8 +1760,7 @@ FreeBulkInsertState(BulkInsertState bistate) {
 /*
  * ReleaseBulkInsertStatePin - release a buffer currently held in bistate
  */
-void
-ReleaseBulkInsertStatePin(BulkInsertState bistate) {
+void ReleaseBulkInsertStatePin(BulkInsertState bistate) {
     if (bistate->current_buf != InvalidBuffer)
         ReleaseBuffer(bistate->current_buf);
     bistate->current_buf = InvalidBuffer;
@@ -1770,8 +1769,7 @@ ReleaseBulkInsertStatePin(BulkInsertState bistate) {
 /*
  *	heap_insert		- insert tuple into a heap
  *
- * The new tuple is stamped with current transaction ID and the specified
- * command ID.
+ * The new tuple is stamped with current transaction ID and the specified command ID.
  *
  * See table_tuple_insert for comments about most of the input flags, except
  * that this routine directly takes a tuple rather than a slot.
@@ -1795,7 +1793,7 @@ void heap_insert(Relation relation,
     Buffer vmbuffer = InvalidBuffer;
     bool allVisibleCleared = false;
 
-    /* Cheap, simplistic check that the tuple matches the rel's rowtype. */
+    // cheap, simplistic check that the tuple matches the rel's rowtype. */
     Assert(HeapTupleHeaderGetNatts(heapTuple->t_data) <= RelationGetNumberOfAttributes(relation));
 
     // 设置tuple的1系列的标志
@@ -1842,7 +1840,9 @@ void heap_insert(Relation relation,
 
     if (PageIsAllVisible(BufferGetPage(buffer))) {
         allVisibleCleared = true;
+
         PageClearAllVisible(BufferGetPage(buffer));
+
         visibilitymap_clear(relation,
                             ItemPointerGetBlockNumber(&(heaptup->t_self)),
                             vmbuffer,
@@ -1859,17 +1859,13 @@ void heap_insert(Relation relation,
 	 *
 	 * If you do add PageSetPrunable here, add it in heap_xlog_insert too.
 	 */
-
     MarkBufferDirty(buffer);
 
-    /* XLOG stuff */
+    // XLOG(wal) 相应的
     if (!(options & HEAP_INSERT_SKIP_WAL) && RelationNeedsWAL(relation)) {
-        xl_heap_insert xlrec;
-        xl_heap_header xlhdr;
-        XLogRecPtr recptr;
         Page page = BufferGetPage(buffer);
+
         uint8 info = XLOG_HEAP_INSERT;
-        int bufflags = 0;
 
         /*
 		 * If this is a catalog, we need to transmit combocids to properly
@@ -1883,18 +1879,23 @@ void heap_insert(Relation relation,
 		 * page instead of restoring the whole thing.  Set flag, and hide
 		 * buffer references from XLogInsert.
 		 */
+        int bufflags = 0;
         if (ItemPointerGetOffsetNumber(&(heaptup->t_self)) == FirstOffsetNumber &&
             PageGetMaxOffsetNumber(page) == FirstOffsetNumber) {
             info |= XLOG_HEAP_INIT_PAGE;
             bufflags |= REGBUF_WILL_INIT;
         }
 
-        xlrec.offnum = ItemPointerGetOffsetNumber(&heaptup->t_self);
-        xlrec.flags = 0;
-        if (allVisibleCleared)
-            xlrec.flags |= XLH_INSERT_ALL_VISIBLE_CLEARED;
-        if (options & HEAP_INSERT_SPECULATIVE)
-            xlrec.flags |= XLH_INSERT_IS_SPECULATIVE;
+        xl_heap_insert xlHeapInsert;
+        xlHeapInsert.offnum = ItemPointerGetOffsetNumber(&heaptup->t_self);
+        xlHeapInsert.flags = 0;
+        if (allVisibleCleared) {
+            xlHeapInsert.flags |= XLH_INSERT_ALL_VISIBLE_CLEARED;
+        }
+        if (options & HEAP_INSERT_SPECULATIVE) {
+            xlHeapInsert.flags |= XLH_INSERT_IS_SPECULATIVE;
+        }
+
         Assert(ItemPointerGetBlockNumber(&heaptup->t_self) == BufferGetBlockNumber(buffer));
 
         /*
@@ -1902,44 +1903,48 @@ void heap_insert(Relation relation,
 		 * page write, so make sure it's included even if we take a full-page
 		 * image. (XXX We could alternatively store a pointer into the FPW).
 		 */
-        if (RelationIsLogicallyLogged(relation) &&
-            !(options & HEAP_INSERT_NO_LOGICAL)) {
-            xlrec.flags |= XLH_INSERT_CONTAINS_NEW_TUPLE;
+        if (RelationIsLogicallyLogged(relation) && !(options & HEAP_INSERT_NO_LOGICAL)) {
+            xlHeapInsert.flags |= XLH_INSERT_CONTAINS_NEW_TUPLE;
             bufflags |= REGBUF_KEEP_DATA;
         }
 
         XLogBeginInsert();
-        XLogRegisterData((char *) &xlrec, SizeOfHeapInsert);
 
-        xlhdr.t_infomask2 = heaptup->t_data->t_infomask2;
-        xlhdr.t_infomask = heaptup->t_data->t_infomask;
-        xlhdr.t_hoff = heaptup->t_data->t_hoff;
+        // XLogRecData
+        XLogRegisterData((char *) &xlHeapInsert, SizeOfHeapInsert);
+
+        xl_heap_header xlHeapHeader;
+        xlHeapHeader.t_infomask2 = heaptup->t_data->t_infomask2;
+        xlHeapHeader.t_infomask = heaptup->t_data->t_infomask;
+        xlHeapHeader.t_hoff = heaptup->t_data->t_hoff;
 
         /*
-		 * note we mark xlhdr as belonging to buffer; if XLogInsert decides to
-		 * write the whole page to the xlog, we don't need to store
-		 * xl_heap_header in the xlog.
+		 * note we mark xlHeapHeader as belonging to buffer; if XLogInsert decides to
+		 * write the whole page to the xlog, we don't need to store xl_heap_header in the xlog.
 		 */
+        // registered_buffer
         XLogRegisterBuffer(0, buffer, REGBUF_STANDARD | bufflags);
-        XLogRegisterBufData(0, (char *) &xlhdr, SizeOfHeapHeader);
+
+        XLogRegisterBufData(0, (char *) &xlHeapHeader, SizeOfHeapHeader);
         /* PG73FORMAT: write bitmap [+ padding] [+ oid] + data */
         XLogRegisterBufData(0,
                             (char *) heaptup->t_data + SizeofHeapTupleHeader,
                             heaptup->t_len - SizeofHeapTupleHeader);
 
-        /* filtering by origin on a row level is much more efficient */
+        // filtering by origin on a row level is much more efficient */
         XLogSetRecordFlags(XLOG_INCLUDE_ORIGIN);
 
-        recptr = XLogInsert(RM_HEAP_ID, info);
+        XLogRecPtr xLogRecPtr = XLogInsert(RM_HEAP_ID, info);
 
-        PageSetLSN(page, recptr);
+        PageSetLSN(page, xLogRecPtr);
     }
 
     END_CRIT_SECTION();
 
     UnlockReleaseBuffer(buffer);
-    if (vmbuffer != InvalidBuffer)
+    if (vmbuffer != InvalidBuffer) {
         ReleaseBuffer(vmbuffer);
+    }
 
     /*
 	 * If tuple is cachable, mark it for invalidation from the caches in case
@@ -1948,9 +1953,8 @@ void heap_insert(Relation relation,
 	 */
     CacheInvalidateHeapTuple(relation, heaptup, NULL);
 
-    /* Note: speculative insertions are counted too, even if aborted later */
+    // Note: speculative insertions are counted too, even if aborted later */
     pgstat_count_heap_insert(relation, 1);
-
 
     // If heaptup is a private copy, release it.
     // Don't forget to copy t_self back to the caller's image, too.

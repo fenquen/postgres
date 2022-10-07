@@ -304,3 +304,10 @@ hash structure
 
 #define BufferGetPage(buffer) ((Page)BufferGetBlock(buffer))
     Block是void*指针 page是pointer  对应 整个的block起点 该起点也是 pageHeader起点
+
+
+话术上的对应
+    wal对应xlog ,clog对应xact
+
+lsn: Log sequence number
+    https://blog.csdn.net/weixin_39540651/article/details/117021173

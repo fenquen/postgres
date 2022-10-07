@@ -16,7 +16,7 @@
 
 /*
  * Pointer to a location in the XLOG.  These pointers are 64 bits wide,
- * because we don't want them ever to overflow.
+ * because we don't want them ever to overflow. 使用uint64表达了 PageXLogRecPtr
  */
 typedef uint64 XLogRecPtr;
 

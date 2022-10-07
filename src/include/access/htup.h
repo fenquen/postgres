@@ -66,14 +66,11 @@ typedef struct HeapTupleData {
 #define FIELDNO_HEAPTUPLEDATA_DATA 3
     HeapTupleHeader t_data;        /* -> tuple header and data */
 } HeapTupleData;
-
 typedef HeapTupleData *HeapTuple;
 
 #define HEAPTUPLESIZE    MAXALIGN(sizeof(HeapTupleData))
 
-/*
- * Accessor macros to be used with HeapTuple pointers.
- */
+// Accessor macros to be used with HeapTuple pointers.
 #define HeapTupleIsValid(tuple) PointerIsValid(tuple)
 
 /* HeapTupleHeader functions implemented in utils/time/combocid.c */

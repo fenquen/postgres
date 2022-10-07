@@ -264,7 +264,7 @@ extern CheckpointStatsData CheckpointStats;
 
 struct XLogRecData;
 
-extern XLogRecPtr XLogInsertRecord(struct XLogRecData *rdata,
+extern XLogRecPtr XLogInsertRecord(struct XLogRecData *xLogRecData,
 								   XLogRecPtr fpw_lsn,
 								   uint8 flags);
 extern void XLogFlush(XLogRecPtr RecPtr);

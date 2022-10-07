@@ -579,11 +579,9 @@ typedef struct ViewOptions
 	 (IsCatalogRelation(relation) || RelationIsUsedAsCatalogTable(relation)))
 
 /*
- * RelationIsLogicallyLogged
- *		True if we need to log enough information to extract the data from the
- *		WAL stream.
+ * true if we need to log enough information to extract the data from the WAL stream.
  *
- * We don't log information for unlogged tables (since they don't WAL log
+ * We don't log information for un logged tables (since they don't WAL log
  * anyway) and for system tables (their content is hard to make sense of, and
  * it would complicate decoding slightly for little gain). Note that we *do*
  * log information for user defined catalog tables since they presumably are

@@ -1,9 +1,5 @@
 /*
- * rmgr.h
- *
- * Resource managers definition
- *
- * src/include/access/rmgr.h
+ * resource managers definition
  */
 #ifndef RMGR_H
 #define RMGR_H
@@ -19,17 +15,16 @@ typedef uint8 RmgrId;
  * Note: RM_MAX_ID must fit in RmgrId; widening that type will affect the XLOG
  * file format.
  */
-#define PG_RMGR(symname,name,redo,desc,identify,startup,cleanup,mask) \
-	symname,
+#define PG_RMGR(symname, name, redo, desc, identify, startup, cleanup, mask) \
+    symname,
 
-typedef enum RmgrIds
-{
+typedef enum RmgrIds {
 #include "access/rmgrlist.h"
-	RM_NEXT_ID
+
+    RM_NEXT_ID
 } RmgrIds;
 
 #undef PG_RMGR
+#define RM_MAX_ID                (RM_NEXT_ID - 1)
 
-#define RM_MAX_ID				(RM_NEXT_ID - 1)
-
-#endif							/* RMGR_H */
+#endif                            /* RMGR_H */

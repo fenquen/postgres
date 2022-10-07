@@ -239,15 +239,15 @@ TransactionIdIsKnownCompleted(TransactionId transactionId) {
  * TransactionIdCommitTree
  *		Marks the given transaction and children as committed
  *
- * "xid" is a toplevel transaction commit, and the xids array contains its
- * committed subtransactions.
+ * "xid" is a top level transaction commit, and the xids array contains its
+ * committed sub transactions
  *
  * This commit operation is not guaranteed to be atomic, but if not, subxids
  * are correctly marked subcommit first.
  */
-void
-TransactionIdCommitTree(TransactionId xid, int nxids, TransactionId *xids) {
-    TransactionIdSetTreeStatus(xid, nxids, xids,
+void TransactionIdCommitTree(TransactionId xid, int nxids, TransactionId *xids) {
+    TransactionIdSetTreeStatus(xid,
+                               nxids, xids,
                                TRANSACTION_STATUS_COMMITTED,
                                InvalidXLogRecPtr);
 }

@@ -57,12 +57,15 @@
 
 /* We need two bits per xact, so four xacts fit in a byte */
 #define CLOG_BITS_PER_XACT    2
-#define CLOG_XACTS_PER_BYTE 4
-#define CLOG_XACTS_PER_PAGE (BLCKSZ * CLOG_XACTS_PER_BYTE)
+#define CLOG_XACTS_PER_BYTE 4 // 1个byte可以容纳的clog数量:clog表示的事务的状态有4个 占用2bit 1个字节有8bit 那么1个字节可以容纳4个的clog
+#define CLOG_XACTS_PER_PAGE (BLCKSZ * CLOG_XACTS_PER_BYTE) // 1个的page可以容纳的clog的数量
 #define CLOG_XACT_BITMASK    ((1 << CLOG_BITS_PER_XACT) - 1)
 
+// 以下的2个是page上的定位
 #define TransactionIdToPage(xid)    ((xid) / (TransactionId) CLOG_XACTS_PER_PAGE)
 #define TransactionIdToPgIndex(xid) ((xid) % (TransactionId) CLOG_XACTS_PER_PAGE)
+
+// 以下的2个是byte上的定位
 #define TransactionIdToByte(xid)    (TransactionIdToPgIndex(xid) / CLOG_XACTS_PER_BYTE)
 #define TransactionIdToBIndex(xid)    ((xid) % (TransactionId) CLOG_XACTS_PER_BYTE)
 
@@ -127,7 +130,7 @@ static void TransactionIdSetPageStatusInternal(TransactionId xid, int nsubxids,
  * the top level transactionid for a top level commit or abort. It can
  * also be a subtransaction when we record transaction aborts.
  *
- * subxids is an array of xids of length nsubxids, representing subtransactions
+ * subxids is an array of xids of length nsubxids, representing sub transactions
  * in the tree of xid. In various cases nsubxids may be zero.
  *
  * lsn must be the WAL location of the commit record when recording an async
@@ -147,8 +150,8 @@ static void TransactionIdSetPageStatusInternal(TransactionId xid, int nsubxids,
  * commit as a whole is still atomic.
  *
  * Example:
- *		TransactionId t commits and has subxids t1, t2, t3, t4
- *		t is on page p1, t1 is also on p1, t2 and t3 are on p2, t4 is on p3
+ *		TransactionId t commits and has sub xids t1, t2, t3, t4
+ *		t is on page p1, t1 is on p1, t2 t3 are on p2, t4 is on p3
  *		1. update pages2-3:
  *					page2: set t2,t3 as sub-committed
  *					page3: set t4 as sub-committed
@@ -182,13 +185,9 @@ void TransactionIdSetTreeStatus(TransactionId xid,
             break;
     }
 
-    /*
-     * Do all items fit on a single page?
-     */
+    // are all items fit on a single page?
     if (i == nsubxids) {
-        /*
-         * Set the parent and all subtransactions in a single call
-         */
+        // set the parent and all subtransactions in a single call
         TransactionIdSetPageStatus(xid, nsubxids, subxids, status, lsn,
                                    pageno, true);
     } else {
