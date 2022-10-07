@@ -389,8 +389,9 @@ XLogSetRecordFlags(uint8 flags) {
 XLogRecPtr XLogInsert(RmgrId rmgrId, uint8 info) {
 
     /* XLogBeginInsert() must have been called. */
-    if (!begininsert_called)
+    if (!begininsert_called) {
         elog(ERROR, "XLogBeginInsert was not called");
+    }
 
     /*
      * The caller can set rmgr bits, XLR_SPECIAL_REL_UPDATE and
@@ -403,13 +404,12 @@ XLogRecPtr XLogInsert(RmgrId rmgrId, uint8 info) {
     TRACE_POSTGRESQL_WAL_INSERT(rmgrId, info);
 
     // in bootstrap mode, we don't actually log anything but XLOG resources; return a phony record pointer.
-    XLogRecPtr endPos;
     if (IsBootstrapProcessingMode() && rmgrId != RM_XLOG_ID) {
         XLogResetInsertion();
-        endPos = SizeOfXLogLongPHD; /* start of 1st chkpt record */
-        return endPos;
+        return SizeOfXLogLongPHD; /* start of 1st chkpt record */
     }
 
+    XLogRecPtr endPos;
     do {
         // Get values needed to decide whether to do full-page writes. Since
         // we don't yet have an insertion lock, these could change under us,

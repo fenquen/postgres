@@ -272,10 +272,6 @@ typedef IndexTupleData *IndexTuple;
 如何应对1个多column的index
 如何应对多个多column的index
 
-
-
-
-
 indexRelation的第0个buffer是meta
     Buffer metaBuffer = _bt_getbuf(indexRelation, BTREE_METAPAGE, BT_READ);
 indexRelation的meta对应的那个page实际保存的数据便是meta本身

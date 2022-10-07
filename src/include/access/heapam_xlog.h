@@ -335,10 +335,8 @@ typedef struct xl_heap_visible {
 #define SizeOfHeapVisible (offsetof(xl_heap_visible, flags) + sizeof(uint8))
 
 typedef struct xl_heap_new_cid {
-    /*
-     * store toplevel xid so we don't have to merge cids from different
-     * transactions
-     */
+
+    // store toplevel xid so we don't have to merge cids from different transactions
     TransactionId top_xid;
     CommandId cmin;
     CommandId cmax;

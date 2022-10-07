@@ -534,9 +534,9 @@ typedef struct XLogCtlInsert {
     slock_t insertpos_lck;    /* protects CurrBytePos and PrevBytePos */
 
     /*
-	 * CurrBytePos is the end of reserved WAL. The next record will be
-	 * inserted at that position. PrevBytePos is the start position of the
-	 * previously inserted (or rather, reserved) record - it is copied to the
+	 * CurrBytePos is the end of 当前 reserved WAL. The next record will be
+	 * inserted at that position. PrevBytePos is 对应的起始
+	 * (or rather, reserved) record - it is copied to the
 	 * prev-link of the next record. These are stored as "usable byte
 	 * positions" rather than XLogRecPtrs (see XLogBytePosToRecPtr()).
 	 */
@@ -977,8 +977,8 @@ static void CopyXLogRecordToWAL(int write_len, bool isLogSwitch,
                                 XLogRecData *rdata,
                                 XLogRecPtr StartPos, XLogRecPtr EndPos);
 
-static void ReserveXLogInsertLocation(int size, XLogRecPtr *StartPos,
-                                      XLogRecPtr *EndPos, XLogRecPtr *PrevPtr);
+static void ReserveXLogInsertLocation(int byteLen, XLogRecPtr *startPos,
+                                      XLogRecPtr *endPos, XLogRecPtr *prevPtr);
 
 static bool ReserveXLogSwitch(XLogRecPtr *StartPos, XLogRecPtr *EndPos,
                               XLogRecPtr *PrevPtr);
@@ -1032,23 +1032,22 @@ static void WALInsertLockUpdateInsertingAt(XLogRecPtr insertingAt);
 XLogRecPtr XLogInsertRecord(XLogRecData *xLogRecData,
                             XLogRecPtr fpw_lsn,
                             uint8 flags) {
-    XLogCtlInsert *Insert = &XLogCtl->Insert;
-    pg_crc32c rdata_crc;
-    bool inserted;
-    XLogRecord *rechdr = (XLogRecord *) xLogRecData->data;
-    uint8 info = rechdr->xl_info & ~XLR_INFO_MASK;
-    bool isLogSwitch = (rechdr->xl_rmid == RM_XLOG_ID &&
-                        info == XLOG_SWITCH);
-    XLogRecPtr StartPos;
-    XLogRecPtr EndPos;
+    XLogCtlInsert *xLogCtlInsert = &XLogCtl->Insert;
+
+    XLogRecord *xLogRecord = (XLogRecord *) xLogRecData->data;
+    uint8 info = xLogRecord->xl_info & ~XLR_INFO_MASK;
+
+    bool isLogSwitch = (xLogRecord->xl_rmid == RM_XLOG_ID && info == XLOG_SWITCH);
+
     bool prevDoPageWrites = doPageWrites;
 
-    /* we assume that all of the record header is in the first chunk */
+    // we assume that all the record header is in the first chunk
     Assert(xLogRecData->len >= SizeOfXLogRecord);
 
-    /* cross-check on whether we should be here or not */
-    if (!XLogInsertAllowed())
+    // cross-check on whether we should be here or not */
+    if (!XLogInsertAllowed()) {
         elog(ERROR, "cannot make new WAL entries during recovery");
+    }
 
     /*----------
 	 *
@@ -1057,7 +1056,7 @@ XLogRecPtr XLogInsertRecord(XLogRecData *xLogRecData,
 	 * record to the shared WAL buffer cache is a two-step process:
 	 *
 	 * 1. Reserve the right amount of space from the WAL. The current head of
-	 *	  reserved space is kept in Insert->CurrBytePos, and is protected by
+	 *	  reserved space is kept in xLogCtlInsert->CurrBytePos, and is protected by
 	 *	  insertpos_lck.
 	 *
 	 * 2. Copy the record to the reserved WAL space. This involves finding the
@@ -1083,10 +1082,12 @@ XLogRecPtr XLogInsertRecord(XLogRecData *xLogRecData,
 	 *----------
 	 */
     START_CRIT_SECTION();
-    if (isLogSwitch)
+
+    if (isLogSwitch) {
         WALInsertLockAcquireExclusive();
-    else
+    } else {
         WALInsertLockAcquire();
+    }
 
     /*
 	 * Check to see if my copy of RedoRecPtr is out of date. If so, may have
@@ -1104,51 +1105,50 @@ XLogRecPtr XLogInsertRecord(XLogRecData *xLogRecData,
 	 * we could recompute the record without full pages, but we choose not to
 	 * bother.)
 	 */
-    if (RedoRecPtr != Insert->RedoRecPtr) {
-        Assert(RedoRecPtr < Insert->RedoRecPtr);
-        RedoRecPtr = Insert->RedoRecPtr;
+    if (RedoRecPtr != xLogCtlInsert->RedoRecPtr) {
+        Assert(RedoRecPtr < xLogCtlInsert->RedoRecPtr);
+        RedoRecPtr = xLogCtlInsert->RedoRecPtr;
     }
-    doPageWrites = (Insert->fullPageWrites || Insert->forcePageWrites);
+
+    doPageWrites = (xLogCtlInsert->fullPageWrites || xLogCtlInsert->forcePageWrites);
 
     if (doPageWrites &&
-        (!prevDoPageWrites ||
-         (fpw_lsn != InvalidXLogRecPtr && fpw_lsn <= RedoRecPtr))) {
-        /*
-		 * Oops, some buffer now needs to be backed up that the caller didn't
-		 * back up.  Start over.
-		 */
+        (!prevDoPageWrites || (fpw_lsn != InvalidXLogRecPtr && fpw_lsn <= RedoRecPtr))) {
+        // some buffer now needs to be backed up that the caller didn't back up.  start over.
         WALInsertLockRelease();
         END_CRIT_SECTION();
         return InvalidXLogRecPtr;
     }
 
-    /*
-	 * Reserve space for the record in the WAL. This also sets the xl_prev
-	 * pointer.
-	 */
-    if (isLogSwitch)
-        inserted = ReserveXLogSwitch(&StartPos, &EndPos, &rechdr->xl_prev);
-    else {
-        ReserveXLogInsertLocation(rechdr->xl_tot_len, &StartPos, &EndPos,
-                                  &rechdr->xl_prev);
+    XLogRecPtr startPos;
+    XLogRecPtr endPos;
+    bool inserted;
+
+    // Reserve space for the record in the WAL. This also sets the xl_prev pointer.
+    if (isLogSwitch) {
+        inserted = ReserveXLogSwitch(&startPos, &endPos, &xLogRecord->xl_prev);
+    } else {
+        ReserveXLogInsertLocation(xLogRecord->xl_tot_len,
+                                  &startPos,
+                                  &endPos,
+                                  &xLogRecord->xl_prev);
         inserted = true;
     }
 
     if (inserted) {
-        /*
-		 * Now that xl_prev has been filled in, calculate CRC of the record header.
-		 */
-        rdata_crc = rechdr->xl_crc;
-        COMP_CRC32C(rdata_crc, rechdr, offsetof(XLogRecord, xl_crc));
-        FIN_CRC32C(rdata_crc);
-        rechdr->xl_crc = rdata_crc;
+        // Now that xl_prev has been filled in, calculate CRC of the record header.
+        pg_crc32c rdataCrc = xLogRecord->xl_crc;
+        COMP_CRC32C(rdataCrc, xLogRecord, offsetof(XLogRecord, xl_crc));
+        FIN_CRC32C(rdataCrc);
+        xLogRecord->xl_crc = rdataCrc;
 
         /*
 		 * All the record data, including the header, is now ready to be
 		 * inserted. Copy the record in the space reserved.
 		 */
-        CopyXLogRecordToWAL(rechdr->xl_tot_len, isLogSwitch, xLogRecData,
-                            StartPos, EndPos);
+        CopyXLogRecordToWAL(xLogRecord->xl_tot_len,
+                            isLogSwitch, xLogRecData,
+                            startPos, endPos);
 
         /*
 		 * Unless record is flagged as not important, update LSN of last
@@ -1158,7 +1158,7 @@ XLogRecPtr XLogInsertRecord(XLogRecData *xLogRecData,
         if ((flags & XLOG_MARK_UNIMPORTANT) == 0) {
             int lockno = holdingAllLocks ? 0 : MyLockNo;
 
-            WALInsertLocks[lockno].l.lastImportantAt = StartPos;
+            WALInsertLocks[lockno].l.lastImportantAt = startPos;
         }
     } else {
         /*
@@ -1168,23 +1168,19 @@ XLogRecPtr XLogInsertRecord(XLogRecData *xLogRecData,
 		 */
     }
 
-    /*
-	 * Done! Let others know that we're finished.
-	 */
+    // Done, Let others know that we're finished.
     WALInsertLockRelease();
 
     MarkCurrentTransactionIdLoggedIfAny();
 
     END_CRIT_SECTION();
 
-    /*
-	 * Update shared LogwrtRqst.Write, if we crossed page boundary.
-	 */
-    if (StartPos / XLOG_BLCKSZ != EndPos / XLOG_BLCKSZ) {
+    // update shared LogwrtRqst.Write, if we crossed page boundary.
+    if (startPos / XLOG_BLCKSZ != endPos / XLOG_BLCKSZ) {
         SpinLockAcquire(&XLogCtl->info_lck);
-        /* advance global request to include new block(s) */
-        if (XLogCtl->LogwrtRqst.Write < EndPos)
-            XLogCtl->LogwrtRqst.Write = EndPos;
+        // advance global request to include new block(s) */
+        if (XLogCtl->LogwrtRqst.Write < endPos)
+            XLogCtl->LogwrtRqst.Write = endPos;
         /* update local result copy while I have the chance */
         LogwrtResult = XLogCtl->LogwrtResult;
         SpinLockRelease(&XLogCtl->info_lck);
@@ -1197,89 +1193,87 @@ XLogRecPtr XLogInsertRecord(XLogRecData *xLogRecData,
 	 */
     if (isLogSwitch) {
         TRACE_POSTGRESQL_WAL_SWITCH();
-        XLogFlush(EndPos);
+        XLogFlush(endPos);
 
         /*
 		 * Even though we reserved the rest of the segment for us, which is
-		 * reflected in EndPos, we return a pointer to just the end of the
+		 * reflected in endPos, we return a pointer to just the end of the
 		 * xlog-switch record.
 		 */
         if (inserted) {
-            EndPos = StartPos + SizeOfXLogRecord;
-            if (StartPos / XLOG_BLCKSZ != EndPos / XLOG_BLCKSZ) {
-                uint64 offset = XLogSegmentOffset(EndPos, wal_segment_size);
+            endPos = startPos + SizeOfXLogRecord;
+            if (startPos / XLOG_BLCKSZ != endPos / XLOG_BLCKSZ) {
+                uint64 offset = XLogSegmentOffset(endPos, wal_segment_size);
 
-                if (offset == EndPos % XLOG_BLCKSZ)
-                    EndPos += SizeOfXLogLongPHD;
+                if (offset == endPos % XLOG_BLCKSZ)
+                    endPos += SizeOfXLogLongPHD;
                 else
-                    EndPos += SizeOfXLogShortPHD;
+                    endPos += SizeOfXLogShortPHD;
             }
         }
     }
 
 #ifdef WAL_DEBUG
-                                                                                                                            if (XLOG_DEBUG)
-	{
-		static XLogReaderState *debug_reader = NULL;
-		StringInfoData buf;
-		StringInfoData recordBuf;
-		char	   *errormsg = NULL;
-		MemoryContext oldCxt;
+    if (XLOG_DEBUG)
+        {
+            static XLogReaderState *debug_reader = NULL;
+            StringInfoData buf;
+            StringInfoData recordBuf;
+            char	   *errormsg = NULL;
+            MemoryContext oldCxt;
 
-		oldCxt = MemoryContextSwitchTo(walDebugCxt);
+            oldCxt = MemoryContextSwitchTo(walDebugCxt);
 
-		initStringInfo(&buf);
-		appendStringInfo(&buf, "INSERT @ %X/%X: ",
-						 (uint32) (EndPos >> 32), (uint32) EndPos);
+            initStringInfo(&buf);
+            appendStringInfo(&buf, "INSERT @ %X/%X: ",
+                             (uint32) (endPos >> 32), (uint32) endPos);
 
-		/*
-		 * We have to piece together the WAL record data from the XLogRecData
-		 * entries, so that we can pass it to the rm_desc function as one
-		 * contiguous chunk.
-		 */
-		initStringInfo(&recordBuf);
-		for (; xLogRecData != NULL; xLogRecData = xLogRecData->next)
-			appendBinaryStringInfo(&recordBuf, xLogRecData->data, xLogRecData->len);
+            /*
+             * We have to piece together the WAL record data from the XLogRecData
+             * entries, so that we can pass it to the rm_desc function as one
+             * contiguous chunk.
+             */
+            initStringInfo(&recordBuf);
+            for (; xLogRecData != NULL; xLogRecData = xLogRecData->next)
+                appendBinaryStringInfo(&recordBuf, xLogRecData->data, xLogRecData->len);
 
-		if (!debug_reader)
-			debug_reader = XLogReaderAllocate(wal_segment_size, NULL, NULL);
+            if (!debug_reader)
+                debug_reader = XLogReaderAllocate(wal_segment_size, NULL, NULL);
 
-		if (!debug_reader)
-		{
-			appendStringInfoString(&buf, "error decoding record: out of memory");
-		}
-		else if (!DecodeXLogRecord(debug_reader, (XLogRecord *) recordBuf.data,
-								   &errormsg))
-		{
-			appendStringInfo(&buf, "error decoding record: %s",
-							 errormsg ? errormsg : "no error message");
-		}
-		else
-		{
-			appendStringInfoString(&buf, " - ");
-			xlog_outdesc(&buf, debug_reader);
-		}
-		elog(LOG, "%s", buf.data);
+            if (!debug_reader)
+            {
+                appendStringInfoString(&buf, "error decoding record: out of memory");
+            }
+            else if (!DecodeXLogRecord(debug_reader, (XLogRecord *) recordBuf.data,
+                                       &errormsg))
+            {
+                appendStringInfo(&buf, "error decoding record: %s",
+                                 errormsg ? errormsg : "no error message");
+            }
+            else
+            {
+                appendStringInfoString(&buf, " - ");
+                xlog_outdesc(&buf, debug_reader);
+            }
+            elog(LOG, "%s", buf.data);
 
-		pfree(buf.data);
-		pfree(recordBuf.data);
-		MemoryContextSwitchTo(oldCxt);
-	}
+            pfree(buf.data);
+            pfree(recordBuf.data);
+            MemoryContextSwitchTo(oldCxt);
+        }
 #endif
 
-    /*
-	 * Update our global variables
-	 */
-    ProcLastRecPtr = StartPos;
-    XactLastRecEnd = EndPos;
+    // update our global variables
+    ProcLastRecPtr = startPos;
+    XactLastRecEnd = endPos;
 
-    return EndPos;
+    return endPos;
 }
 
 /*
- * Reserves the right amount of space for a record of given size from the WAL.
- * *StartPos is set to the beginning of the reserved section, *EndPos to
- * its end+1. *PrevPtr is set to the beginning of the previous record; it is
+ * Reserves the right amount of space for a record of given byteLen from the WAL.
+ * *startPos is set to the beginning of the reserved section, *endPos to
+ * its end+1. *prevPtr is set to the beginning of the previous record; it is
  * used to set the xl_prev of this record.
  *
  * This is the performance critical part of XLogInsert that must be serialized
@@ -1290,18 +1284,16 @@ XLogRecPtr XLogInsertRecord(XLogRecData *xLogRecData,
  * NB: The space calculation here must match the code in CopyXLogRecordToWAL,
  * where we actually copy the record to the reserved space.
  */
-static void
-ReserveXLogInsertLocation(int size, XLogRecPtr *StartPos, XLogRecPtr *EndPos,
-                          XLogRecPtr *PrevPtr) {
-    XLogCtlInsert *Insert = &XLogCtl->Insert;
-    uint64 startbytepos;
-    uint64 endbytepos;
-    uint64 prevbytepos;
+static void ReserveXLogInsertLocation(int byteLen,
+                                      XLogRecPtr *startPos,
+                                      XLogRecPtr *endPos,
+                                      XLogRecPtr *prevPtr) {
+    XLogCtlInsert *xLogCtlInsert = &XLogCtl->Insert;
 
-    size = MAXALIGN(size);
+    byteLen = MAXALIGN(byteLen);
 
     /* All (non xlog-switch) records should contain data. */
-    Assert(size > SizeOfXLogRecord);
+    Assert(byteLen > SizeOfXLogRecord);
 
     /*
 	 * The duration the spinlock needs to be held is minimized by minimizing
@@ -1313,27 +1305,31 @@ ReserveXLogInsertLocation(int size, XLogRecPtr *StartPos, XLogRecPtr *EndPos,
 	 * because the usable byte position doesn't include any headers, reserving
 	 * X bytes from WAL is almost as simple as "CurrBytePos += X".
 	 */
-    SpinLockAcquire(&Insert->insertpos_lck);
+    SpinLockAcquire(&xLogCtlInsert->insertpos_lck);
 
-    startbytepos = Insert->CurrBytePos;
-    endbytepos = startbytepos + size;
-    prevbytepos = Insert->PrevBytePos;
-    Insert->CurrBytePos = endbytepos;
-    Insert->PrevBytePos = startbytepos;
+    // 之前的末尾便是当前的起始
+    uint64 startBytePos = xLogCtlInsert->CurrBytePos;
+    uint64 endBytePos = startBytePos + byteLen;
+    uint64 prevBytePos = xLogCtlInsert->PrevBytePos;
 
-    SpinLockRelease(&Insert->insertpos_lck);
+    // update位置
+    xLogCtlInsert->CurrBytePos = endBytePos;
+    xLogCtlInsert->PrevBytePos = startBytePos;
 
-    *StartPos = XLogBytePosToRecPtr(startbytepos);
-    *EndPos = XLogBytePosToEndRecPtr(endbytepos);
-    *PrevPtr = XLogBytePosToRecPtr(prevbytepos);
+    SpinLockRelease(&xLogCtlInsert->insertpos_lck);
+
+    // 换算
+    *startPos = XLogBytePosToRecPtr(startBytePos);
+    *endPos = XLogBytePosToEndRecPtr(endBytePos);
+    *prevPtr = XLogBytePosToRecPtr(prevBytePos);
 
     /*
 	 * Check that the conversions between "usable byte positions" and
 	 * XLogRecPtrs work consistently in both directions.
 	 */
-    Assert(XLogRecPtrToBytePos(*StartPos) == startbytepos);
-    Assert(XLogRecPtrToBytePos(*EndPos) == endbytepos);
-    Assert(XLogRecPtrToBytePos(*PrevPtr) == prevbytepos);
+    Assert(XLogRecPtrToBytePos(*startPos) == startBytePos);
+    Assert(XLogRecPtrToBytePos(*endPos) == endBytePos);
+    Assert(XLogRecPtrToBytePos(*prevPtr) == prevBytePos);
 }
 
 /*
@@ -1636,13 +1632,8 @@ CopyXLogRecordToWAL(int write_len, bool isLogSwitch, XLogRecData *rdata,
         elog(PANIC, "space reserved for WAL record does not match what was written");
 }
 
-/*
- * Acquire a WAL insertion lock, for inserting to WAL.
- */
-static void
-WALInsertLockAcquire(void) {
-    bool immed;
-
+// acquire a WAL insertion lock, for inserting to WAL.
+static void WALInsertLockAcquire(void) {
     /*
 	 * It doesn't matter which of the WAL insertion locks we acquire, so try
 	 * the one we used last time.  If the system isn't particularly busy, it's
@@ -1656,16 +1647,15 @@ WALInsertLockAcquire(void) {
 	 */
     static int lockToTry = -1;
 
-    if (lockToTry == -1)
+    if (lockToTry == -1) {
         lockToTry = MyProc->pgprocno % NUM_XLOGINSERT_LOCKS;
+    }
+
     MyLockNo = lockToTry;
 
-    /*
-	 * The insertingAt value is initially set to 0, as we don't know our
-	 * insert location yet.
-	 */
-    immed = LWLockAcquire(&WALInsertLocks[MyLockNo].l.lock, LW_EXCLUSIVE);
-    if (!immed) {
+    // The insertingAt value is initially set to 0, as we don't know our insert location yet.
+    bool getLockNoWait = LWLockAcquire(&WALInsertLocks[MyLockNo].l.lock, LW_EXCLUSIVE);
+    if (!getLockNoWait) {
         /*
 		 * If we couldn't get the lock immediately, try another lock next
 		 * time.  On a system with more insertion locks than concurrent
@@ -1678,12 +1668,8 @@ WALInsertLockAcquire(void) {
     }
 }
 
-/*
- * Acquire all WAL insertion locks, to prevent other backends from inserting
- * to WAL.
- */
-static void
-WALInsertLockAcquireExclusive(void) {
+// Acquire all WAL insertion locks, to prevent other backends from inserting to WAL.
+static void WALInsertLockAcquireExclusive(void) {
     int i;
 
     /*
@@ -1961,8 +1947,7 @@ GetXLogBuffer(XLogRecPtr ptr) {
  * is the position starting from the beginning of WAL, excluding all WAL
  * page headers.
  */
-static XLogRecPtr
-XLogBytePosToRecPtr(uint64 bytepos) {
+static XLogRecPtr XLogBytePosToRecPtr(uint64 bytepos) {
     uint64 fullsegs;
     uint64 fullpages;
     uint64 bytesleft;
@@ -4885,8 +4870,7 @@ XLOGShmemInit(void) {
 #endif
 
 
-    XLogCtl = (XLogCtlData *)
-            ShmemInitStruct("XLOG Ctl", XLOGShmemSize(), &foundXLog);
+    XLogCtl = (XLogCtlData *) ShmemInitStruct("XLOG Ctl", XLOGShmemSize(), &foundXLog);
 
     localControlFile = ControlFile;
     ControlFile = (ControlFileData *)
