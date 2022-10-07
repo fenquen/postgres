@@ -2410,8 +2410,8 @@ static void finish_xact_command(void) {
         CommitTransactionCommand();
 
 #ifdef MEMORY_CONTEXT_CHECKING
-        /* Check all memory contexts that weren't freed during commit */
-        /* (those that were, were checked before being deleted) */
+        // Check all memory contexts that weren't freed during commit
+        // (those that were, were checked before being deleted)
         MemoryContextCheck(TopMemoryContext);
 #endif
 

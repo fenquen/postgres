@@ -33,8 +33,9 @@
  */
 #define XLOG_PAGE_MAGIC 0xD101    /* can be used as WAL version indicator */
 
+// 普通的(该header不是segment的打头的)xlog体系的pageHeader,子类是XLogLongPageHeader是不普通的
 typedef struct XLogPageHeaderData {
-    uint16 xlp_magic;        /* magic value for correctness checks */
+    uint16 xlp_magic;        // 对应 XLOG_PAGE_MAGIC
     uint16 xlp_info;        /* flag bits, see below */
     TimeLineID xlp_tli;        /* TimeLineID of first record on page */
     XLogRecPtr xlp_pageaddr;    /* XLOG address of this page */
@@ -56,6 +57,8 @@ typedef struct XLogPageHeaderData {
 typedef XLogPageHeaderData *XLogPageHeader;
 
 /*
+ * segment打头的header的,和XLogPageHeader相对
+ *
  * When the XLP_LONG_HEADER flag is set, we store additional fields in the
  * page header.  (This is ordinarily done just in the first page of an
  * XLOG file.)	The additional fields serve to identify the file accurately.

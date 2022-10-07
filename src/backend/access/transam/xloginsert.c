@@ -420,7 +420,7 @@ XLogRecPtr XLogInsert(RmgrId rmgrId, uint8 info) {
         GetFullPageWriteInfo(&redoXlogRecPtr, &doPageWrites);
 
         XLogRecPtr fpw_lsn;
-        // 得到的 xLogRecData 是 hdr_scratch
+        // 得到的 xLogRecData 是 hdr_rdt
         XLogRecData *xLogRecData = XLogRecordAssemble(rmgrId,
                                                       info,
                                                       redoXlogRecPtr,

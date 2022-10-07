@@ -1174,7 +1174,7 @@ AtSubStart_ResourceOwner(void) {
  *
  * If you change this function, see RecordTransactionCommitPrepared also.
  */
-static TransactionId RecordTransactionCommit(void) {
+static TransactionId RecordTransactionCommit() {
     TransactionId xid = GetTopTransactionIdIfAny();
     bool markXidCommitted = TransactionIdIsValid(xid);
     TransactionId latestXid = InvalidTransactionId;
@@ -2812,7 +2812,7 @@ void CommitTransactionCommand(void) {
     }
 
     switch (transactionState->blockState) {
-        /*
+            /*
 			 * These shouldn't happen.  TBLOCK_DEFAULT means the previous
 			 * StartTransactionCommand didn't set the STARTED state
 			 * appropriately, while TBLOCK_PARALLEL_INPROGRESS should be ended
@@ -2832,7 +2832,6 @@ void CommitTransactionCommand(void) {
             CommitTransaction();
             transactionState->blockState = TBLOCK_DEFAULT;
             break;
-
             /*
 			 * We are completing a "BEGIN TRANSACTION" command, so we change
 			 * to the "transaction block in progress" state and return.  (We
@@ -2853,11 +2852,7 @@ void CommitTransactionCommand(void) {
         case TBLOCK_SUBINPROGRESS:
             CommandCounterIncrement();
             break;
-
-            /*
-			 * We are completing a "COMMIT" command.  Do it and return to the
-			 * idle state.
-			 */
+            // We are completing a "COMMIT" command.  Do it and return to the idle state.
         case TBLOCK_END:
             CommitTransaction();
             transactionState->blockState = TBLOCK_DEFAULT;
@@ -2868,7 +2863,6 @@ void CommitTransactionCommand(void) {
                 RestoreTransactionCharacteristics();
             }
             break;
-
             /*
 			 * Here we are in the middle of a transaction block but one of the
 			 * commands caused an abort so we do nothing but remain in the
@@ -2877,7 +2871,6 @@ void CommitTransactionCommand(void) {
         case TBLOCK_ABORT:
         case TBLOCK_SUBABORT:
             break;
-
             /*
 			 * Here we were in an aborted transaction block and we just got
 			 * the ROLLBACK command from the user, so clean up the
@@ -2893,7 +2886,6 @@ void CommitTransactionCommand(void) {
                 RestoreTransactionCharacteristics();
             }
             break;
-
             /*
 			 * Here we were in a perfectly good transaction block but the user
 			 * told us to ROLLBACK anyway.  We have to abort the transaction
@@ -2910,7 +2902,6 @@ void CommitTransactionCommand(void) {
                 RestoreTransactionCharacteristics();
             }
             break;
-
             /*
 			 * We are completing a "PREPARE TRANSACTION" command.  Do it and
 			 * return to the idle state.
@@ -2977,7 +2968,7 @@ void CommitTransactionCommand(void) {
                 PrepareTransaction();
                 transactionState->blockState = TBLOCK_DEFAULT;
             } else
-                elog(ERROR, "CommitTransactionCommand: unexpected state %transactionState",
+                elog(ERROR, "CommitTransactionCommand: unexpected state %s",
                      BlockStateAsString(transactionState->blockState));
             break;
 
