@@ -239,14 +239,12 @@ typedef struct PGXACT {
 
     uint8 vacuumFlags;    /* vacuum-related flags, see above */
     bool overflowed;
-    bool delayChkpt;        /* true if this proc delays checkpoint start */
+    bool delayChkpt;        /* true if this proc delay checkpoint start */
 
     uint8 nxids;
 } PGXACT;
 
-/*
- * There is one ProcGlobal struct for the whole database cluster.
- */
+// There is one ProcGlobal struct for the whole database cluster
 typedef struct PROC_HDR {
     /* Array of PGPROC structures (not including dummies for prepared txns) */
     PGPROC *allProcs;

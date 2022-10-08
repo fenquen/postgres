@@ -59,7 +59,7 @@ extern void WalSndRqstFileReload(void);
 	do { wake_wal_senders = true; } while (0)
 
 /*
- * wakeup walsenders if there is work to be done
+ * wakeup wal senders if there is work to do
  */
 #define WalSndWakeupProcessRequests()		\
 	do										\

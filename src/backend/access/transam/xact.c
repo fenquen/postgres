@@ -316,7 +316,7 @@ static void AtStart_Memory(void);
 
 static void AtStart_ResourceOwner(void);
 
-static void CallXactCallbacks(XactEvent event);
+static void CallXactCallbacks(XactEvent xactEvent);
 
 static void CallSubXactCallbacks(SubXactEvent event,
                                  SubTransactionId mySubid,
@@ -820,8 +820,7 @@ SetCurrentStatementStartTimestamp(void) {
 /*
  *	SetCurrentTransactionStopTimestamp
  */
-static inline void
-SetCurrentTransactionStopTimestamp(void) {
+static inline void SetCurrentTransactionStopTimestamp(void) {
     xactStopTimestamp = GetCurrentTimestamp();
 }
 
@@ -831,8 +830,7 @@ SetCurrentTransactionStopTimestamp(void) {
  * Note: this will return zero when not inside any transaction, one when
  * inside a top-level transaction, etc.
  */
-int
-GetCurrentTransactionNestLevel(void) {
+int GetCurrentTransactionNestLevel(void) {
     TransactionState s = CurrentTransactionState;
 
     return s->nestingLevel;
@@ -974,8 +972,7 @@ ExitParallelMode(void) {
  * restriction.  State modified in a strict push/pop fashion, such as the
  * active snapshot stack, is often fine.
  */
-bool
-IsInParallelMode(void) {
+bool IsInParallelMode(void) {
     return CurrentTransactionState->parallelModeLevel != 0;
 }
 
@@ -1178,27 +1175,23 @@ static TransactionId RecordTransactionCommit() {
     TransactionId xid = GetTopTransactionIdIfAny();
     bool markXidCommitted = TransactionIdIsValid(xid);
     TransactionId latestXid = InvalidTransactionId;
-    int nrels;
+
     RelFileNode *rels;
-    int nchildren;
-    TransactionId *children;
-    int nmsgs = 0;
-    SharedInvalidationMessage *invalMessages = NULL;
-    bool RelcacheInitFileInval = false;
-    bool wrote_xlog;
+    int relCount = smgrGetPendingDeletes(true, &rels);
 
-    /* Get data needed for commit record */
-    nrels = smgrGetPendingDeletes(true, &rels);
-    nchildren = xactGetCommittedChildren(&children);
-    if (XLogStandbyInfoActive())
-        nmsgs = xactGetCommittedInvalidationMessages(&invalMessages,
-                                                     &RelcacheInitFileInval);
-    wrote_xlog = (XactLastRecEnd != 0);
+    TransactionId *subXactIds;
+    int subXactCount = xactGetCommittedChildren(&subXactIds);
 
-    /*
-	 * If we haven't been assigned an XID yet, we neither can, nor do we want
-	 * to write a COMMIT record.
-	 */
+    int messageCount = 0;
+    SharedInvalidationMessage *sharedInvalidationMessages = NULL;
+    bool relCacheInitFileInval = false;
+    if (XLogStandbyInfoActive()) {
+        messageCount = xactGetCommittedInvalidationMessages(&sharedInvalidationMessages, &relCacheInitFileInval);
+    }
+
+    bool wroteXlog = (XactLastRecEnd != 0);
+
+    // if we haven't been assigned an XID yet, we neither can, nor do we want to write a COMMIT record.
     if (!markXidCommitted) {
         /*
 		 * We expect that every smgrscheduleunlink is followed by a catalog
@@ -1206,11 +1199,12 @@ static TransactionId RecordTransactionCommit() {
 		 * pending deletes.  Use a real test not just an Assert to check this,
 		 * since it's a bit fragile.
 		 */
-        if (nrels != 0)
+        if (relCount != 0) {
             elog(ERROR, "cannot commit a transaction that deleted files but has no xid");
+        }
 
-        /* Can't have child XIDs either; AssignTransactionId enforces this */
-        Assert(nchildren == 0);
+        // can't have child XIDs either; AssignTransactionId enforces this
+        Assert(subXactCount == 0);
 
         /*
 		 * Transactions without an assigned xid can contain invalidation
@@ -1223,10 +1217,9 @@ static TransactionId RecordTransactionCommit() {
 		 * happen synchronously with commits (besides not wanting to emit more
 		 * WAL records).
 		 */
-        if (nmsgs != 0) {
-            LogStandbyInvalidations(nmsgs, invalMessages,
-                                    RelcacheInitFileInval);
-            wrote_xlog = true;    /* not strictly necessary */
+        if (messageCount != 0) {
+            LogStandbyInvalidations(messageCount, sharedInvalidationMessages, relCacheInitFileInval);
+            wroteXlog = true;    // not strictly necessary
         }
 
         /*
@@ -1235,22 +1228,16 @@ static TransactionId RecordTransactionCommit() {
 		 * would.  This will primarily happen for HOT pruning and the like; we
 		 * want these to be flushed to disk in due time.
 		 */
-        if (!wrote_xlog)
+        if (!wroteXlog) {
             goto cleanup;
+        }
     } else {
-        bool replorigin;
+        // are we using the replication origins feature?  Or, in other words, are we replaying remote actions?
+        bool replOrigin = (replorigin_session_origin != InvalidRepOriginId &&
+                           replorigin_session_origin != DoNotReplicateId);
 
-        /*
-		 * Are we using the replication origins feature?  Or, in other words,
-		 * are we replaying remote actions?
-		 */
-        replorigin = (replorigin_session_origin != InvalidRepOriginId &&
-                      replorigin_session_origin != DoNotReplicateId);
-
-        /*
-		 * Begin commit critical section and insert the commit XLOG record.
-		 */
-        /* Tell bufmgr and smgr to prepare for commit */
+        // begin commit critical section and insert the commit XLOG record.
+        // tell bufmgr and smgr to prepare for commit
         BufmgrCommit();
 
         /*
@@ -1271,22 +1258,28 @@ static TransactionId RecordTransactionCommit() {
 		 * a bit fuzzy, but it doesn't matter.
 		 */
         Assert(!MyPgXact->delayChkpt);
+
         START_CRIT_SECTION();
+
         MyPgXact->delayChkpt = true;
 
         SetCurrentTransactionStopTimestamp();
 
+        // 写clog到指明的内存区,和之前在heap_insert()中写wal相似套路
         XactLogCommitRecord(xactStopTimestamp,
-                            nchildren, children, nrels, rels,
-                            nmsgs, invalMessages,
-                            RelcacheInitFileInval, forceSyncCommit,
+                            subXactCount, subXactIds,
+                            relCount, rels,
+                            messageCount, sharedInvalidationMessages,
+                            relCacheInitFileInval,
+                            forceSyncCommit,
                             MyXactFlags,
-                            InvalidTransactionId, NULL /* plain commit */ );
+                            InvalidTransactionId,
+                            NULL /* plain commit */ );
 
-        if (replorigin)
-            /* Move LSNs forward for this replication origin */
-            replorigin_session_advance(replorigin_session_origin_lsn,
-                                       XactLastRecEnd);
+        if (replOrigin) {
+            // move LSNs forward for this replication origin
+            replorigin_session_advance(replorigin_session_origin_lsn, XactLastRecEnd);
+        }
 
         /*
 		 * Record commit timestamp.  The value comes from plain commit
@@ -1297,11 +1290,12 @@ static TransactionId RecordTransactionCommit() {
 		 * We don't need to WAL-log anything here, as the commit record
 		 * written above already contains the data.
 		 */
-
-        if (!replorigin || replorigin_session_origin_timestamp == 0)
+        if (!replOrigin || replorigin_session_origin_timestamp == 0) {
             replorigin_session_origin_timestamp = xactStopTimestamp;
+        }
 
-        TransactionTreeSetCommitTsData(xid, nchildren, children,
+        TransactionTreeSetCommitTsData(xid,
+                                       subXactCount, subXactIds,
                                        replorigin_session_origin_timestamp,
                                        replorigin_session_origin, false);
     }
@@ -1312,7 +1306,7 @@ static TransactionId RecordTransactionCommit() {
 	 * transaction has not performed any WAL-logged operation or didn't assign
 	 * an xid.  The transaction can end up not writing any WAL, even if it has
 	 * an xid, if it only wrote to temporary and/or unlogged tables.  It can
-	 * end up having written WAL without an xid if it did HOT pruning.  In
+	 * end up having written WAL without a xid if it did HOT pruning.  In
 	 * case of a crash, the loss of such a transaction will be irrelevant;
 	 * temp tables will be lost anyway, unlogged tables will be truncated and
 	 * HOT pruning will be done again later. (Given the foregoing, you might
@@ -1331,20 +1325,17 @@ static TransactionId RecordTransactionCommit() {
 	 * if all to-be-deleted tables are temporary though, since they are lost
 	 * anyway if we crash.)
 	 */
-    if ((wrote_xlog && markXidCommitted &&
-         synchronous_commit > SYNCHRONOUS_COMMIT_OFF) ||
-        forceSyncCommit || nrels > 0) {
+    if ((wroteXlog && markXidCommitted && synchronous_commit > SYNCHRONOUS_COMMIT_OFF) ||
+        forceSyncCommit || relCount > 0) {
+
         XLogFlush(XactLastRecEnd);
 
+        // 更新 CLOG, if we wrote a COMMIT record above
+        if (markXidCommitted) {
+            TransactionIdCommitTree(xid, subXactCount, subXactIds);
+        }
+    } else { // asynchronous commit
         /*
-		 * Now we may update the CLOG, if we wrote a COMMIT record above
-		 */
-        if (markXidCommitted)
-            TransactionIdCommitTree(xid, nchildren, children);
-    } else {
-        /*
-		 * Asynchronous commit case:
-		 *
 		 * This enables possible committed transaction loss in the case of a
 		 * postmaster crash because WAL buffers are left unwritten. Ideally we
 		 * could issue the WAL write without the fsync, but some
@@ -1360,21 +1351,19 @@ static TransactionId RecordTransactionCommit() {
 		 * XLOG. Instead, we store the LSN up to which the XLOG must be
 		 * flushed before the CLOG may be updated.
 		 */
-        if (markXidCommitted)
-            TransactionIdAsyncCommitTree(xid, nchildren, children, XactLastRecEnd);
+        if (markXidCommitted) {
+            TransactionIdAsyncCommitTree(xid, subXactCount, subXactIds, XactLastRecEnd);
+        }
     }
 
-    /*
-	 * If we entered a commit critical section, leave it now, and let
-	 * checkpoints proceed.
-	 */
+    // if we entered a commit critical section, leave it now, and let checkpoints proceed.
     if (markXidCommitted) {
         MyPgXact->delayChkpt = false;
         END_CRIT_SECTION();
     }
 
     /* Compute latestXid while we have the child XIDs handy */
-    latestXid = TransactionIdLatest(xid, nchildren, children);
+    latestXid = TransactionIdLatest(xid, subXactCount, subXactIds);
 
     /*
 	 * Wait for synchronous replication, if required. Similar to the decision
@@ -1385,18 +1374,21 @@ static TransactionId RecordTransactionCommit() {
 	 * Note that at this stage we have marked clog, but still show as running
 	 * in the procarray and continue to hold locks.
 	 */
-    if (wrote_xlog && markXidCommitted)
+    if (wroteXlog && markXidCommitted) {
         SyncRepWaitForLSN(XactLastRecEnd, true);
+    }
 
     /* remember end of last commit record */
     XactLastCommitEnd = XactLastRecEnd;
 
     /* Reset XactLastRecEnd until the next transaction writes something */
     XactLastRecEnd = 0;
+
+    // clean up local data
     cleanup:
-    /* Clean up local data */
-    if (rels)
+    if (rels) {
         pfree(rels);
+    }
 
     return latestXid;
 }
@@ -1405,8 +1397,7 @@ static TransactionId RecordTransactionCommit() {
 /*
  *	AtCCI_LocalCache
  */
-static void
-AtCCI_LocalCache(void) {
+static void AtCCI_LocalCache(void) {
     /*
 	 * Make any pending relation map changes visible.  We must do this before
 	 * processing local sinval messages, so that the map changes will get
@@ -1414,9 +1405,7 @@ AtCCI_LocalCache(void) {
 	 */
     AtCCI_RelationMap();
 
-    /*
-	 * Make catalog changes visible to me for the next command.
-	 */
+    // make catalog changes visible to me for the next command.
     CommandEndInvalidationMessages();
 }
 
@@ -1799,9 +1788,7 @@ AtSubCleanup_Memory(void) {
     MemoryContextSwitchTo(s->parent->curTransactionContext);
     CurTransactionContext = s->parent->curTransactionContext;
 
-    /*
-	 * Clear the special abort context for next time.
-	 */
+    // clear the special abort context for next time.
     if (TransactionAbortContext != NULL)
         MemoryContextResetAndDeleteChildren(TransactionAbortContext);
 
@@ -1819,12 +1806,7 @@ AtSubCleanup_Memory(void) {
  *						interface routines
  * ----------------------------------------------------------------
  */
-
-/*
- *	StartTransaction
- */
-static void
-StartTransaction(void) {
+static void StartTransaction(void) {
     TransactionState s;
     VirtualTransactionId vxid;
 
@@ -1961,15 +1943,11 @@ StartTransaction(void) {
     AtStart_Cache();
     AfterTriggerBeginXact();
 
-    /*
-	 * done with start processing, set current transaction state to "in
-	 * progress"
-	 */
+    // done with start processing, set current transaction state to "in progress"
     s->state = TRANS_INPROGRESS;
 
     ShowTransactionState("StartTransaction");
 }
-
 
 // if you change this routine, better look at PrepareTransaction too!
 static void CommitTransaction() {
@@ -1977,7 +1955,7 @@ static void CommitTransaction() {
 
     bool is_parallel_worker = (transactionState->blockState == TBLOCK_PARALLEL_INPROGRESS);
 
-    /* enforce parallel mode restrictions during parallel worker commit. */
+    // enforce parallel mode restrictions during parallel worker commit
     if (is_parallel_worker) {
         EnterParallelMode();
     }
@@ -1999,7 +1977,7 @@ static void CommitTransaction() {
 	 * cursors, etc, we have to keep looping until there'transactionState nothing left to do.
 	 */
     for (;;) {
-        // fire all currently pending deferred triggers.
+        // trigger all currently pending deferred triggers.
         AfterTriggerFireDeferred();
 
         /*
@@ -2021,8 +1999,9 @@ static void CommitTransaction() {
     CallXactCallbacks(is_parallel_worker ? XACT_EVENT_PARALLEL_PRE_COMMIT : XACT_EVENT_PRE_COMMIT);
 
     // If we might have parallel workers, clean them up now. */
-    if (IsInParallelMode())
+    if (IsInParallelMode()) {
         AtEOXact_Parallel(true);
+    }
 
     // shut down the deferred-trigger manager */
     AfterTriggerEndXact(true);
@@ -2797,8 +2776,7 @@ SaveTransactionCharacteristics(void) {
     save_XactDeferrable = XactDeferrable;
 }
 
-void
-RestoreTransactionCharacteristics(void) {
+void RestoreTransactionCharacteristics(void) {
     XactIsoLevel = save_XactIsoLevel;
     XactReadOnly = save_XactReadOnly;
     XactDeferrable = save_XactDeferrable;
@@ -2812,22 +2790,19 @@ void CommitTransactionCommand(void) {
     }
 
     switch (transactionState->blockState) {
-            /*
-			 * These shouldn't happen.  TBLOCK_DEFAULT means the previous
-			 * StartTransactionCommand didn't set the STARTED state
-			 * appropriately, while TBLOCK_PARALLEL_INPROGRESS should be ended
-			 * by EndParallelWorkerTransaction(), not this function.
-			 */
+        /*
+         * These shouldn't happen.  TBLOCK_DEFAULT means the previous
+         * StartTransactionCommand didn't set the STARTED state
+         * appropriately, while TBLOCK_PARALLEL_INPROGRESS should be ended
+         * by EndParallelWorkerTransaction(), not this function.
+         */
         case TBLOCK_DEFAULT:
         case TBLOCK_PARALLEL_INPROGRESS:
             elog(FATAL, "CommitTransactionCommand: unexpected state %s",
                  BlockStateAsString(transactionState->blockState));
             break;
-
-            /*
-			 * If we aren't in a transaction block, just do our usual
-			 * transaction commit, and return to the idle state.
-			 */
+            // If we aren't in a transaction block, just do our usual
+            // transaction commit, and return to the idle state.
         case TBLOCK_STARTED:
             CommitTransaction();
             transactionState->blockState = TBLOCK_DEFAULT;
@@ -2841,7 +2816,6 @@ void CommitTransactionCommand(void) {
         case TBLOCK_BEGIN:
             transactionState->blockState = TBLOCK_INPROGRESS;
             break;
-
             /*
 			 * This is the case when we have finished executing a command
 			 * someplace within a transaction block.  We increment the command
@@ -3390,12 +3364,10 @@ UnregisterXactCallback(XactCallback callback, void *arg) {
     }
 }
 
-static void
-CallXactCallbacks(XactEvent event) {
-    XactCallbackItem *item;
-
-    for (item = Xact_callbacks; item; item = item->next)
-        item->callback(event, item->arg);
+static void CallXactCallbacks(XactEvent xactEvent) {
+    for (XactCallbackItem *item = Xact_callbacks; item; item = item->next) {
+        item->callback(xactEvent, item->arg);
+    }
 }
 
 
@@ -5235,16 +5207,16 @@ TransStateAsString(TransState state) {
  * the caller should *not* pfree() it (this is a change from pre-8.4 code!).
  * If there are no subxacts, *ptr is set to NULL.
  */
-int
-xactGetCommittedChildren(TransactionId **ptr) {
-    TransactionState s = CurrentTransactionState;
+int xactGetCommittedChildren(TransactionId **ptr) {
+    TransactionState transactionState = CurrentTransactionState;
 
-    if (s->nChildXids == 0)
+    if (transactionState->nChildXids == 0) {
         *ptr = NULL;
-    else
-        *ptr = s->childXids;
+    } else {
+        *ptr = transactionState->childXids;
+    }
 
-    return s->nChildXids;
+    return transactionState->nChildXids;
 }
 
 /*
@@ -5253,146 +5225,148 @@ xactGetCommittedChildren(TransactionId **ptr) {
 
 
 /*
- * Log the commit record for a plain or two phase transaction commit.
+ * Log the commit record(目前不确定是不是clog) for a plain or two phase transaction commit.
  *
- * A 2pc commit will be emitted when twophase_xid is valid, a plain one
- * otherwise.
+ * A 2pc commit will be emitted when twoPhaseXid is valid, a plain one otherwise.
  */
-XLogRecPtr
-XactLogCommitRecord(TimestampTz commit_time,
-                    int nsubxacts, TransactionId *subxacts,
-                    int nrels, RelFileNode *rels,
-                    int nmsgs, SharedInvalidationMessage *msgs,
-                    bool relcacheInval, bool forceSync,
-                    int xactflags, TransactionId twophase_xid,
-                    const char *twophase_gid) {
-    xl_xact_commit xlrec;
-    xl_xact_xinfo xl_xinfo;
-    xl_xact_dbinfo xl_dbinfo;
-    xl_xact_subxacts xl_subxacts;
-    xl_xact_relfilenodes xl_relfilenodes;
-    xl_xact_invals xl_invals;
-    xl_xact_twophase xl_twophase;
-    xl_xact_origin xl_origin;
-    uint8 info;
+XLogRecPtr XactLogCommitRecord(TimestampTz commitTime,
+                               int subXactCount, TransactionId *subXactIds,
+                               int relCount, RelFileNode *rels,
+                               int messageCount, SharedInvalidationMessage *messages,
+                               bool relcacheInval,
+                               bool forceSync,
+                               int xactFlags,
+                               TransactionId twoPhaseXid,
+                               const char *twoPhaseGid) {
+
+    xl_xact_commit xlXactCommit;
+    xl_xact_xinfo xlXactXinfo;
+    xl_xact_dbinfo xlXactDbinfo;
+    xl_xact_subxacts xlXactSubxacts;
+    xl_xact_relfilenodes xlXactRelfilenodes;
+    xl_xact_invals xlXactInvals;
+    xl_xact_twophase xlXactTwophase;
+    xl_xact_origin xlXactOrigin;
 
     Assert(CritSectionCount > 0);
 
-    xl_xinfo.xinfo = 0;
+    xlXactXinfo.xinfo = 0;
 
-    /* decide between a plain and 2pc commit */
-    if (!TransactionIdIsValid(twophase_xid))
+    // decide between a plain and 2pc commit
+    uint8 info;
+    if (!TransactionIdIsValid(twoPhaseXid)) {
         info = XLOG_XACT_COMMIT;
-    else
+    } else {
         info = XLOG_XACT_COMMIT_PREPARED;
+    }
 
-    /* First figure out and collect all the information needed */
+    // first figure out and collect all the information needed
+    xlXactCommit.xact_time = commitTime;
 
-    xlrec.xact_time = commit_time;
-
+    // 以下都是给 xlXactXinfo.xinfo 打上了flag
     if (relcacheInval)
-        xl_xinfo.xinfo |= XACT_COMPLETION_UPDATE_RELCACHE_FILE;
+        xlXactXinfo.xinfo |= XACT_COMPLETION_UPDATE_RELCACHE_FILE;
+
     if (forceSyncCommit)
-        xl_xinfo.xinfo |= XACT_COMPLETION_FORCE_SYNC_COMMIT;
-    if ((xactflags & XACT_FLAGS_ACQUIREDACCESSEXCLUSIVELOCK))
-        xl_xinfo.xinfo |= XACT_XINFO_HAS_AE_LOCKS;
+        xlXactXinfo.xinfo |= XACT_COMPLETION_FORCE_SYNC_COMMIT;
+
+    if ((xactFlags & XACT_FLAGS_ACQUIREDACCESSEXCLUSIVELOCK))
+        xlXactXinfo.xinfo |= XACT_XINFO_HAS_AE_LOCKS;
 
     /*
 	 * Check if the caller would like to ask standbys for immediate feedback
 	 * once this commit is applied.
 	 */
-    if (synchronous_commit >= SYNCHRONOUS_COMMIT_REMOTE_APPLY)
-        xl_xinfo.xinfo |= XACT_COMPLETION_APPLY_FEEDBACK;
-
-    /*
-	 * Relcache invalidations requires information about the current database
-	 * and so does logical decoding.
-	 */
-    if (nmsgs > 0 || XLogLogicalInfoActive()) {
-        xl_xinfo.xinfo |= XACT_XINFO_HAS_DBINFO;
-        xl_dbinfo.dbId = MyDatabaseId;
-        xl_dbinfo.tsId = MyDatabaseTableSpace;
+    if (synchronous_commit >= SYNCHRONOUS_COMMIT_REMOTE_APPLY) {
+        xlXactXinfo.xinfo |= XACT_COMPLETION_APPLY_FEEDBACK;
     }
 
-    if (nsubxacts > 0) {
-        xl_xinfo.xinfo |= XACT_XINFO_HAS_SUBXACTS;
-        xl_subxacts.nsubxacts = nsubxacts;
+    // Relcache invalidations requires information about the current database and so does logical decoding.
+    if (messageCount > 0 || XLogLogicalInfoActive()) {
+        xlXactXinfo.xinfo |= XACT_XINFO_HAS_DBINFO;
+
+        xlXactDbinfo.dbId = MyDatabaseId;
+        xlXactDbinfo.tsId = MyDatabaseTableSpace;
     }
 
-    if (nrels > 0) {
-        xl_xinfo.xinfo |= XACT_XINFO_HAS_RELFILENODES;
-        xl_relfilenodes.nrels = nrels;
+    if (subXactCount > 0) {
+        xlXactXinfo.xinfo |= XACT_XINFO_HAS_SUBXACTS;
+        xlXactSubxacts.nsubxacts = subXactCount;
     }
 
-    if (nmsgs > 0) {
-        xl_xinfo.xinfo |= XACT_XINFO_HAS_INVALS;
-        xl_invals.nmsgs = nmsgs;
+    if (relCount > 0) {
+        xlXactXinfo.xinfo |= XACT_XINFO_HAS_RELFILENODES;
+        xlXactRelfilenodes.nrels = relCount;
     }
 
-    if (TransactionIdIsValid(twophase_xid)) {
-        xl_xinfo.xinfo |= XACT_XINFO_HAS_TWOPHASE;
-        xl_twophase.xid = twophase_xid;
-        Assert(twophase_gid != NULL);
+    if (messageCount > 0) {
+        xlXactXinfo.xinfo |= XACT_XINFO_HAS_INVALS;
+        xlXactInvals.nmsgs = messageCount;
+    }
+
+    if (TransactionIdIsValid(twoPhaseXid)) {
+        xlXactXinfo.xinfo |= XACT_XINFO_HAS_TWOPHASE;
+        xlXactTwophase.xid = twoPhaseXid;
+        Assert(twoPhaseGid != NULL);
 
         if (XLogLogicalInfoActive())
-            xl_xinfo.xinfo |= XACT_XINFO_HAS_GID;
+            xlXactXinfo.xinfo |= XACT_XINFO_HAS_GID;
     }
 
     /* dump transaction origin information */
     if (replorigin_session_origin != InvalidRepOriginId) {
-        xl_xinfo.xinfo |= XACT_XINFO_HAS_ORIGIN;
+        xlXactXinfo.xinfo |= XACT_XINFO_HAS_ORIGIN;
 
-        xl_origin.origin_lsn = replorigin_session_origin_lsn;
-        xl_origin.origin_timestamp = replorigin_session_origin_timestamp;
+        xlXactOrigin.origin_lsn = replorigin_session_origin_lsn;
+        xlXactOrigin.origin_timestamp = replorigin_session_origin_timestamp;
     }
 
-    if (xl_xinfo.xinfo != 0)
+    if (xlXactXinfo.xinfo != 0)
         info |= XLOG_XACT_HAS_INFO;
 
-    /* Then include all the collected data into the commit record. */
-
+    // 然后 调用 XLogRegisterData() include all the collected data into the commit record. */
     XLogBeginInsert();
 
-    XLogRegisterData((char *) (&xlrec), sizeof(xl_xact_commit));
+    XLogRegisterData((char *) (&xlXactCommit), sizeof(xl_xact_commit));
 
-    if (xl_xinfo.xinfo != 0)
-        XLogRegisterData((char *) (&xl_xinfo.xinfo), sizeof(xl_xinfo.xinfo));
-
-    if (xl_xinfo.xinfo & XACT_XINFO_HAS_DBINFO)
-        XLogRegisterData((char *) (&xl_dbinfo), sizeof(xl_dbinfo));
-
-    if (xl_xinfo.xinfo & XACT_XINFO_HAS_SUBXACTS) {
-        XLogRegisterData((char *) (&xl_subxacts),
-                         MinSizeOfXactSubxacts);
-        XLogRegisterData((char *) subxacts,
-                         nsubxacts * sizeof(TransactionId));
+    if (xlXactXinfo.xinfo != 0) {
+        XLogRegisterData((char *) (&xlXactXinfo.xinfo), sizeof(xlXactXinfo.xinfo));
     }
 
-    if (xl_xinfo.xinfo & XACT_XINFO_HAS_RELFILENODES) {
-        XLogRegisterData((char *) (&xl_relfilenodes),
-                         MinSizeOfXactRelfilenodes);
-        XLogRegisterData((char *) rels,
-                         nrels * sizeof(RelFileNode));
+    if (xlXactXinfo.xinfo & XACT_XINFO_HAS_DBINFO)
+        XLogRegisterData((char *) (&xlXactDbinfo), sizeof(xlXactDbinfo));
+
+    if (xlXactXinfo.xinfo & XACT_XINFO_HAS_SUBXACTS) {
+        XLogRegisterData((char *) (&xlXactSubxacts), MinSizeOfXactSubxacts);
+        XLogRegisterData((char *) subXactIds, subXactCount * sizeof(TransactionId));
     }
 
-    if (xl_xinfo.xinfo & XACT_XINFO_HAS_INVALS) {
-        XLogRegisterData((char *) (&xl_invals), MinSizeOfXactInvals);
-        XLogRegisterData((char *) msgs,
-                         nmsgs * sizeof(SharedInvalidationMessage));
+    if (xlXactXinfo.xinfo & XACT_XINFO_HAS_RELFILENODES) {
+        XLogRegisterData((char *) (&xlXactRelfilenodes), MinSizeOfXactRelfilenodes);
+        XLogRegisterData((char *) rels, relCount * sizeof(RelFileNode));
     }
 
-    if (xl_xinfo.xinfo & XACT_XINFO_HAS_TWOPHASE) {
-        XLogRegisterData((char *) (&xl_twophase), sizeof(xl_xact_twophase));
-        if (xl_xinfo.xinfo & XACT_XINFO_HAS_GID)
-            XLogRegisterData(unconstify(char *, twophase_gid), strlen(twophase_gid) + 1);
+    if (xlXactXinfo.xinfo & XACT_XINFO_HAS_INVALS) {
+        XLogRegisterData((char *) (&xlXactInvals), MinSizeOfXactInvals);
+        XLogRegisterData((char *) messages, messageCount * sizeof(SharedInvalidationMessage));
     }
 
-    if (xl_xinfo.xinfo & XACT_XINFO_HAS_ORIGIN)
-        XLogRegisterData((char *) (&xl_origin), sizeof(xl_xact_origin));
+    if (xlXactXinfo.xinfo & XACT_XINFO_HAS_TWOPHASE) {
+        XLogRegisterData((char *) (&xlXactTwophase), sizeof(xl_xact_twophase));
 
-    /* we allow filtering by xacts */
+        if (xlXactXinfo.xinfo & XACT_XINFO_HAS_GID) {
+            XLogRegisterData(unconstify(char *, twoPhaseGid), strlen(twoPhaseGid) + 1);
+        }
+    }
+
+    if (xlXactXinfo.xinfo & XACT_XINFO_HAS_ORIGIN) {
+        XLogRegisterData((char *) (&xlXactOrigin), sizeof(xl_xact_origin));
+    }
+
+    // we allow filtering by xacts */
     XLogSetRecordFlags(XLOG_INCLUDE_ORIGIN);
 
+    // 也会调用 XLogInsert() 之前的是 RM_HEAP_ID
     return XLogInsert(RM_XACT_ID, info);
 }
 

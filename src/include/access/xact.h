@@ -453,14 +453,14 @@ extern void UnregisterSubXactCallback(SubXactCallback callback, void *arg);
 
 extern int xactGetCommittedChildren(TransactionId **ptr);
 
-extern XLogRecPtr XactLogCommitRecord(TimestampTz commit_time,
-                                      int nsubxacts, TransactionId *subxacts,
-                                      int nrels, RelFileNode *rels,
-                                      int nmsgs, SharedInvalidationMessage *msgs,
+extern XLogRecPtr XactLogCommitRecord(TimestampTz commitTime,
+                                      int subXactCount, TransactionId *subXactIds,
+                                      int relCount, RelFileNode *rels,
+                                      int messageCount, SharedInvalidationMessage *messages,
                                       bool relcacheInval, bool forceSync,
-                                      int xactflags,
-                                      TransactionId twophase_xid,
-                                      const char *twophase_gid);
+                                      int xactFlags,
+                                      TransactionId twoPhaseXid,
+                                      const char *twoPhaseGid);
 
 extern XLogRecPtr XactLogAbortRecord(TimestampTz abort_time,
                                      int nsubxacts, TransactionId *subxacts,

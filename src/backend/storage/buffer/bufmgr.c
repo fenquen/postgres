@@ -2458,12 +2458,9 @@ CheckPointBuffers(int flags) {
 }
 
 
-/*
- * Do whatever is needed to prepare for commit at the bufmgr and smgr levels
- */
-void
-BufmgrCommit(void) {
-    /* Nothing to do in bufmgr anymore... */
+// do whatever is needed to prepare for commit at the bufmgr and smgr levels
+void BufmgrCommit(void) {
+    // nothing to do anymore
 }
 
 /*

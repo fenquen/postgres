@@ -209,8 +209,7 @@ void TransactionIdSetTreeStatus(TransactionId xid,
                                 TRANSACTION_STATUS_SUB_COMMITTED, lsn);
 
         /*
-         * Now set the parent and subtransactions on same page as the parent,
-         * if any
+         * Now set the parent and subtransactions on same page as the parent,if any
          */
         pageno = TransactionIdToPage(xid);
         TransactionIdSetPageStatus(xid, nsubxids_on_first_page, subxids, status,

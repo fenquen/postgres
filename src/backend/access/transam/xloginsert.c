@@ -369,8 +369,7 @@ void XLogRegisterBufData(uint8 block_id, char *data, int len) {
  *	 durability, which allows to avoid triggering WAL archiving and other
  *	 background activity.
  */
-void
-XLogSetRecordFlags(uint8 flags) {
+void XLogSetRecordFlags(uint8 flags) {
     Assert(begininsert_called);
     curinsert_flags = flags;
 }
@@ -690,7 +689,7 @@ static XLogRecData *XLogRecordAssemble(RmgrId rmgrId,
             *(scratchCurPos++) = (char) XLR_BLOCK_ID_DATA_SHORT;
             *(scratchCurPos++) = (uint8) mainrdata_len;
         }
-        xLogRecDataCurrent_hdr_rdt_series->next = mainrdata_head;
+        xLogRecDataCurrent_hdr_rdt_series->next = mainrdata_head; // 构成了环
         xLogRecDataCurrent_hdr_rdt_series = mainrdata_last;
         totalLen += mainrdata_len;
     }

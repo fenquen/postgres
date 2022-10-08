@@ -22,9 +22,9 @@ extern PGDLLIMPORT bool track_commit_timestamp;
 extern bool check_track_commit_timestamp(bool *newval, void **extra,
 										 GucSource source);
 
-extern void TransactionTreeSetCommitTsData(TransactionId xid, int nsubxids,
-										   TransactionId *subxids, TimestampTz timestamp,
-										   RepOriginId nodeid, bool write_xlog);
+extern void TransactionTreeSetCommitTsData(TransactionId xid, int subXidCount,
+                                           TransactionId *subXids, TimestampTz timestamp,
+                                           RepOriginId nodeId, bool writeXlog);
 extern bool TransactionIdGetCommitTsData(TransactionId xid,
 										 TimestampTz *ts, RepOriginId *nodeid);
 extern TransactionId GetLatestCommitTsData(TimestampTz *ts,
