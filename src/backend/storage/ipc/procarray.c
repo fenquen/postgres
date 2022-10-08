@@ -383,16 +383,15 @@ ProcArrayRemove(PGPROC *proc, TransactionId latestXid) {
  * This is used interchangeably for commit and abort cases.  The transaction
  * commit/abort must already be reported to WAL and pg_xact.
  *
- * proc is currently always MyProc, but we pass it explicitly for flexibility.
+ * pgproc is currently always MyProc, but we pass it explicitly for flexibility.
  * latestXid is the latest Xid among the transaction's main XID and
  * subtransactions, or InvalidTransactionId if it has no XID.  (We must ask
  * the caller to pass latestXid, instead of computing it from the PGPROC's
  * contents, because the subxid information in the PGPROC might be
  * incomplete.)
  */
-void
-ProcArrayEndTransaction(PGPROC *proc, TransactionId latestXid) {
-    PGXACT *pgxact = &allPgXact[proc->pgprocno];
+void ProcArrayEndTransaction(PGPROC *pgproc, TransactionId latestXid) {
+    PGXACT *pgxact = &allPgXact[pgproc->pgprocno];
 
     if (TransactionIdIsValid(latestXid)) {
         /*
@@ -401,36 +400,29 @@ ProcArrayEndTransaction(PGPROC *proc, TransactionId latestXid) {
          * else is taking a snapshot.  See discussion in
          * src/backend/access/transam/README.
          */
-        Assert(TransactionIdIsValid(allPgXact[proc->pgprocno].xid));
+        Assert(TransactionIdIsValid(allPgXact[pgproc->pgprocno].xid));
 
-        /*
-         * If we can immediately acquire ProcArrayLock, we clear our own XID
-         * and release the lock.  If not, use group XID clearing to improve
-         * efficiency.
-         */
+        // if we can immediately acquire ProcArrayLock, we clear our own XID
+        // and release the lock.  If not, use group XID clearing to improve efficiency.
         if (LWLockConditionalAcquire(ProcArrayLock, LW_EXCLUSIVE)) {
-            ProcArrayEndTransactionInternal(proc, pgxact, latestXid);
+            ProcArrayEndTransactionInternal(pgproc, pgxact, latestXid);
             LWLockRelease(ProcArrayLock);
-        } else
-            ProcArrayGroupClearXid(proc, latestXid);
+        } else {
+            ProcArrayGroupClearXid(pgproc, latestXid);
+        }
     } else {
-        /*
-         * If we have no XID, we don't need to lock, since we won't affect
-         * anyone else's calculation of a snapshot.  We might change their
-         * estimate of global xmin, but that's OK.
-         */
-        Assert(!TransactionIdIsValid(allPgXact[proc->pgprocno].xid));
+        // If we have no XID, we don't need to lock, since we won't affect
+        // anyone else's calculation of a snapshot,  We might change their estimate of global xmin, but that's OK
+        Assert(!TransactionIdIsValid(allPgXact[pgproc->pgprocno].xid));
 
-        proc->lxid = InvalidLocalTransactionId;
+        pgproc->lxid = InvalidLocalTransactionId;
+
         pgxact->xmin = InvalidTransactionId;
-        /* must be cleared with xid/xmin: */
-        pgxact->vacuumFlags &= ~PROC_VACUUM_STATE_MASK;
+        pgxact->vacuumFlags &= ~PROC_VACUUM_STATE_MASK; // must be cleared with xid/xmin:
+        pgxact->delayChkpt = false; // be sure these are cleared in abort
 
-        /* be sure these are cleared in abort */
-        pgxact->delayChkpt = false;
-        proc->delayChkptEnd = false;
-
-        proc->recoveryConflictPending = false;
+        pgproc->delayChkptEnd = false;
+        pgproc->recoveryConflictPending = false;
 
         Assert(pgxact->nxids == 0);
         Assert(pgxact->overflowed == false);

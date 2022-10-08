@@ -2039,9 +2039,7 @@ static void CommitTransaction() {
     // Commit updates to the relation map --- do this as late as possible */
     AtEOXact_RelationMap(true, is_parallel_worker);
 
-    /*
-	 * set the current transaction state information appropriately during commit processing
-	 */
+    // set the current transaction state information appropriately during commit processing
     transactionState->state = TRANS_COMMIT;
     transactionState->parallelModeLevel = 0;
 
@@ -2059,11 +2057,8 @@ static void CommitTransaction() {
 
     TRACE_POSTGRESQL_TRANSACTION_COMMIT(MyProc->lxid);
 
-    /*
-	 * Let others know about no transaction in progress by me. Note that this
-	 * must be done _before_ releasing locks we hold and _after_
-	 * RecordTransactionCommit.
-	 */
+    // Let others know about no transaction in progress by me. Note that this
+    // must be done _before_ releasing locks we hold and _after_RecordTransactionCommit.
     ProcArrayEndTransaction(MyProc, latestXid);
 
     /*
