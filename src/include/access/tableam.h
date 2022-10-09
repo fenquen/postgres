@@ -865,9 +865,7 @@ table_rescan_set_params(TableScanDesc scan, struct ScanKeyData *key,
  */
 extern void table_scan_update_snapshot(TableScanDesc scan, Snapshot snapshot);
 
-/*
- * Return next tuple from `scan`, store in tupleTableSlot.
- */
+// return next tuple from `scan`, store in tupleTableSlot.
 static inline bool table_scan_getnextslot(TableScanDesc tableScanDesc,
                                           ScanDirection scanDirection,
                                           TupleTableSlot *tupleTableSlot) {

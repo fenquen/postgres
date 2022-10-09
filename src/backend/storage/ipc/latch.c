@@ -335,11 +335,12 @@ DisownLatch(Latch *latch) {
  * that if multiple wake-up conditions are true, there is no guarantee that
  * we return all of them in one call, but we will return at least one.
  */
-int
-WaitLatch(Latch *latch, int wakeEvents, long timeout,
-          uint32 wait_event_info) {
-    return WaitLatchOrSocket(latch, wakeEvents, PGINVALID_SOCKET, timeout,
-                             wait_event_info);
+int WaitLatch(Latch *latch,
+              int wakeEvents,
+              long timeout,
+              uint32 wait_event_info // WaitEventActivity
+) {
+    return WaitLatchOrSocket(latch, wakeEvents, PGINVALID_SOCKET, timeout, wait_event_info);
 }
 
 /*
@@ -412,7 +413,7 @@ WaitLatchOrSocket(Latch *latch, int wakeEvents, pgsocket sock,
 }
 
 /*
- * Sets a latch and wakes up anyone waiting on it.
+ * Sets a latch and wakes up(通过kill发送signal) anyone waiting on it.
  *
  * This is cheap if the latch is already set, otherwise not so much.
  *
@@ -425,7 +426,6 @@ WaitLatchOrSocket(Latch *latch, int wakeEvents, pgsocket sock,
  */
 void SetLatch(Latch *latch) {
 #ifndef WIN32
-    pid_t ownerPid;
 #else
     HANDLE		handle;
 #endif
@@ -437,9 +437,9 @@ void SetLatch(Latch *latch) {
      */
     pg_memory_barrier();
 
-    /* Quick exit if already set */
-    if (latch->is_set)
+    if (latch->is_set) {
         return;
+    }
 
     latch->is_set = true;
 
@@ -467,7 +467,7 @@ void SetLatch(Latch *latch) {
      * not the top, so that they'll correctly process latch-setting events
      * that happen before they enter the loop.
      */
-    ownerPid = latch->owner_pid;
+    pid_t ownerPid = latch->owner_pid;
     if (ownerPid == 0) {
         return;
     }
@@ -477,10 +477,9 @@ void SetLatch(Latch *latch) {
             sendSelfPipeByte();
         }
     } else {
-        kill(ownerPid, SIGUSR1);
+        kill(ownerPid, SIGUSR1); // 目标是backgroundWriter的话 handler是 bgwriter_sigusr1_handler
     }
 #else
-
     /*
      * See if anyone's waiting for the latch. It can be the current process if
      * we're in a signal handler.
@@ -1463,43 +1462,46 @@ WaitEventSetWaitBlock(WaitEventSet *set, int cur_timeout,
  */
 #ifndef WIN32
 
-void
-latch_sigusr1_handler(void) {
-    if (waiting)
+void latch_sigusr1_handler(void) {
+    if (waiting) {
         sendSelfPipeByte();
+    }
 }
 
 #endif                            /* !WIN32 */
 
-/* Send one byte to the self-pipe, to wake up WaitLatch */
+
 #ifndef WIN32
 
-static void
-sendSelfPipeByte(void) {
-    int rc;
-    char dummy = 0;
+// 自个对自个喊起来
+// Send one byte to the self-pipe, to wake up WaitLatch */
+static void sendSelfPipeByte(void) {
+    while (1) {
+        char dummy = 0;
+        int rc = write(selfpipe_writefd, &dummy, 1);
+        if (rc < 0) {
+            // interrupted by signal,retry
+            if (errno == EINTR) {
+                continue;
+            }
 
-    retry:
-    rc = write(selfpipe_writefd, &dummy, 1);
-    if (rc < 0) {
-        /* If interrupted by signal, just retry */
-        if (errno == EINTR)
-            goto retry;
+            /*
+             * If the pipe is full, we don't need to retry, the data that's there
+             * already is enough to wake up WaitLatch.
+             */
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return;
+            }
 
-        /*
-         * If the pipe is full, we don't need to retry, the data that's there
-         * already is enough to wake up WaitLatch.
-         */
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            /*
+             * Oops, the write() failed for some other reason. We might be in a
+             * signal handler, so it's not safe to elog(). We have no choice but
+             * silently ignore the error.
+             */
             return;
-
-        /*
-         * Oops, the write() failed for some other reason. We might be in a
-         * signal handler, so it's not safe to elog(). We have no choice but
-         * silently ignore the error.
-         */
-        return;
+        }
     }
+
 }
 
 #endif                            /* !WIN32 */
@@ -1513,17 +1515,15 @@ sendSelfPipeByte(void) {
  */
 #ifndef WIN32
 
-static void
-drainSelfPipe(void) {
+static void drainSelfPipe(void) {
     /*
      * There shouldn't normally be more than one byte in the pipe, or maybe a
      * few bytes if multiple processes run SetLatch at the same instant.
      */
     char buf[16];
-    int rc;
 
     for (;;) {
-        rc = read(selfpipe_readfd, buf, sizeof(buf));
+        int rc = read(selfpipe_readfd, buf, sizeof(buf));
         if (rc < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 break;            /* the pipe is empty */

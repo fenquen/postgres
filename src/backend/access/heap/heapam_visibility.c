@@ -851,7 +851,7 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 
 /*
  * HeapTupleSatisfiesMVCC http://blog.itpub.net/6906/viewspace-2558348/
- *		True iff heap tuple is valid for the given MVCC snapshot.
+ *		True if heap tuple is valid for the given MVCC snapshot.
  *
  * See SNAPSHOT_MVCC's definition for the intended behaviour.
  *

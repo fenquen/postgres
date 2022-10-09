@@ -113,7 +113,7 @@ TransactionLogFetch(TransactionId transactionId) {
 
 /*
  * TransactionIdDidCommit
- *		True iff transaction associated with the identifier did commit.
+ *		True if transaction associated with the identifier did commit.
  *
  * Note:
  *		Assumes transaction identifier is valid and exists in clog.
@@ -239,15 +239,17 @@ TransactionIdIsKnownCompleted(TransactionId transactionId) {
  * TransactionIdCommitTree
  *		Marks the given transaction and children as committed
  *
- * "xid" is a top level transaction commit, and the xids array contains its
+ * "xid" is a top level transaction commit, and the subXactIds array contains its
  * committed sub transactions
  *
  * This commit operation is not guaranteed to be atomic, but if not, subxids
  * are correctly marked subcommit first.
  */
-void TransactionIdCommitTree(TransactionId xid, int nxids, TransactionId *xids) {
+void TransactionIdCommitTree(TransactionId xid,
+                             int subXactCount, TransactionId *subXactIds) {
+
     TransactionIdSetTreeStatus(xid,
-                               nxids, xids,
+                               subXactCount, subXactIds,
                                TRANSACTION_STATUS_COMMITTED,
                                InvalidXLogRecPtr);
 }
@@ -279,22 +281,17 @@ TransactionIdAbortTree(TransactionId xid, int nxids, TransactionId *xids) {
                                TRANSACTION_STATUS_ABORTED, InvalidXLogRecPtr);
 }
 
-/*
- * TransactionIdPrecedes --- is id1 logically < id2?
- */
-bool
-TransactionIdPrecedes(TransactionId id1, TransactionId id2) {
+// is id1 logically < id2?
+bool TransactionIdPrecedes(TransactionId id1, TransactionId id2) {
     /*
      * If either ID is a permanent XID then we can just do unsigned
      * comparison.  If both are normal, do a modulo-2^32 comparison.
      */
-    int32 diff;
-
-    if (!TransactionIdIsNormal(id1) || !TransactionIdIsNormal(id2))
+    if (!TransactionIdIsNormal(id1) || !TransactionIdIsNormal(id2)) {
         return (id1 < id2);
+    }
 
-    diff = (int32) (id1 - id2);
-    return (diff < 0);
+    return (int32) (id1 - id2) < 0;
 }
 
 /*
@@ -340,27 +337,26 @@ TransactionIdFollowsOrEquals(TransactionId id1, TransactionId id2) {
 }
 
 
-/*
- * TransactionIdLatest --- get latest XID among a main xact and its children
- */
-TransactionId
-TransactionIdLatest(TransactionId mainxid,
-                    int nxids, const TransactionId *xids) {
-    TransactionId result;
-
+// get latest XID among a main xact and its children
+TransactionId TransactionIdLatest(TransactionId mainxid,
+                                  int subXactCount, const TransactionId *subXactIds) {
     /*
-     * In practice it is highly likely that the xids[] array is sorted, and so
+     * In practice it is highly likely that the subXactIds[] array is sorted, and so
      * we could save some cycles by just taking the last child XID, but this
      * probably isn't so performance-critical that it's worth depending on
      * that assumption.  But just to show we're not totally stupid, scan the
      * array back-to-front to avoid useless assignments.
      */
-    result = mainxid;
-    while (--nxids >= 0) {
-        if (TransactionIdPrecedes(result, xids[nxids]))
-            result = xids[nxids];
+    TransactionId latest = mainxid;
+
+    while (--subXactCount >= 0) {
+        TransactionId subXactId = subXactIds[subXactCount];
+        if (TransactionIdPrecedes(latest, subXactId)) {
+            latest = subXactId;
+        }
     }
-    return result;
+
+    return latest;
 }
 
 

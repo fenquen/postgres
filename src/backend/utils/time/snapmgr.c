@@ -2143,6 +2143,7 @@ XidInMVCCSnapshot(TransactionId xid, Snapshot snapshot) {
     // any xid < xmin,means not in-progress */
     if (TransactionIdPrecedes(xid, snapshot->xmin))
         return false;
+
     /* any xid >= xmax,means is in-progress */
     if (TransactionIdFollowsOrEquals(xid, snapshot->xmax))
         return true;

@@ -174,7 +174,6 @@ struct HeapTupleHeaderData {
 };
 
 /* typedef appears in htup.h */
-
 #define SizeofHeapTupleHeader offsetof(HeapTupleHeaderData, t_bits)
 
 /*

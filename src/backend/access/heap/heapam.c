@@ -477,11 +477,10 @@ void heapgetpage(TableScanDesc tableScanDesc, BlockNumber page) {
  * so we don't care too much.
  * ----------------
  */
-static void
-heapgettup(HeapScanDesc scan,
-           ScanDirection dir,
-           int nkeys,
-           ScanKey key) {
+static void heapgettup(HeapScanDesc scan,
+                       ScanDirection dir,
+                       int nkeys,
+                       ScanKey key) {
     HeapTuple tuple = &(scan->rs_ctup);
     Snapshot snapshot = scan->rs_base.rs_snapshot;
     bool backward = ScanDirectionIsBackward(dir);

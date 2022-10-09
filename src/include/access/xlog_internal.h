@@ -185,8 +185,8 @@ typedef XLogLongPageHeaderData *XLogLongPageHeader;
         *logSegNo = (uint64) log * XLogSegmentsPerXLogId(wal_segsz_bytes) + seg; \
     } while (0)
 
-#define XLogFilePath(path, tli, logSegNo, wal_segsz_bytes)    \
-    snprintf(path, MAXPGPATH, XLOGDIR "/%08X%08X%08X", tli,    \
+#define XLogFilePath(path, timeline, logSegNo, wal_segsz_bytes)    \
+    snprintf(path, MAXPGPATH, XLOGDIR "/%08X%08X%08X", timeline,    \
              (uint32) ((logSegNo) / XLogSegmentsPerXLogId(wal_segsz_bytes)), \
              (uint32) ((logSegNo) % XLogSegmentsPerXLogId(wal_segsz_bytes)))
 

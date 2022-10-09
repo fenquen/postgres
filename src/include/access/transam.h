@@ -179,7 +179,7 @@ typedef struct VariableCacheData
 	/*
 	 * These fields are protected by ProcArrayLock.
 	 */
-	TransactionId latestCompletedXid;	/* newest XID that has committed or
+	TransactionId latestCompletedXid;	/* latest XID that has committed or
 										 * aborted */
 
 	/*
@@ -203,14 +203,12 @@ extern bool TransactionStartedDuringRecovery(void);
 /* in transam/varsup.c */
 extern PGDLLIMPORT VariableCache ShmemVariableCache;
 
-/*
- * prototypes for functions in transam/transam.c
- */
+
 extern bool TransactionIdDidCommit(TransactionId transactionId);
 extern bool TransactionIdDidAbort(TransactionId transactionId);
 extern bool TransactionIdIsKnownCompleted(TransactionId transactionId);
 extern void TransactionIdAbort(TransactionId transactionId);
-extern void TransactionIdCommitTree(TransactionId xid, int nxids, TransactionId *xids);
+extern void TransactionIdCommitTree(TransactionId xid, int subXactCount, TransactionId *subXactIds);
 extern void TransactionIdAsyncCommitTree(TransactionId xid, int nxids, TransactionId *xids, XLogRecPtr lsn);
 extern void TransactionIdAbortTree(TransactionId xid, int nxids, TransactionId *xids);
 extern bool TransactionIdPrecedes(TransactionId id1, TransactionId id2);
@@ -218,7 +216,7 @@ extern bool TransactionIdPrecedesOrEquals(TransactionId id1, TransactionId id2);
 extern bool TransactionIdFollows(TransactionId id1, TransactionId id2);
 extern bool TransactionIdFollowsOrEquals(TransactionId id1, TransactionId id2);
 extern TransactionId TransactionIdLatest(TransactionId mainxid,
-										 int nxids, const TransactionId *xids);
+                                         int subXactCount, const TransactionId *subXactIds);
 extern XLogRecPtr TransactionIdGetCommitLSN(TransactionId xid);
 
 /* in transam/varsup.c */

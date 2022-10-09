@@ -1294,6 +1294,7 @@ static TransactionId RecordTransactionCommit() {
             replorigin_session_origin_timestamp = xactStopTimestamp;
         }
 
+        // 该函数和clog有联系
         TransactionTreeSetCommitTsData(xid,
                                        subXactCount, subXactIds,
                                        replorigin_session_origin_timestamp,
@@ -1332,6 +1333,7 @@ static TransactionId RecordTransactionCommit() {
 
         // 更新 CLOG, if we wrote a COMMIT record above
         if (markXidCommitted) {
+
             TransactionIdCommitTree(xid, subXactCount, subXactIds);
         }
     } else { // asynchronous commit
@@ -1362,7 +1364,7 @@ static TransactionId RecordTransactionCommit() {
         END_CRIT_SECTION();
     }
 
-    /* Compute latestXid while we have the child XIDs handy */
+    // Compute latestXid while we have the child XIDs handy */
     latestXid = TransactionIdLatest(xid, subXactCount, subXactIds);
 
     /*
@@ -1378,7 +1380,7 @@ static TransactionId RecordTransactionCommit() {
         SyncRepWaitForLSN(XactLastRecEnd, true);
     }
 
-    /* remember end of last commit record */
+    // remember end of last commit record */
     XactLastCommitEnd = XactLastRecEnd;
 
     /* Reset XactLastRecEnd until the next transaction writes something */
@@ -1392,7 +1394,6 @@ static TransactionId RecordTransactionCommit() {
 
     return latestXid;
 }
-
 
 /*
  *	AtCCI_LocalCache

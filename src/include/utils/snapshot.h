@@ -152,8 +152,8 @@ typedef struct SnapshotData {
      * is stored as an optimization to avoid needing to search the XID arrays
      * for most tuples.
      */
-    TransactionId xmin;            /* all XID < xmin are visible to me */
-    TransactionId xmax;            /* all XID >= xmax are invisible to me */
+    TransactionId xmin;            /* all XID < xmin are visible to me,最早仍然活跃的事务的txid */
+    TransactionId xmax;            /* all XID >= xmax are invisible to me,第1个尚未分配的txid(例如只开启一个begin) */
 
     /*
      * For normal MVCC snapshot this contains the all xact IDs that are in
@@ -163,7 +163,7 @@ typedef struct SnapshotData {
      *
      * note: all ids in xip[] satisfy xmin <= xip[i] < xmax
      */
-    TransactionId *xip;
+    TransactionId *xip; // 获取快照时活跃事务的txid的arr
     uint32 xcnt;            /* xip数组的实际用量 */
 
     /*

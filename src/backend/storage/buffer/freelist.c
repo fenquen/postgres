@@ -50,7 +50,7 @@ typedef struct {
     uint32 completePasses; /* Complete cycles of the clock sweep */
     pg_atomic_uint32 numBufferAllocs;    /* Buffers allocated since last reset */
 
-    // Bgworker process to be notified upon activity or -1 if none. See StrategyNotifyBgWriter.
+    // Bgworker process to be notified upon activity or -1 if none. See StrategyNotifyBgWriter()
     int bgwprocno;
 } BufferStrategyControl;
 
@@ -185,7 +185,6 @@ have_free_buffer() {
  */
 BufferDesc *StrategyGetBuffer(BufferAccessStrategy bufferAccessStrategy, uint32 *buf_state) {
     BufferDesc *bufferDesc;
-    int bgProcNo;
     int tryCount;
     uint32 localBufState;    /* to avoid repeated (de-)referencing */
 
@@ -201,10 +200,10 @@ BufferDesc *StrategyGetBuffer(BufferAccessStrategy bufferAccessStrategy, uint32 
     }
 
     /*
-     * If asked, we need to waken the bgwriter. Since we don't want to rely on
+     * If asked, we need to 喊起 the bgwriter. Since we don't want to rely on
      * a spinlock for this we force a read from shared memory once, and then
      * set the latch based on that value. We need to go through that length
-     * because otherwise bgProcNo might be reset while/after we check because
+     * because otherwise backgroundWriterProcNo might be reset while/after we check because
      * the compiler might just reread from memory.
      *
      * This can possibly set the latch of the wrong process if the bgwriter
@@ -212,9 +211,12 @@ BufferDesc *StrategyGetBuffer(BufferAccessStrategy bufferAccessStrategy, uint32 
      * deallocated the worst consequence of that is that we set the latch of
      * some arbitrary process.
      */
-    bgProcNo = INT_ACCESS_ONCE(StrategyControl->bgwprocno);
-    if (bgProcNo != -1) {
-        /* reset bgProcNo first, before setting the latch */
+    int backgroundWriterProcNo = INT_ACCESS_ONCE(StrategyControl->bgwprocno);
+
+    // 参考 BackgroundWriterMain() 调用 StrategyNotifyBgWriter(MyProc->pgprocno);
+    // 说明 backgroundWriter 正在sleep
+    if (backgroundWriterProcNo != -1) {
+        /* reset backgroundWriterProcNo first, before setting the latch */
         StrategyControl->bgwprocno = -1;
 
         /*
@@ -222,7 +224,7 @@ BufferDesc *StrategyGetBuffer(BufferAccessStrategy bufferAccessStrategy, uint32 
          * actually fine because procLatch isn't ever freed, so we just can
          * potentially set the wrong process' (or no process') latch.
          */
-        SetLatch(&ProcGlobal->allProcs[bgProcNo].procLatch);
+        SetLatch(&ProcGlobal->allProcs[backgroundWriterProcNo].procLatch);
     }
 
     /*
@@ -393,20 +395,19 @@ int StrategySyncStart(uint32 *completeNBufferRoundNum, uint32 *allocatedBufferNu
 /*
  * StrategyNotifyBgWriter -- set or clear allocation notification latch
  *
- * If bgwprocno isn't -1, the next invocation of StrategyGetBuffer will
+ * If backgroundWriterProcNo isn't -1, the next invocation of StrategyGetBuffer will
  * set that latch.  Pass -1 to clear the pending notification before it
  * happens.  This feature is used by the bgwriter process to wake itself up
  * from hibernation, and is not meant for anybody else to use.
  */
-void
-StrategyNotifyBgWriter(int bgwprocno) {
+void StrategyNotifyBgWriter(int backgroundWriterProcNo) {
     /*
      * We acquire buffer_strategy_lock just to ensure that the store appears
      * atomic to StrategyGetBuffer.  The bgwriter should call this rather
      * infrequently, so there's no performance penalty from being safe.
      */
     SpinLockAcquire(&StrategyControl->buffer_strategy_lock);
-    StrategyControl->bgwprocno = bgwprocno;
+    StrategyControl->bgwprocno = backgroundWriterProcNo;
     SpinLockRelease(&StrategyControl->buffer_strategy_lock);
 }
 

@@ -107,13 +107,12 @@
  * the public functions. It is defined here to allow embedding Latches as
  * part of bigger structs.
  */
-typedef struct Latch
-{
-	sig_atomic_t is_set;
-	bool		is_shared;
-	int			owner_pid;
+typedef struct Latch {
+    sig_atomic_t is_set;
+    bool is_shared;
+    int owner_pid;
 #ifdef WIN32
-	HANDLE		event;
+    HANDLE		event;
 #endif
 } Latch;
 
@@ -121,12 +120,12 @@ typedef struct Latch
  * Bitmasks for events that may wake-up WaitLatch(), WaitLatchOrSocket(), or
  * WaitEventSetWait().
  */
-#define WL_LATCH_SET		 (1 << 0)
-#define WL_SOCKET_READABLE	 (1 << 1)
+#define WL_LATCH_SET         (1 << 0)
+#define WL_SOCKET_READABLE     (1 << 1)
 #define WL_SOCKET_WRITEABLE  (1 << 2)
-#define WL_TIMEOUT			 (1 << 3)	/* not for WaitEventSetWait() */
+#define WL_TIMEOUT             (1 << 3)    /* not for WaitEventSetWait() */
 #define WL_POSTMASTER_DEATH  (1 << 4)
-#define WL_EXIT_ON_PM_DEATH	 (1 << 5)
+#define WL_EXIT_ON_PM_DEATH     (1 << 5)
 #ifdef WIN32
 #define WL_SOCKET_CONNECTED  (1 << 6)
 #else
@@ -134,18 +133,17 @@ typedef struct Latch
 #define WL_SOCKET_CONNECTED  WL_SOCKET_WRITEABLE
 #endif
 
-#define WL_SOCKET_MASK		(WL_SOCKET_READABLE | \
-							 WL_SOCKET_WRITEABLE | \
-							 WL_SOCKET_CONNECTED)
+#define WL_SOCKET_MASK        (WL_SOCKET_READABLE | \
+                             WL_SOCKET_WRITEABLE | \
+                             WL_SOCKET_CONNECTED)
 
-typedef struct WaitEvent
-{
-	int			pos;			/* position in the event data structure */
-	uint32		events;			/* triggered events */
-	pgsocket	fd;				/* socket fd associated with event */
-	void	   *user_data;		/* pointer provided in AddWaitEventToSet */
+typedef struct WaitEvent {
+    int pos;            /* position in the event data structure */
+    uint32 events;            /* triggered events */
+    pgsocket fd;                /* socket fd associated with event */
+    void *user_data;        /* pointer provided in AddWaitEventToSet */
 #ifdef WIN32
-	bool		reset;			/* Is reset of the event required? */
+    bool		reset;			/* Is reset of the event required? */
 #endif
 } WaitEvent;
 
@@ -156,35 +154,48 @@ typedef struct WaitEventSet WaitEventSet;
  * prototypes for functions in latch.c
  */
 extern void InitializeLatchSupport(void);
+
 extern void InitLatch(Latch *latch);
+
 extern void InitSharedLatch(Latch *latch);
+
 extern void OwnLatch(Latch *latch);
+
 extern void DisownLatch(Latch *latch);
+
 extern void SetLatch(Latch *latch);
+
 extern void ResetLatch(Latch *latch);
 
 extern WaitEventSet *CreateWaitEventSet(MemoryContext context, int nevents);
+
 extern void FreeWaitEventSet(WaitEventSet *set);
-extern int	AddWaitEventToSet(WaitEventSet *set, uint32 events, pgsocket fd,
-							  Latch *latch, void *user_data);
+
+extern int AddWaitEventToSet(WaitEventSet *set, uint32 events, pgsocket fd,
+                             Latch *latch, void *user_data);
+
 extern void ModifyWaitEvent(WaitEventSet *set, int pos, uint32 events, Latch *latch);
 
-extern int	WaitEventSetWait(WaitEventSet *set, long timeout,
-							 WaitEvent *occurred_events, int nevents,
-							 uint32 wait_event_info);
-extern int	WaitLatch(Latch *latch, int wakeEvents, long timeout,
-					  uint32 wait_event_info);
-extern int	WaitLatchOrSocket(Latch *latch, int wakeEvents,
-							  pgsocket sock, long timeout, uint32 wait_event_info);
+extern int WaitEventSetWait(WaitEventSet *set, long timeout,
+                            WaitEvent *occurred_events, int nevents,
+                            uint32 wait_event_info);
+
+extern int WaitLatch(Latch *latch, int wakeEvents, long timeout,
+                     uint32 wait_event_info);
+
+extern int WaitLatchOrSocket(Latch *latch, int wakeEvents,
+                             pgsocket sock, long timeout, uint32 wait_event_info);
 
 /*
  * Unix implementation uses SIGUSR1 for inter-process signaling.
  * Win32 doesn't need this.
  */
 #ifndef WIN32
+
 extern void latch_sigusr1_handler(void);
+
 #else
 #define latch_sigusr1_handler()  ((void) 0)
 #endif
 
-#endif							/* LATCH_H */
+#endif                            /* LATCH_H */

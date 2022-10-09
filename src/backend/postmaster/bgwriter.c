@@ -61,10 +61,7 @@
 #include "utils/timestamp.h"
 
 
-/*
- * GUC parameters
- */
-int BgWriterDelay = 200;
+int BgWriterDelay = 200; // ms
 
 /*
  * Multiplier to apply to BgWriterDelay when we decide to hibernate.
@@ -113,7 +110,6 @@ void BackgroundWriterMain(void) {
 
     sigjmp_buf local_sigjmp_buf;
     MemoryContext bgwriter_context;
-    bool prev_hibernate;
     WritebackContext wb_context;
 
     /*
@@ -128,7 +124,7 @@ void BackgroundWriterMain(void) {
     pqsignal(SIGQUIT, bg_quickdie); /* hard crash time */
     pqsignal(SIGALRM, SIG_IGN);
     pqsignal(SIGPIPE, SIG_IGN);
-    pqsignal(SIGUSR1, bgwriter_sigusr1_handler);
+    pqsignal(SIGUSR1, bgwriter_sigusr1_handler); // 应对 SetLatch() 发送的 SIGUSR1
     pqsignal(SIGUSR2, SIG_IGN);
 
     /*
@@ -225,21 +221,14 @@ void BackgroundWriterMain(void) {
     /* We can now handle ereport(ERROR) */
     PG_exception_stack = &local_sigjmp_buf;
 
-    /*
-     * Unblock signals (they were blocked when the postmaster forked us)
-     */
+    // Unblock signals (they were blocked when the postmaster forked us)
     PG_SETMASK(&UnBlockSig);
 
-    /*
-     * Reset hibernation state after any error.
-     */
-    prev_hibernate = false;
+    // Reset hibernation state after any error.
+    bool prev_hibernate = false;
 
     // Loop forever
     for (;;) {
-        bool can_hibernate;
-        int rc;
-
         /* Clear any already-pending wakeups */
         ResetLatch(MyLatch);
 
@@ -259,7 +248,7 @@ void BackgroundWriterMain(void) {
         }
 
         // do one cycle of dirty-buffer writing
-        can_hibernate = BgBufferSync(&wb_context);
+        bool canHibernate = BgBufferSync(&wb_context);
 
         /*
          * Send off activity statistics to the stats collector
@@ -326,15 +315,16 @@ void BackgroundWriterMain(void) {
          * down with latch events that are likely to happen frequently during
          * normal operation.
          */
-        rc = WaitLatch(MyLatch,
-                       WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
-                       BgWriterDelay /* ms */ , WAIT_EVENT_BGWRITER_MAIN);
+        int rc = WaitLatch(MyLatch,
+                           WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
+                           BgWriterDelay, WAIT_EVENT_BGWRITER_MAIN);
 
         /*
-         * If no latch event and BgBufferSync says nothing's happening, extend
+         * If no latch event and BgBufferSync says nothing's happening(要是上边的WaitLatch干等了直到timeout), 需要保持
          * the sleep in "hibernation" mode, where we sleep for much longer
-         * than bgwriter_delay says.  Fewer wakeups save electricity.  When a
-         * backend starts using buffers again, it will wake us up by setting
+         * than BgWriterDelay.
+         *
+         * Fewer wakeups save electricity.  When a backend starts using buffers again, it will wake us up by setting
          * our latch.  Because the extra sleep will persist only as long as no
          * buffer allocations happen, this should not distort the behavior of
          * BgBufferSync's control loop too badly; essentially, it will think
@@ -348,19 +338,21 @@ void BackgroundWriterMain(void) {
          * for two consecutive cycles.  Also, we mitigate any possible
          * consequences of a missed wakeup by not hibernating forever.
          */
-        if (rc == WL_TIMEOUT && can_hibernate && prev_hibernate) {
-            /* Ask for notification at next buffer allocation */
+        if (rc == WL_TIMEOUT && canHibernate && prev_hibernate) {
+            // Ask for notification at next buffer allocation
             StrategyNotifyBgWriter(MyProc->pgprocno);
-            /* Sleep ... */
-            (void) WaitLatch(MyLatch,
-                             WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
-                             BgWriterDelay * HIBERNATE_FACTOR,
-                             WAIT_EVENT_BGWRITER_HIBERNATE);
-            /* Reset the notification request in case we timed out */
+
+            // sleep
+            WaitLatch(MyLatch,
+                      WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
+                      BgWriterDelay * HIBERNATE_FACTOR,
+                      WAIT_EVENT_BGWRITER_HIBERNATE);
+
+            // Reset the notification request in case we timed out
             StrategyNotifyBgWriter(-1);
         }
 
-        prev_hibernate = can_hibernate;
+        prev_hibernate = canHibernate;
     }
 }
 
@@ -418,11 +410,8 @@ ReqShutdownHandler(SIGNAL_ARGS) {
 }
 
 /* SIGUSR1: used for latch wakeups */
-static void
-bgwriter_sigusr1_handler(SIGNAL_ARGS) {
+static void bgwriter_sigusr1_handler(SIGNAL_ARGS) {
     int save_errno = errno;
-
     latch_sigusr1_handler();
-
     errno = save_errno;
 }

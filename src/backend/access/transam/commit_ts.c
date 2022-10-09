@@ -246,6 +246,7 @@ static void SetXidCommitTsInPage(TransactionId xid,
     int slotNo = SimpleLruReadPage(CommitTsCtl, pageno, true, xid);
 
     TransactionIdSetCommitTs(xid, ts, nodeid, slotNo);
+
     for (int i = 0; i < nsubxids; i++)
         TransactionIdSetCommitTs(subxids[i], ts, nodeid, slotNo);
 

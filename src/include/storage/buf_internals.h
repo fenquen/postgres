@@ -312,7 +312,7 @@ extern bool StrategyRejectBuffer(BufferAccessStrategy strategy,
 
 extern int StrategySyncStart(uint32 *completeNBufferRoundNum, uint32 *allocatedBufferNum);
 
-extern void StrategyNotifyBgWriter(int bgwprocno);
+extern void StrategyNotifyBgWriter(int backgroundWriterProcNo);
 
 extern Size StrategyShmemSize(void);
 

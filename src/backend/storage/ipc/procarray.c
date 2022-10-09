@@ -98,7 +98,7 @@ typedef struct ProcArrayStruct {
 static ProcArrayStruct *procArray;
 
 static PGPROC *allProcs;
-static PGXACT *allPgXact; // all pg transaction
+static PGXACT *allPgXact; // all pg transaction 数组效用
 
 /*
  * Bookkeeping for tracking emulated transactions in recovery
@@ -416,13 +416,12 @@ void ProcArrayEndTransaction(PGPROC *pgproc, TransactionId latestXid) {
         Assert(!TransactionIdIsValid(allPgXact[pgproc->pgprocno].xid));
 
         pgproc->lxid = InvalidLocalTransactionId;
+        pgproc->delayChkptEnd = false;
+        pgproc->recoveryConflictPending = false;
 
         pgxact->xmin = InvalidTransactionId;
         pgxact->vacuumFlags &= ~PROC_VACUUM_STATE_MASK; // must be cleared with xid/xmin:
         pgxact->delayChkpt = false; // be sure these are cleared in abort
-
-        pgproc->delayChkptEnd = false;
-        pgproc->recoveryConflictPending = false;
 
         Assert(pgxact->nxids == 0);
         Assert(pgxact->overflowed == false);
@@ -453,7 +452,7 @@ ProcArrayEndTransactionInternal(PGPROC *proc, PGXACT *pgxact,
     pgxact->nxids = 0;
     pgxact->overflowed = false;
 
-    /* Also advance global latestCompletedXid while holding the lock */
+    /* also advance global latestCompletedXid while holding the lock */
     if (TransactionIdPrecedes(ShmemVariableCache->latestCompletedXid,
                               latestXid))
         ShmemVariableCache->latestCompletedXid = latestXid;

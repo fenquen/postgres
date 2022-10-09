@@ -437,6 +437,7 @@ static XLogRecPtr RedoStartLSN = InvalidXLogRecPtr;
  *----------
  */
 
+// wal的写请求
 typedef struct XLogwrtRqst {
     XLogRecPtr Write;            /* last byte + 1 to write */
     XLogRecPtr Flush;            /* last byte + 1 to flush */
@@ -622,11 +623,10 @@ typedef struct XLogCtlData {
 
     /*
 	 * These values do not change after startup, although the pointed-to pages
-	 * and xlblocks values certainly do.  xlblock values are protected by
-	 * WALBufMappingLock.
+	 * and xlblocks values certainly do.  xlblock values are protected by WALBufMappingLock.
 	 */
-    char *pages;            /* buffers for unwritten XLOG pages,它是1块内存区的起点 对应的大小(Size) XLOG_BLCKSZ * XLOGbuffers */
-    XLogRecPtr *xlblocks;        /* 1st byte ptr-s + XLOG_BLCKSZ 对应的大小 sizeof(XLogRecPtr) * XLOGbuffers*/
+    char *pages;            /* buffers for unwritten XLOG pages,它是1块内存区的起点,大小 (Size) XLOG_BLCKSZ * XLOGbuffers,该area用来在write之前落地wal */
+    XLogRecPtr *xlblocks;   /* 1st byte ptr-s + XLOG_BLCKSZ ,大小 sizeof(XLogRecPtr) * XLOGbuffers*/
     int XLogCacheBlck;    /* highest allocated xlog buffer index */
 
     /*
@@ -659,8 +659,7 @@ typedef struct XLogCtlData {
 
     /*
 	 * recoveryWakeupLatch is used to wake up the startup process to continue
-	 * WAL replay, if it is waiting for WAL to arrive or failover trigger file
-	 * to appear.
+	 * WAL replay, if it is waiting for WAL to arrive or fail over trigger file to appear.
 	 */
     Latch recoveryWakeupLatch;
 
@@ -723,6 +722,7 @@ static ControlFileData *ControlFile = NULL;
         (((idx) == XLogCtl->XLogCacheBlck) ? 0 : ((idx) + 1))
 
 /*
+ * 得到 XLogCtl->xlblocks 对应的的数组的体系维度的index
  * XLogRecPtrToBufIdx returns the index of the WAL buffer that holds, or
  * would hold if it was in cache, the page containing 'recptr'.
  */
@@ -735,18 +735,17 @@ static ControlFileData *ControlFile = NULL;
 #define UsableBytesInPage (XLOG_BLCKSZ - SizeOfXLogShortPHD)
 
 /*
- * Convert min_wal_size_mb and max wal_size_mb to equivalent segment count.
- * Rounds down.
+ * Convert min_wal_size_mb and max wal_size_mb to equivalent segment count,Rounds down
  */
 #define ConvertToXSegs(x, segsize)    \
     ((x) / ((segsize) / (1024 * 1024)))
 
-/* The number of bytes in a WAL segment usable for WAL data. */
+// The number of bytes in a WAL segment usable for WAL data.
 static int UsableBytesInSegment;
 
 /*
  * 源头  XLogCtl的LogwrtResult
- * Private, possibly out-of-date copy of shared LogwrtResult. See discussion above.
+ * 私有的不是shared, possibly out-of-date copy of shared LogwrtResult. See discussion above.
  */
 static XLogwrtResult LogwrtResult = {0, 0};
 
@@ -890,7 +889,7 @@ static void AdvanceXLInsertBuffer(XLogRecPtr upto, bool opportunistic);
 
 static bool XLogCheckpointNeeded(XLogSegNo new_segno);
 
-static void XLogWrite(XLogwrtRqst xLogwrtRqst, bool flexible);
+static void XLogWrite(XLogwrtRqst xLogWriteRequest, bool flexible);
 
 static bool InstallXLogFileSegment(XLogSegNo *segno, char *tmppath,
                                    bool find_free, XLogSegNo max_segno,
@@ -910,7 +909,7 @@ static bool WaitForWALToBecomeAvailable(XLogRecPtr RecPtr, bool randAccess,
 
 static int emode_for_corrupt_record(int emode, XLogRecPtr RecPtr);
 
-static void XLogFileClose(void);
+static void XLogFileClose();
 
 static void PreallocXlogFiles(XLogRecPtr endptr);
 
@@ -1734,8 +1733,7 @@ static void WALInsertLockUpdateInsertingAt(XLogRecPtr insertingAt) {
  * uninitialized page), and the inserter might need to evict an old WAL buffer
  * to make room for a new one, which in turn requires WALWriteLock.
  */
-static XLogRecPtr
-WaitXLogInsertionsToFinish(XLogRecPtr upto) {
+static XLogRecPtr WaitXLogInsertionsToFinish(XLogRecPtr upto) {
     uint64 bytepos;
     XLogRecPtr reservedUpto;
     XLogRecPtr finishedUpto;
@@ -1763,12 +1761,12 @@ WaitXLogInsertionsToFinish(XLogRecPtr upto) {
         elog(LOG, "request to flush past end of generated WAL; request %X/%X, currpos %X/%X",
              (uint32) (upto >> 32), (uint32) upto,
              (uint32) (reservedUpto >> 32), (uint32) reservedUpto);
+
         upto = reservedUpto;
     }
 
     /*
-	 * Loop through all the locks, sleeping on any in-progress insert older
-	 * than 'upto'.
+	 * Loop through all the locks, sleeping on any in-progress insert older than 'upto'.
 	 *
 	 * finishedUpto is our return value, indicating the point upto which all
 	 * the WAL insertions have been finished. Initialize it to the head of
@@ -1789,8 +1787,7 @@ WaitXLogInsertionsToFinish(XLogRecPtr upto) {
 			 * it's a small insertion, the record will most likely fit on the
 			 * same page and the inserter will release the lock without ever
 			 * calling LWLockUpdateVar.  But if it has to sleep, it will
-			 * advertise the insertion point with LWLockUpdateVar before
-			 * sleeping.
+			 * advertise the insertion point with LWLockUpdateVar before sleeping.
 			 */
             if (LWLockWaitForVar(&WALInsertLocks[i].l.lock,
                                  &WALInsertLocks[i].l.insertingAt,
@@ -2306,140 +2303,136 @@ XLogCheckpointNeeded(XLogSegNo new_segno) {
 }
 
 /*
- * Write and/or fsync the log at least as far as xLogwrtRqst indicates.
+ * Write and/or fsync the log at least as far as xLogWriteRequest indicates.
  *
- * If flexible == true, we don't have to write as far as xLogwrtRqst, but
+ * If flexible == true, we don't have to write as far as xLogWriteRequest, but
  * may stop at any convenient boundary (such as a cache or logfile boundary).
  * This option allows us to avoid uselessly issuing multiple writes when a
  * single one would do.
  *
- * Must be called with WALWriteLock held. WaitXLogInsertionsToFinish(xLogwrtRqst)
+ * Must be called with WALWriteLock held. WaitXLogInsertionsToFinish(xLogWriteRequest)
  * must be called before grabbing the lock, to make sure the data is ready to write
  */
-static void XLogWrite(XLogwrtRqst xLogwrtRqst, bool flexible) {
-    bool ispartialpage;
-    bool last_iteration;
-    bool finishing_seg;
-    bool use_existent;
-    int curridx;
-    int npages;
-    int startidx;
-    uint32 startoffset;
-
-    // We should always be inside a critical section here */
+static void XLogWrite(XLogwrtRqst xLogWriteRequest, bool flexible) {
+    // We should always be inside a critical section here
     Assert(CritSectionCount > 0);
 
-    // update local LogwrtResult (caller probably did this already)
+    // update 非shared的本地global变量 LogwrtResult (caller probably did this already)
     LogwrtResult = XLogCtl->LogwrtResult;
 
     /*
-	 * Since successive pages in the xlog cache are consecutively allocated,
-	 * we can usually gather multiple pages together and issue just one
-	 * write() call.  npages is the number of pages we have determined can be
-	 * written together; startidx is the cache block index of the first one,
-	 * and startoffset is the file offset at which it should go. The latter
-	 * two variables are only valid when npages > 0, but we must initialize
-	 * all of them to keep the compiler quiet.
-	 */
-    npages = 0;
-    startidx = 0;
-    startoffset = 0;
-
-    /*
-	 * Within the loop, curridx is the cache block index of the page to
+	 * Within the loop, currentXblocksIndex is the cache block index of the page to
 	 * consider writing.  Begin at the buffer containing the next unwritten
 	 * page, or last partially written page.
 	 */
-    curridx = XLogRecPtrToBufIdx(LogwrtResult.Write);
+    int currentXblocksIndex = XLogRecPtrToBufIdx(LogwrtResult.Write);
 
-    while (LogwrtResult.Write < xLogwrtRqst.Write) {
+    /*
+    * Since successive pages in the xlog cache are consecutively allocated,
+    * we can usually gather multiple pages together and issue just one
+    * write() call.  pageCount is the number of pages we have determined can be
+    * written together; startIndex is the cache block index of the first one,
+    * and startOffset is the file offset at which it should go. The latter
+    * two variables are only valid when pageCount > 0, but we must initialize
+    * all of them to keep the compiler quiet.
+    */
+    int pageCount = 0;
+    int startIndex = 0;
+    uint32 startOffset = 0;
+
+    while (LogwrtResult.Write < xLogWriteRequest.Write) {
         /*
 		 * Make sure we're not ahead of the insert process.  This could happen
-		 * if we're passed a bogus xLogwrtRqst.Write that is past the end of the
+		 * if we're passed a bogus xLogWriteRequest.Write that is past the end of the
 		 * last page that's been initialized by AdvanceXLInsertBuffer.
 		 */
-        XLogRecPtr EndPtr = XLogCtl->xlblocks[curridx];
+        XLogRecPtr endPos = XLogCtl->xlblocks[currentXblocksIndex];
 
-        if (LogwrtResult.Write >= EndPtr)
+        if (LogwrtResult.Write >= endPos) {
             elog(PANIC, "xlog write request %X/%X is past end of log %X/%X",
                  (uint32) (LogwrtResult.Write >> 32),
                  (uint32) LogwrtResult.Write,
-                 (uint32) (EndPtr >> 32), (uint32) EndPtr);
+                 (uint32) (endPos >> 32),
+                 (uint32) endPos);
+        }
 
-        /* Advance LogwrtResult.Write to end of current buffer page */
-        LogwrtResult.Write = EndPtr;
-        ispartialpage = xLogwrtRqst.Write < LogwrtResult.Write;
+        // Advance LogwrtResult.Write to end of current buffer page
+        LogwrtResult.Write = endPos;
+        bool isPartialPage = xLogWriteRequest.Write < LogwrtResult.Write;
 
+
+        // Switch to new logfile segment.  We cannot have any pending
+        // pages here (since we dump what we have at segment end).
         if (!XLByteInPrevSeg(LogwrtResult.Write, openLogSegNo, wal_segment_size)) {
-            /*
-			 * Switch to new logfile segment.  We cannot have any pending
-			 * pages here (since we dump what we have at segment end).
-			 */
-            Assert(npages == 0);
-            if (openLogFile >= 0)
-                XLogFileClose();
-            XLByteToPrevSeg(LogwrtResult.Write, openLogSegNo,wal_segment_size);
+            Assert(pageCount == 0);
 
-            /* create/use new log file */
-            use_existent = true;
+            if (openLogFile >= 0) {
+                XLogFileClose();
+            }
+
+            XLByteToPrevSeg(LogwrtResult.Write, openLogSegNo, wal_segment_size);
+
+            // create/use new log file
+            bool use_existent = true;
             openLogFile = XLogFileInit(openLogSegNo, &use_existent, true);
         }
 
-        /* Make sure we have the current logfile open */
+        // make sure we have the current logfile open
         if (openLogFile < 0) {
             XLByteToPrevSeg(LogwrtResult.Write, openLogSegNo, wal_segment_size);
             openLogFile = XLogFileOpen(openLogSegNo);
         }
 
-        /* Add current page to the set of pending pages-to-dump */
-        if (npages == 0) {
-            /* first of group */
-            startidx = curridx;
-            startoffset = XLogSegmentOffset(LogwrtResult.Write - XLOG_BLCKSZ, wal_segment_size);
+        // Add current page to the set of pending pages-to-dump
+        if (pageCount == 0) {
+            // first of group
+            startIndex = currentXblocksIndex;
+            startOffset = XLogSegmentOffset(LogwrtResult.Write - XLOG_BLCKSZ, wal_segment_size);
         }
-        npages++;
+
+        pageCount++;
 
         /*
 		 * Dump the set if this will be the last loop iteration, or if we are
 		 * at the last page of the cache area (since the next page won't be
 		 * contiguous in memory), or if we are at the end of the logfile segment.
 		 */
-        last_iteration = xLogwrtRqst.Write <= LogwrtResult.Write;
+        bool isLastIteration = xLogWriteRequest.Write <= LogwrtResult.Write;
 
-        finishing_seg = !ispartialpage &&
-                        (startoffset + npages * XLOG_BLCKSZ) >= wal_segment_size;
+        // 把segment文件写光
+        bool finishSegFile = !isPartialPage &&
+                             (startOffset + pageCount * XLOG_BLCKSZ) >= wal_segment_size;
 
-        if (last_iteration || curridx == XLogCtl->XLogCacheBlck || finishing_seg) {
-            char *from;
-            Size nbytes;
-            Size nleft;
-            int written;
+        if (isLastIteration || currentXblocksIndex == XLogCtl->XLogCacheBlck || finishSegFile) {
+            char *sourceStartPos = XLogCtl->pages + startIndex * (Size) XLOG_BLCKSZ;
+            Size totalByteLenToWrite = pageCount * (Size) XLOG_BLCKSZ;
+            Size remainToWriteByteLen = totalByteLenToWrite;
 
-            /* OK to write the page(s) */
-            from = XLogCtl->pages + startidx * (Size) XLOG_BLCKSZ;
-            nbytes = npages * (Size) XLOG_BLCKSZ;
-            nleft = nbytes;
             do {
                 errno = 0;
+
                 pgstat_report_wait_start(WAIT_EVENT_WAL_WRITE);
-                written = pg_pwrite(openLogFile, from, nleft, startoffset);
+                int writtenByteLen = pg_pwrite(openLogFile, sourceStartPos, remainToWriteByteLen, startOffset);
                 pgstat_report_wait_end();
-                if (written <= 0) {
-                    if (errno == EINTR)
+
+                if (writtenByteLen <= 0) {
+                    if (errno == EINTR) {
                         continue;
+                    }
+
                     ereport(PANIC,
                             (errcode_for_file_access(),
-                                    errmsg("could not write to log file %s "
-                                           "at offset %u, length %zu: %m",
-                                           XLogFileNameP(ThisTimeLineID, openLogSegNo),
-                                           startoffset, nleft)));
+                                    errmsg("could not write to log file %s at offset %u, length %zu: %m",
+                                           XLogFileNameP(ThisTimeLineID, openLogSegNo), startOffset,
+                                           remainToWriteByteLen)));
                 }
-                nleft -= written;
-                from += written;
-                startoffset += written;
-            } while (nleft > 0);
 
-            npages = 0;
+                remainToWriteByteLen -= writtenByteLen;
+                sourceStartPos += writtenByteLen;
+                startOffset += writtenByteLen;
+            } while (remainToWriteByteLen > 0);
+
+            pageCount = 0;
 
             /*
 			 * If we just wrote the whole last page of a logfile segment,
@@ -2454,7 +2447,7 @@ static void XLogWrite(XLogwrtRqst xLogwrtRqst, bool flexible) {
 			 * too many logfile segments have been used since the last
 			 * checkpoint.
 			 */
-            if (finishing_seg) {
+            if (finishSegFile) {
                 issue_xlog_fsync(openLogFile, openLogSegNo);
 
                 /* signal that we need to wakeup wal senders later */
@@ -2472,8 +2465,7 @@ static void XLogWrite(XLogwrtRqst xLogwrtRqst, bool flexible) {
 				 * Request a checkpoint if we've consumed too much xlog since
 				 * the last one.  For speed, we first check using the local
 				 * copy of RedoRecPtr, which might be out of date; if it looks
-				 * like a checkpoint is needed, forcibly update RedoRecPtr and
-				 * recheck.
+				 * like a checkpoint is needed, forcibly update RedoRecPtr and recheck
 				 */
                 if (IsUnderPostmaster && XLogCheckpointNeeded(openLogSegNo)) {
                     (void) GetRedoRecPtr();
@@ -2484,52 +2476,48 @@ static void XLogWrite(XLogwrtRqst xLogwrtRqst, bool flexible) {
         }
 
         // only asked to write a partial page
-        if (ispartialpage) {
-            LogwrtResult.Write = xLogwrtRqst.Write;
+        if (isPartialPage) {
+            LogwrtResult.Write = xLogWriteRequest.Write;
             break;
         }
-        curridx = NextBufIdx(curridx);
 
-        // If flexible, break out of loop as soon as we wrote something */
-        if (flexible && npages == 0)
+        currentXblocksIndex = NextBufIdx(currentXblocksIndex);
+
+        // if flexible, break out of loop as soon as we wrote something */
+        if (flexible && pageCount == 0) {
             break;
+        }
     }
 
-    Assert(npages == 0);
+    Assert(pageCount == 0);
 
-    /*
-	 * If asked to flush, do so
-	 */
-    if (LogwrtResult.Flush < xLogwrtRqst.Flush &&
-        LogwrtResult.Flush < LogwrtResult.Write) {
-        /*
-		 * Could get here without iterating above loop, in which case we might
-		 * have no open file or the wrong one.  However, we do not need to
-		 * fsync more than one file.
-		 */
-        if (sync_method != SYNC_METHOD_OPEN &&
-            sync_method != SYNC_METHOD_OPEN_DSYNC) {
+    // need flush
+    if (LogwrtResult.Flush < xLogWriteRequest.Flush && LogwrtResult.Flush < LogwrtResult.Write) {
+        // Could get here without iterating above loop, in which case we might
+        // have no open file or the wrong one.  However, we do not need to fsync more than one file.
+        if (sync_method != SYNC_METHOD_OPEN && sync_method != SYNC_METHOD_OPEN_DSYNC) {
+
             if (openLogFile >= 0 &&
-                !XLByteInPrevSeg(LogwrtResult.Write, openLogSegNo,
-                                 wal_segment_size))
+                !XLByteInPrevSeg(LogwrtResult.Write, openLogSegNo, wal_segment_size)) {
                 XLogFileClose();
+            }
+
             if (openLogFile < 0) {
-                XLByteToPrevSeg(LogwrtResult.Write, openLogSegNo,
-                                wal_segment_size);
+                XLByteToPrevSeg(LogwrtResult.Write, openLogSegNo, wal_segment_size);
                 openLogFile = XLogFileOpen(openLogSegNo);
             }
 
             issue_xlog_fsync(openLogFile, openLogSegNo);
         }
 
-        /* signal that we need to wakeup walsenders later */
+        // signal that we need to wakeup wal senders later
         WalSndWakeupRequest();
 
         LogwrtResult.Flush = LogwrtResult.Write;
     }
 
     /*
-	 * Update shared-memory status
+	 * update shared-memory
 	 *
 	 * We make sure that the shared 'request' values do not fall behind the
 	 * 'result' values.  This is not absolutely essential, but it saves some
@@ -2537,11 +2525,17 @@ static void XLogWrite(XLogwrtRqst xLogwrtRqst, bool flexible) {
 	 */
     {
         SpinLockAcquire(&XLogCtl->info_lck);
+
         XLogCtl->LogwrtResult = LogwrtResult;
-        if (XLogCtl->LogwrtRqst.Write < LogwrtResult.Write)
+
+        if (XLogCtl->LogwrtRqst.Write < LogwrtResult.Write) {
             XLogCtl->LogwrtRqst.Write = LogwrtResult.Write;
-        if (XLogCtl->LogwrtRqst.Flush < LogwrtResult.Flush)
+        }
+
+        if (XLogCtl->LogwrtRqst.Flush < LogwrtResult.Flush) {
             XLogCtl->LogwrtRqst.Flush = LogwrtResult.Flush;
+        }
+
         SpinLockRelease(&XLogCtl->info_lck);
     }
 }
@@ -2706,8 +2700,6 @@ UpdateMinRecoveryPoint(XLogRecPtr lsn, bool force) {
  * already held, and we try to avoid acquiring it if possible.
  */
 void XLogFlush(const XLogRecPtr endPos) {
-
-
     /*
 	 * During REDO, we are reading not writing WAL.  Therefore, instead of
 	 * trying to flush the WAL, we should update minRecoveryPoint instead. We
@@ -3456,21 +3448,16 @@ InstallXLogFileSegment(XLogSegNo *segno, char *tmppath,
     return true;
 }
 
-/*
- * Open a pre-existing logfile segment for writing.
- */
-int
-XLogFileOpen(XLogSegNo segno) {
+// open a pre-existing logfile segment for writing.
+int XLogFileOpen(XLogSegNo segNo) {
     char path[MAXPGPATH];
-    int fd;
+    XLogFilePath(path, ThisTimeLineID, segNo, wal_segment_size);
 
-    XLogFilePath(path, ThisTimeLineID, segno, wal_segment_size);
-
-    fd = BasicOpenFile(path, O_RDWR | PG_BINARY | get_sync_bit(sync_method));
-    if (fd < 0)
+    int fd = BasicOpenFile(path, O_RDWR | PG_BINARY | get_sync_bit(sync_method));
+    if (fd < 0) {
         ereport(PANIC,
-                (errcode_for_file_access(),
-                        errmsg("could not open file \"%s\": %m", path)));
+                (errcode_for_file_access(), errmsg("could not open file \"%s\": %m", path)));
+    }
 
     return fd;
 }
@@ -3651,11 +3638,9 @@ XLogFileReadAnyTLI(XLogSegNo segno, int emode, int source) {
     return -1;
 }
 
-/*
- * Close the current logfile segment for writing.
- */
-static void
-XLogFileClose(void) {
+
+// close the current logfile segment for writing.
+static void XLogFileClose() {
     Assert(openLogFile >= 0);
 
     /*
@@ -3669,11 +3654,12 @@ XLogFileClose(void) {
 		(void) posix_fadvise(openLogFile, 0, 0, POSIX_FADV_DONTNEED);
 #endif
 
-    if (close(openLogFile))
+    if (close(openLogFile)) {
         ereport(PANIC,
                 (errcode_for_file_access(),
-                        errmsg("could not close file \"%s\": %m",
-                               XLogFileNameP(ThisTimeLineID, openLogSegNo))));
+                        errmsg("could not close file \"%s\": %m", XLogFileNameP(ThisTimeLineID, openLogSegNo))));
+    }
+
     openLogFile = -1;
 }
 

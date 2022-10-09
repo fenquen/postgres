@@ -269,7 +269,7 @@ extern bool XLogNeedsFlush(XLogRecPtr RecPtr);
 
 extern int XLogFileInit(XLogSegNo segno, bool *use_existent, bool use_lock);
 
-extern int XLogFileOpen(XLogSegNo segno);
+extern int XLogFileOpen(XLogSegNo segNo);
 
 extern void CheckXLogRemoved(XLogSegNo segno, TimeLineID tli);
 

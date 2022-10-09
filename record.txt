@@ -307,3 +307,8 @@ hash structure
 
 lsn: Log sequence number
     https://blog.csdn.net/weixin_39540651/article/details/117021173
+
+
+wal(xlog)的文件名规则
+    详细的逻辑 XLogFilePath()
+    pg_wal目录 文件的名字是3个8位的数字构成的
