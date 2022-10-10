@@ -879,8 +879,9 @@ static bool HeapTupleSatisfiesMVCC(HeapTuple heapTuple, Snapshot snapshot, Buffe
     Assert(ItemPointerIsValid(&heapTuple->t_self));
     Assert(heapTuple->t_tableOid != InvalidOid);
 
-    // xmin
-    if (!HeapTupleHeaderXminCommitted(tuple)) {
+    // xmin体系
+    TransactionId xmin = HeapTupleHeaderGetRawXmin(tuple);
+    if (!HeapTupleHeaderXminCommitted(tuple)) { // xmin不是committed,很有可能invisible
         if (HeapTupleHeaderXminInvalid(tuple)) {
             return false;
         }
@@ -1024,7 +1025,7 @@ static bool HeapTupleSatisfiesMVCC(HeapTuple heapTuple, Snapshot snapshot, Buffe
 
     // xmax
     TransactionId xmax = HeapTupleHeaderGetRawXmax(tuple);
-    if (!(tuple->t_infomask & HEAP_XMAX_COMMITTED)) {
+    if (!(tuple->t_infomask & HEAP_XMAX_COMMITTED)) { // xmax不是committed,也会可能invisible
         if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmax(tuple))) {
             // deleted after scan started
             if (HeapTupleHeaderGetCmax(tuple) >= snapshot->curcid) {
