@@ -109,16 +109,18 @@
  * The caller should pass xid as the XID of the transaction to check, or
  * InvalidTransactionId if no check is needed.
  */
-static inline void
-SetHintBits(HeapTupleHeader tuple, Buffer buffer,
-            uint16 infomask, TransactionId xid) {
+static inline void SetHintBits(HeapTupleHeader tuple,
+                               Buffer buffer,
+                               uint16 infomask,
+                               TransactionId xid) {
     if (TransactionIdIsValid(xid)) {
         /* NB: xid must be known committed here! */
         XLogRecPtr commitLSN = TransactionIdGetCommitLSN(xid);
 
-        if (BufferIsPermanent(buffer) && XLogNeedsFlush(commitLSN) &&
+        if (BufferIsPermanent(buffer) &&
+            XLogNeedsFlush(commitLSN) &&
             BufferGetLSNAtomic(buffer) < commitLSN) {
-            /* not flushed and no LSN interlock, so don't set hint */
+            // not flushed and no LSN interlock, so don't set hint
             return;
         }
     }
@@ -877,9 +879,11 @@ static bool HeapTupleSatisfiesMVCC(HeapTuple heapTuple, Snapshot snapshot, Buffe
     Assert(ItemPointerIsValid(&heapTuple->t_self));
     Assert(heapTuple->t_tableOid != InvalidOid);
 
+    // xmin
     if (!HeapTupleHeaderXminCommitted(tuple)) {
-        if (HeapTupleHeaderXminInvalid(tuple))
+        if (HeapTupleHeaderXminInvalid(tuple)) {
             return false;
+        }
 
         /* Used by pre-9.0 binary upgrades */
         if (tuple->t_infomask & HEAP_MOVED_OFF) {
@@ -913,17 +917,17 @@ static bool HeapTupleSatisfiesMVCC(HeapTuple heapTuple, Snapshot snapshot, Buffe
                 }
             }
         } else if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmin(tuple))) {
-            /* inserted after scan started */
+            // inserted after scan started
             if (HeapTupleHeaderGetCmin(tuple) >= snapshot->curcid) {
                 return false;
             }
 
-            /* xid invalid */
+            // xid invalid
             if (tuple->t_infomask & HEAP_XMAX_INVALID) {
                 return true;
             }
 
-            /* not deleter */
+            // not deleter
             if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask)) {
                 return true;
             }
@@ -954,12 +958,13 @@ static bool HeapTupleSatisfiesMVCC(HeapTuple heapTuple, Snapshot snapshot, Buffe
                 return true;
             }
 
-            /* deleted after scan started */
+            // deleted after scan started
             if (HeapTupleHeaderGetCmax(tuple) >= snapshot->curcid) {
                 return true;
             }
 
-            return false;    /* deleted before scan started */
+            // deleted before scan started
+            return false;
         } else if (XidInMVCCSnapshot(HeapTupleHeaderGetRawXmin(tuple), snapshot)) {
             return false;
         } else if (TransactionIdDidCommit(HeapTupleHeaderGetRawXmin(tuple))) {
@@ -969,14 +974,14 @@ static bool HeapTupleSatisfiesMVCC(HeapTuple heapTuple, Snapshot snapshot, Buffe
             return false;
         }
     } else {
-        /* xmin is committed, but maybe not according to our snapshot */
+        // xmin is committed  but maybe not according to our snapshot
         if (!HeapTupleHeaderXminFrozen(tuple) && XidInMVCCSnapshot(HeapTupleHeaderGetRawXmin(tuple), snapshot)) {
             return false; // treat as still in progress
         }
     }
 
-    /* by here, the inserting transaction has committed */
-    /* xid invalid or aborted */
+    // by here, the inserting transaction has committed */
+    // xid invalid or aborted
     if (tuple->t_infomask & HEAP_XMAX_INVALID) {
         return true;
     }
@@ -1008,42 +1013,49 @@ static bool HeapTupleSatisfiesMVCC(HeapTuple heapTuple, Snapshot snapshot, Buffe
             return true;
         }
 
-        /* updating transaction committed */
+        // updating transaction committed
         if (TransactionIdDidCommit(xmax)) {
             return false;
         }
 
-        /* it must have aborted or crashed */
+        // it must have aborted or crashed
         return true;
     }
 
+    // xmax
+    TransactionId xmax = HeapTupleHeaderGetRawXmax(tuple);
     if (!(tuple->t_infomask & HEAP_XMAX_COMMITTED)) {
         if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmax(tuple))) {
-            if (HeapTupleHeaderGetCmax(tuple) >= snapshot->curcid)
-                return true;    /* deleted after scan started */
-            else
-                return false;    /* deleted before scan started */
+            // deleted after scan started
+            if (HeapTupleHeaderGetCmax(tuple) >= snapshot->curcid) {
+                return true;
+            }
+
+            // deleted before scan started
+            return false;
         }
 
-        if (XidInMVCCSnapshot(HeapTupleHeaderGetRawXmax(tuple), snapshot))
+        if (XidInMVCCSnapshot(HeapTupleHeaderGetRawXmax(tuple), snapshot)) {
             return true;
+        }
 
         if (!TransactionIdDidCommit(HeapTupleHeaderGetRawXmax(tuple))) {
-            /* it must have aborted or crashed */
-            SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
-                        InvalidTransactionId);
+            // it must have aborted or crashed
+            SetHintBits(tuple, buffer, HEAP_XMAX_INVALID, InvalidTransactionId);
             return true;
         }
 
-        /* xmax transaction committed */
+        // xmax transaction committed
         SetHintBits(tuple, buffer, HEAP_XMAX_COMMITTED, HeapTupleHeaderGetRawXmax(tuple));
     } else {
-        /* xmax is committed, but maybe not according to our snapshot */
-        if (XidInMVCCSnapshot(HeapTupleHeaderGetRawXmax(tuple), snapshot))
-            return true;        /* treat as still in progress */
+        // xmax is committed, but maybe not according to our snapshot
+        if (XidInMVCCSnapshot(HeapTupleHeaderGetRawXmax(tuple), snapshot)) {
+            // treat as still in progress */
+            return true;
+        }
     }
 
-    /* xmax transaction committed */
+    // xmax transaction committed
     return false;
 }
 

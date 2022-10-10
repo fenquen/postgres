@@ -45,49 +45,44 @@ static XidStatus TransactionLogFetch(TransactionId transactionId);
  * ----------------------------------------------------------------
  */
 
-/*
- * TransactionLogFetch --- fetch commit status of specified transaction id
- */
-static XidStatus
-TransactionLogFetch(TransactionId transactionId) {
-    XidStatus xidstatus;
-    XLogRecPtr xidlsn;
-
+// 到clog中 fetch commit status of  transaction id
+static XidStatus TransactionLogFetch(TransactionId transactionId) {
     /*
      * Before going to the commit log manager, check our single item cache to
      * see if we didn't just check the transaction status a moment ago.
      */
-    if (TransactionIdEquals(transactionId, cachedFetchXid))
+    if (TransactionIdEquals(transactionId, cachedFetchXid)) {
         return cachedFetchXidStatus;
+    }
 
-    /*
-     * Also, check to see if the transaction ID is a permanent one.
-     */
+    // also check to see if the transaction ID is a permanent one.
     if (!TransactionIdIsNormal(transactionId)) {
-        if (TransactionIdEquals(transactionId, BootstrapTransactionId))
+        if (TransactionIdEquals(transactionId, BootstrapTransactionId)) {
             return TRANSACTION_STATUS_COMMITTED;
-        if (TransactionIdEquals(transactionId, FrozenTransactionId))
+        }
+
+        if (TransactionIdEquals(transactionId, FrozenTransactionId)) {
             return TRANSACTION_STATUS_COMMITTED;
+        }
+
         return TRANSACTION_STATUS_ABORTED;
     }
 
-    /*
-     * Get the transaction status.
-     */
-    xidstatus = TransactionIdGetStatus(transactionId, &xidlsn);
+    // get the transaction status
+    XLogRecPtr xidLsn;
+    XidStatus xidStatus = TransactionIdGetStatus(transactionId, &xidLsn);
 
     /*
      * Cache it, but DO NOT cache status for unfinished or sub-committed
      * transactions!  We only cache status that is guaranteed not to change.
      */
-    if (xidstatus != TRANSACTION_STATUS_IN_PROGRESS &&
-        xidstatus != TRANSACTION_STATUS_SUB_COMMITTED) {
+    if (xidStatus != TRANSACTION_STATUS_IN_PROGRESS && xidStatus != TRANSACTION_STATUS_SUB_COMMITTED) {
         cachedFetchXid = transactionId;
-        cachedFetchXidStatus = xidstatus;
-        cachedCommitLSN = xidlsn;
+        cachedFetchXidStatus = xidStatus;
+        cachedCommitLSN = xidLsn;
     }
 
-    return xidstatus;
+    return xidStatus;
 }
 
 /* ----------------------------------------------------------------
@@ -111,24 +106,14 @@ TransactionLogFetch(TransactionId transactionId) {
  * ----------------------------------------------------------------
  */
 
-/*
- * TransactionIdDidCommit
- *		True if transaction associated with the identifier did commit.
- *
- * Note:
- *		Assumes transaction identifier is valid and exists in clog.
- */
-bool                            /* true if given transaction committed */
-TransactionIdDidCommit(TransactionId transactionId) {
-    XidStatus xidstatus;
+// assume transaction identifier is valid and exists in clog.
+bool TransactionIdDidCommit(TransactionId transactionId) {
+    // 这个函数名字里的log便是clog
+    XidStatus xidStatus = TransactionLogFetch(transactionId);
 
-    xidstatus = TransactionLogFetch(transactionId);
-
-    /*
-     * If it's marked committed, it's committed.
-     */
-    if (xidstatus == TRANSACTION_STATUS_COMMITTED)
+    if (xidStatus == TRANSACTION_STATUS_COMMITTED) {
         return true;
+    }
 
     /*
      * If it's marked subcommitted, we have to check the parent recursively.
@@ -144,23 +129,20 @@ TransactionIdDidCommit(TransactionId transactionId) {
      * zeroed.  Since this case should not happen under normal conditions, it
      * seems reasonable to emit a WARNING for it.
      */
-    if (xidstatus == TRANSACTION_STATUS_SUB_COMMITTED) {
-        TransactionId parentXid;
-
-        if (TransactionIdPrecedes(transactionId, TransactionXmin))
-            return false;
-        parentXid = SubTransGetParent(transactionId);
-        if (!TransactionIdIsValid(parentXid)) {
-            elog(WARNING, "no pg_subtrans entry for subcommitted XID %u",
-                 transactionId);
+    if (xidStatus == TRANSACTION_STATUS_SUB_COMMITTED) {
+        if (TransactionIdPrecedes(transactionId, TransactionXmin)) {
             return false;
         }
+
+        TransactionId parentXid = SubTransGetParent(transactionId);
+        if (!TransactionIdIsValid(parentXid)) {
+            elog(WARNING, "no pg_subtrans entry for sub committed XID %u", transactionId);
+            return false;
+        }
+
         return TransactionIdDidCommit(parentXid);
     }
 
-    /*
-     * It's not committed.
-     */
     return false;
 }
 

@@ -56,18 +56,18 @@
  */
 
 /* We need two bits per xact, so four xacts fit in a byte */
-#define CLOG_BITS_PER_XACT    2
+#define CLOG_BITS_PER_XACT    2 // clog的状态(xidStatus)有4中 占用2个bit
 #define CLOG_XACTS_PER_BYTE 4 // 1个byte可以容纳的clog数量:clog表示的事务的状态有4个 占用2bit 1个字节有8bit 那么1个字节可以容纳4个的clog
 #define CLOG_XACTS_PER_PAGE (BLCKSZ * CLOG_XACTS_PER_BYTE) // 1个的page可以容纳的clog(2bit的4个状态)的数量
 #define CLOG_XACT_BITMASK    ((1 << CLOG_BITS_PER_XACT) - 1)
 
 // 以下的2个是page上的定位
-#define TransactionIdToPage(xid)    ((xid) / (TransactionId) CLOG_XACTS_PER_PAGE)
-#define TransactionIdToPgIndex(xid) ((xid) % (TransactionId) CLOG_XACTS_PER_PAGE)
+#define TransactionIdToPage(xid)    ((xid) / (TransactionId) CLOG_XACTS_PER_PAGE) // 哪个的page
+#define TransactionIdToPgIndex(xid) ((xid) % (TransactionId) CLOG_XACTS_PER_PAGE) // page内部的哪个位置
 
 // 以下的2个是byte上的定位
-#define TransactionIdToByte(xid)    (TransactionIdToPgIndex(xid) / CLOG_XACTS_PER_BYTE)
-#define TransactionIdToBIndex(xid)    ((xid) % (TransactionId) CLOG_XACTS_PER_BYTE)
+#define TransactionIdToByte(xid)    (TransactionIdToPgIndex(xid) / CLOG_XACTS_PER_BYTE) // 哪个的byte
+#define TransactionIdToBIndex(xid)    ((xid) % (TransactionId) CLOG_XACTS_PER_BYTE) // byte内部的哪个bit
 
 /* We store the latest async LSN for each group of transactions */
 #define CLOG_XACTS_PER_LSN_GROUP    32    /* keep this a power of 2 */
@@ -609,6 +609,7 @@ static void TransactionIdSetStatusBit(TransactionId xid,
 }
 
 /*
+ * 通过 xid 得到了对应的 xidStatus(clog)
  * Interrogate the state of a transaction in the commit log.
  *
  * Aside from the actual commit status, this function returns (into *lsn)
@@ -623,35 +624,28 @@ static void TransactionIdSetStatusBit(TransactionId xid,
  * NB: this is a low-level routine and is NOT the preferred entry point
  * for most uses; TransactionLogFetch() in transam.c is the intended caller.
  */
-XidStatus
-TransactionIdGetStatus(TransactionId xid, XLogRecPtr *lsn) {
-    int pageno = TransactionIdToPage(xid);
-    int byteno = TransactionIdToByte(xid);
-    int bshift = TransactionIdToBIndex(xid) * CLOG_BITS_PER_XACT;
-    int slotno;
-    int lsnindex;
-    char *byteptr;
-    XidStatus status;
+XidStatus TransactionIdGetStatus(TransactionId xid, XLogRecPtr *lsn) {
+    int pageNo = TransactionIdToPage(xid);
+    int slotNo = SimpleLruReadPage_ReadOnly(ClogCtl, pageNo, xid);// 又见到了之前在clog中熟悉的slru(simple lru)
 
-    /* lock is acquired by SimpleLruReadPage_ReadOnly */
+    int byteNo = TransactionIdToByte(xid);
+    char *bytePtr = ClogCtl->shared->page_buffer[slotNo] + byteNo;
 
-    slotno = SimpleLruReadPage_ReadOnly(ClogCtl, pageno, xid);
-    byteptr = ClogCtl->shared->page_buffer[slotno] + byteno;
+    int bitShift = TransactionIdToBIndex(xid) * CLOG_BITS_PER_XACT;
+    XidStatus xidStatus = (*bytePtr >> bitShift) & CLOG_XACT_BITMASK;
 
-    status = (*byteptr >> bshift) & CLOG_XACT_BITMASK;
-
-    lsnindex = GetLSNIndex(slotno, xid);
+    int lsnindex = GetLSNIndex(slotNo, xid);
     *lsn = ClogCtl->shared->group_lsn[lsnindex];
 
     LWLockRelease(CLogControlLock);
 
-    return status;
+    return xidStatus;
 }
 
 /*
  * Number of shared CLOG buffers.
  *
- * On larger multi-processor systems, it is possible to have many CLOG page
+ * On larger multi processor systems, it is possible to have many CLOG page
  * requests in flight at one time which could lead to disk access for CLOG
  * page if the required page is not found in memory.  Testing revealed that we
  * can get the best performance by having 128 CLOG buffers, more than that it

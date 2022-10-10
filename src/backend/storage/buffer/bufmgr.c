@@ -3224,21 +3224,20 @@ IncrBufferRefCount(Buffer buffer) {
 }
 
 /*
- * MarkBufferDirtyHint
+ * mark a buffer dirty for 不是重要 changes.
  *
- *	Mark a buffer dirty for non-critical changes.
- *
- * This is essentially the same as MarkBufferDirty, except:
+ * this is essentially the same as MarkBufferDirty, except:
  *
  * 1. The caller does not write WAL; so if checksums are enabled, we may need
  *	  to write an XLOG_FPI WAL record to protect against torn pages.
+ *
  * 2. The caller might have only share-lock instead of exclusive-lock on the
  *	  buffer's content lock.
+ *
  * 3. This function does not guarantee that the buffer is always marked dirty
  *	  (due to a race condition), so it cannot be used for important changes.
  */
-void
-MarkBufferDirtyHint(Buffer buffer, bool buffer_std) {
+void MarkBufferDirtyHint(Buffer buffer, bool buffer_std) {
     BufferDesc *bufHdr;
     Page page = BufferGetPage(buffer);
 

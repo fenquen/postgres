@@ -454,7 +454,7 @@ int SimpleLruReadPage(SlruCtl slruCtl,
  * It is unspecified whether the lock will be shared or exclusive.
  */
 int
-SimpleLruReadPage_ReadOnly(SlruCtl ctl, int pageno, TransactionId xid) {
+SimpleLruReadPage_ReadOnly(SlruCtl ctl, int pageNo, TransactionId xid) {
     SlruShared shared = ctl->shared;
     int slotno;
 
@@ -463,7 +463,7 @@ SimpleLruReadPage_ReadOnly(SlruCtl ctl, int pageno, TransactionId xid) {
 
     /* See if page is already in a buffer */
     for (slotno = 0; slotno < shared->num_slots; slotno++) {
-        if (shared->page_number[slotno] == pageno &&
+        if (shared->page_number[slotno] == pageNo &&
             shared->page_status[slotno] != SLRU_PAGE_EMPTY &&
             shared->page_status[slotno] != SLRU_PAGE_READ_IN_PROGRESS) {
             /* See comments for SlruRecentlyUsed macro */
@@ -476,7 +476,7 @@ SimpleLruReadPage_ReadOnly(SlruCtl ctl, int pageno, TransactionId xid) {
     LWLockRelease(shared->ControlLock);
     LWLockAcquire(shared->ControlLock, LW_EXCLUSIVE);
 
-    return SimpleLruReadPage(ctl, pageno, true, xid);
+    return SimpleLruReadPage(ctl, pageNo, true, xid);
 }
 
 /*

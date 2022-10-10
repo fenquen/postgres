@@ -149,7 +149,7 @@ extern int SimpleLruZeroPage(SlruCtl ctl, int pageno);
 extern int SimpleLruReadPage(SlruCtl slruCtl, int pageNo, bool writeOk,
                              TransactionId xid);
 
-extern int SimpleLruReadPage_ReadOnly(SlruCtl ctl, int pageno,
+extern int SimpleLruReadPage_ReadOnly(SlruCtl ctl, int pageNo,
                                       TransactionId xid);
 
 extern void SimpleLruWritePage(SlruCtl ctl, int slotno);

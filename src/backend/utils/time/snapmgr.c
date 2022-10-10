@@ -2119,8 +2119,8 @@ RestoreTransactionSnapshot(Snapshot snapshot, void *master_pgproc) {
 }
 
 /*
- * XidInMVCCSnapshot
- *		Is the given XID still-in-progress according to the snapshot?
+ *
+ * is the given XID still-in-progress according to the snapshot?
  *
  * Note: GetSnapshotData never stores either top xid or subxids of our own
  * backend into a snapshot, so these xids will not be reported as "running"
