@@ -92,10 +92,7 @@ static const DestReceiver spi_printtupDR = {
  */
 DestReceiver *None_Receiver = (DestReceiver *) &donothingDR;
 
-/* ----------------
- *		BeginCommand - initialize the destination at start of command
- * ----------------
- */
+// initialize the destination at start of command
 void BeginCommand(const char *commandTag, CommandDest dest) {
     /* Nothing to do at present */
 }

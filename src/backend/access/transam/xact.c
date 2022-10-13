@@ -555,16 +555,13 @@ GetStableLatestTransactionId(void) {
 }
 
 /*
- * AssignTransactionId
- *
  * Assigns a new permanent FullTransactionId to the given TransactionState.
  * We do not assign XIDs to transactions until/unless this is called.
  * Also, any parent TransactionStates that don't yet have XIDs are assigned
  * one; this maintains the invariant that a child transaction has an XID
  * following its parent's.
  */
-static void
-AssignTransactionId(TransactionState s) {
+static void AssignTransactionId(TransactionState s) {
     bool isSubXact = (s->parent != NULL);
     ResourceOwner currentOwner;
     bool log_unknown_top = false;
@@ -1808,19 +1805,15 @@ AtSubCleanup_Memory(void) {
  * ----------------------------------------------------------------
  */
 static void StartTransaction(void) {
-    TransactionState s;
-    VirtualTransactionId vxid;
 
-    /*
-	 * Let's just make sure the state stack is empty
-	 */
-    s = &TopTransactionStateData;
-    CurrentTransactionState = s;
+    // let's just make sure the state stack is empty
+    TransactionState transactionState = &TopTransactionStateData;
+    CurrentTransactionState = transactionState;
 
     Assert(!FullTransactionIdIsValid(XactTopFullTransactionId));
 
     /* check the current transaction state */
-    Assert(s->state == TRANS_DEFAULT);
+    Assert(transactionState->state == TRANS_DEFAULT);
 
     /*
 	 * Set the current transaction state information appropriately during
@@ -1828,33 +1821,32 @@ static void StartTransaction(void) {
 	 * this process cannot fail until the user ID and the security context
 	 * flags are fetched below.
 	 */
-    s->state = TRANS_START;
-    s->fullTransactionId = InvalidFullTransactionId;    /* until assigned */
+    transactionState->state = TRANS_START;
+    transactionState->fullTransactionId = InvalidFullTransactionId;    /* until assigned */
 
-    /* Determine if statements are logged in this transaction */
+    // determine 要不要对该transaction来sample
     xact_is_sampled = log_xact_sample_rate != 0 &&
-                      (log_xact_sample_rate == 1 ||
-                       random() <= log_xact_sample_rate * MAX_RANDOM_VALUE);
+                      (log_xact_sample_rate == 1 || random() <= log_xact_sample_rate * MAX_RANDOM_VALUE);
 
     /*
 	 * initialize current transaction state fields
 	 *
 	 * note: prevXactReadOnly is not used at the outermost level
 	 */
-    s->nestingLevel = 1;
-    s->gucNestLevel = 1;
-    s->childXids = NULL;
-    s->nChildXids = 0;
-    s->maxChildXids = 0;
+    transactionState->nestingLevel = 1;
+    transactionState->gucNestLevel = 1;
+    transactionState->childXids = NULL;
+    transactionState->nChildXids = 0;
+    transactionState->maxChildXids = 0;
 
     /*
 	 * Once the current user ID and the security context flags are fetched,
 	 * both will be properly reset even if transaction startup fails.
 	 */
-    GetUserIdAndSecContext(&s->prevUser, &s->prevSecContext);
+    GetUserIdAndSecContext(&transactionState->prevUser, &transactionState->prevSecContext);
 
-    /* SecurityRestrictionContext should never be set outside a transaction */
-    Assert(s->prevSecContext == 0);
+    // securityRestrictionContext should never be set outside a transaction */
+    Assert(transactionState->prevSecContext == 0);
 
     /*
 	 * Make sure we've reset xact state variables
@@ -1865,34 +1857,29 @@ static void StartTransaction(void) {
 	 * indication to the user that the transaction is read-only.
 	 */
     if (RecoveryInProgress()) {
-        s->startedInRecovery = true;
+        transactionState->startedInRecovery = true;
         XactReadOnly = true;
     } else {
-        s->startedInRecovery = false;
+        transactionState->startedInRecovery = false;
         XactReadOnly = DefaultXactReadOnly;
     }
+
     XactDeferrable = DefaultXactDeferrable;
     XactIsoLevel = DefaultXactIsoLevel;
     forceSyncCommit = false;
     MyXactFlags = 0;
 
-    /*
-	 * reinitialize within-transaction counters
-	 */
-    s->subTransactionId = TopSubTransactionId;
+    // reinitialize within-transaction counters
+    transactionState->subTransactionId = TopSubTransactionId;
     currentSubTransactionId = TopSubTransactionId;
     currentCommandId = FirstCommandId;
     currentCommandIdUsed = false;
 
-    /*
-	 * initialize reported xid accounting
-	 */
+    // initialize reported xid accounting
     nUnreportedXids = 0;
-    s->didLogXid = false;
+    transactionState->didLogXid = false;
 
-    /*
-	 * must initialize resource-management stuff first
-	 */
+    // must initialize resource-management stuff first
     AtStart_Memory();
     AtStart_ResourceOwner();
 
@@ -1900,26 +1887,25 @@ static void StartTransaction(void) {
 	 * Assign a new LocalTransactionId, and combine it with the backendId to
 	 * form a virtual transaction id.
 	 */
-    vxid.backendId = MyBackendId;
-    vxid.localTransactionId = GetNextLocalTransactionId();
+    VirtualTransactionId virtualTransactionId;
+    virtualTransactionId.backendId = MyBackendId;
+    virtualTransactionId.localTransactionId = GetNextLocalTransactionId();
 
-    /*
-	 * Lock the virtual transaction id before we announce it in the proc array
-	 */
-    VirtualXactLockTableInsert(vxid);
+    // Lock the virtual transaction id before we announce it in the proc array
+    VirtualXactLockTableInsert(virtualTransactionId);
 
     /*
 	 * Advertise it in the proc array.  We assume assignment of
 	 * LocalTransactionID is atomic, and the backendId should be set already.
 	 */
-    Assert(MyProc->backendId == vxid.backendId);
-    MyProc->lxid = vxid.localTransactionId;
+    Assert(MyProc->backendId == virtualTransactionId.backendId);
+    MyProc->lxid = virtualTransactionId.localTransactionId;
 
-    TRACE_POSTGRESQL_TRANSACTION_START(vxid.localTransactionId);
+    TRACE_POSTGRESQL_TRANSACTION_START(virtualTransactionId.localTransactionId);
 
     /*
 	 * set transaction_timestamp() (a/k/a now()).  Normally, we want this to
-	 * be the same as the first command's statement_timestamp(), so don't do a
+	 * be the same as the first command'transactionState statement_timestamp(), so don't do a
 	 * fresh GetCurrentTimestamp() call (which'd be expensive anyway).  But
 	 * for transactions started inside procedures (i.e., nonatomic SPI
 	 * contexts), we do need to advance the timestamp.  Also, in a parallel
@@ -1927,25 +1913,26 @@ static void StartTransaction(void) {
 	 * SetParallelStartTimestamps().
 	 */
     if (!IsParallelWorker()) {
-        if (!SPI_inside_nonatomic_context())
+        if (!SPI_inside_nonatomic_context()) {
             xactStartTimestamp = stmtStartTimestamp;
-        else
+        } else {
             xactStartTimestamp = GetCurrentTimestamp();
-    } else
+        }
+    } else {
         Assert(xactStartTimestamp != 0);
+    }
     pgstat_report_xact_timestamp(xactStartTimestamp);
+
     /* Mark xactStopTimestamp as unset. */
     xactStopTimestamp = 0;
 
-    /*
-	 * initialize other subsystems for new transaction
-	 */
+    // initialize other subsystems for new transaction
     AtStart_GUC();
     AtStart_Cache();
     AfterTriggerBeginXact();
 
     // done with start processing, set current transaction state to "in progress"
-    s->state = TRANS_INPROGRESS;
+    transactionState->state = TRANS_INPROGRESS;
 
     ShowTransactionState("StartTransaction");
 }
@@ -2677,27 +2664,19 @@ CleanupTransaction(void) {
     nParallelCurrentXids = 0;
 
     /*
-	 * done with abort processing, set current transaction state back to
-	 * default
+	 * done with abort processing, set current transaction state back to default
 	 */
     s->state = TRANS_DEFAULT;
 }
 
-/*
- *	StartTransactionCommand
- */
-void
-StartTransactionCommand(void) {
-    TransactionState s = CurrentTransactionState;
+void StartTransactionCommand(void) {
+    TransactionState transactionState = CurrentTransactionState;
 
-    switch (s->blockState) {
-        /*
-			 * if we aren't in a transaction block, we just do our usual start
-			 * transaction.
-			 */
+    switch (transactionState->blockState) {
+        // if we aren't in a transaction block, we just do our usual start transaction.
         case TBLOCK_DEFAULT:
             StartTransaction();
-            s->blockState = TBLOCK_STARTED;
+            transactionState->blockState = TBLOCK_STARTED;
             break;
 
             /*
@@ -2739,8 +2718,8 @@ StartTransactionCommand(void) {
         case TBLOCK_SUBRESTART:
         case TBLOCK_SUBABORT_RESTART:
         case TBLOCK_PREPARE:
-            elog(ERROR, "StartTransactionCommand: unexpected state %s",
-                 BlockStateAsString(s->blockState));
+            elog(ERROR, "startTransactionCommand: unexpected state %s",
+                 BlockStateAsString(transactionState->blockState));
             break;
     }
 
@@ -5052,8 +5031,7 @@ StartParallelWorkerTransaction(char *tstatespace) {
     XactIsoLevel = tstate->xactIsoLevel;
     XactDeferrable = tstate->xactDeferrable;
     XactTopFullTransactionId = tstate->topFullTransactionId;
-    CurrentTransactionState->fullTransactionId =
-            tstate->currentFullTransactionId;
+    CurrentTransactionState->fullTransactionId = tstate->currentFullTransactionId;
     currentCommandId = tstate->currentCommandId;
     nParallelCurrentXids = tstate->nParallelCurrentXids;
     ParallelCurrentXids = &tstate->parallelCurrentXids[0];

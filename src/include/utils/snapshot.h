@@ -163,7 +163,7 @@ typedef struct SnapshotData {
      *
      * note: all ids in xip[] satisfy xmin <= xip[i] < xmax
      */
-    TransactionId *xip; // 获取快照时活跃事务的txid的arr
+    TransactionId *xip; // 获取快照时活跃事务(别的pg process的不包含自己)的txid的arr
     uint32 xcnt;            /* xip数组的实际用量 */
 
     /*

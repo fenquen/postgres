@@ -233,7 +233,7 @@ typedef struct PGXACT {
     TransactionId xid;            /* top-level transaction id currently being executed by this proc, if running and XID
 								 * is assigned; else InvalidTransactionId */
 
-    TransactionId xmin;            /* minimal running XID when we were starting our xact, excluding LAZY VACUUM:
+    TransactionId xmin;            /* minimal running XID when we were starting the xact, excluding LAZY VACUUM:
 								 * vacuum must not remove tuples deleted by
 								 * xid >= xmin ! */
 
@@ -241,7 +241,7 @@ typedef struct PGXACT {
     bool overflowed;
     bool delayChkpt;        /* true if this proc delay checkpoint start */
 
-    uint8 nxids;
+    uint8 nxids; // sub xid的数量
 } PGXACT;
 
 // There is one ProcGlobal struct for the whole database cluster

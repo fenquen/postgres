@@ -36,8 +36,8 @@
 
 
 typedef struct PGSemaphoreData {
-    int semId;            /* 隶属的 semaphore set id */
-    int semNum;            /* 在 隶属的semaphore set 索引 */
+    int semId;            // 隶属的 semaphore set id
+    int semNum;            // 在 隶属的semaphore set 索引
 } PGSemaphoreData;
 
 #ifndef HAVE_UNION_SEMUN
@@ -389,14 +389,12 @@ PGSemaphore PGSemaphoreCreate(void) {
  *
  * Reset a previously-initialized PGSemaphore to have count 0
  */
-void
-PGSemaphoreReset(PGSemaphore sema) {
+void PGSemaphoreReset(PGSemaphore sema) {
     IpcSemaphoreInitialize(sema->semId, sema->semNum, 0);
 }
 
 // Lock a semaphore (decrement count), blocking if count would be < 0
 void PGSemaphoreLock(PGSemaphore pgSemaphore) {
-    int errStatus;
     struct sembuf sops;
 
     sops.sem_num = pgSemaphore->semNum;
@@ -409,9 +407,9 @@ void PGSemaphoreLock(PGSemaphore pgSemaphore) {
      * try and lock the semaphore again.
      *
      * We used to check interrupts here, but that required servicing
-     * interrupts directly from signal handlers. Which is hard to do safely
-     * and portably.
+     * interrupts directly from signal handlers. Which is hard to do safely and portably.
      */
+    int errStatus;
     do {
         errStatus = semop(pgSemaphore->semId, &sops, 1);
     } while (errStatus < 0 && errno == EINTR);

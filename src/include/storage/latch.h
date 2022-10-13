@@ -103,6 +103,7 @@
 #include <signal.h>
 
 /*
+ * 和某子进程绑定的 各个子进程都有1个
  * Latch structure should be treated as opaque and only accessed through
  * the public functions. It is defined here to allow embedding Latches as
  * part of bigger structs.

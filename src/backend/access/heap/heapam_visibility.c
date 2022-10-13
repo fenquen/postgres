@@ -1515,8 +1515,7 @@ HeapTupleSatisfiesHistoricMVCC(HeapTuple htup, Snapshot snapshot,
         CommandId cmax = HeapTupleHeaderGetRawCommandId(tuple);
 
         /* Lookup actual cmin/cmax values */
-        resolved = ResolveCminCmaxDuringDecoding(HistoricSnapshotGetTupleCids(), snapshot,
-                                                 htup, buffer,
+        resolved = ResolveCminCmaxDuringDecoding(HistoricSnapshotGetTupleCids(), snapshot,htup, buffer,
                                                  &cmin, &cmax);
 
         if (!resolved)
@@ -1553,8 +1552,7 @@ HeapTupleSatisfiesHistoricMVCC(HeapTuple htup, Snapshot snapshot,
 }
 
 /*
- * HeapTupleSatisfiesVisibility
- *		True iff heap tuple satisfies a time qual.
+ *	True iff heap tuple satisfies a time qual.
  *
  * Notes:
  *	Assumes heap tuple is valid, and buffer at least share locked.
@@ -1581,6 +1579,6 @@ bool HeapTupleSatisfiesVisibility(HeapTuple heapTuple,
         case SNAPSHOT_NON_VACUUMABLE:
             return HeapTupleSatisfiesNonVacuumable(heapTuple, snapshot, buffer);
     }
-
     return false;
+
 }

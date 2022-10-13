@@ -140,7 +140,7 @@ typedef enum LWLockMode {
 extern bool Trace_lwlocks;
 #endif
 
-extern bool LWLockAcquire(LWLock *lwLock, LWLockMode mode);
+extern bool LWLockAcquire(LWLock *lwLock, LWLockMode lwLockMode);
 
 extern bool LWLockConditionalAcquire(LWLock *lock, LWLockMode mode);
 

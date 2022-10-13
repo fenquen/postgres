@@ -1010,7 +1010,7 @@ static void exec_simple_query(const char *queryString) {
     ListCell *listCell;
     foreach(listCell, parseTreeList) {
         RawStmt *parseTree = lfirst_node(RawStmt, listCell);
-        bool snapshot_set = false;
+        bool snapshotSet = false;
         char completionTag[COMPLETION_TAG_BUFSIZE];
 
         /*
@@ -1040,7 +1040,7 @@ static void exec_simple_query(const char *queryString) {
                             errdetail_abort()));
         }
 
-        /* Make sure we are in a transaction command */
+        /* make sure we are in a transaction command */
         start_xact_command();
 
         /*
@@ -1054,14 +1054,14 @@ static void exec_simple_query(const char *queryString) {
             BeginImplicitTransactionBlock();
         }
 
-        /* If we got a cancel signal in parsing or prior command, quit */
+        // If we got a cancel signal in parsing or prior command, quit
         CHECK_FOR_INTERRUPTS();
 
-        // Set up a snapshot if parse analysis/planning will need one.
+        // set up a snapshot if parse analysis/planning will need one.
         if (analyze_requires_snapshot(parseTree)) { // true
             Snapshot snapshot = GetTransactionSnapshot();
             PushActiveSnapshot(snapshot);
-            snapshot_set = true;
+            snapshotSet = true;
         }
 
         // OK to analyze, rewrite, and plan this query.
@@ -1074,7 +1074,7 @@ static void exec_simple_query(const char *queryString) {
         List *plannedStmtList = pg_plan_queries(queryTree, CURSOR_OPT_PARALLEL_OK, NULL);
 
         /* snapshot没有利用价值了抛弃pop, done with the snapshot used for parsing/planning */
-        if (snapshot_set) {
+        if (snapshotSet) {
             PopActiveSnapshot();
         }
 

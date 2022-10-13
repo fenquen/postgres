@@ -110,7 +110,6 @@ void BackgroundWriterMain(void) {
 
     sigjmp_buf local_sigjmp_buf;
     MemoryContext bgwriter_context;
-    WritebackContext wb_context;
 
     /*
      * Properly accept or ignore signals the postmaster might send us.
@@ -152,7 +151,8 @@ void BackgroundWriterMain(void) {
                                              ALLOCSET_DEFAULT_SIZES);
     MemoryContextSwitchTo(bgwriter_context);
 
-    WritebackContextInit(&wb_context, &bgwriter_flush_after);
+    WritebackContext writebackContext;
+    WritebackContextInit(&writebackContext, &bgwriter_flush_after);
 
     /*
      * If an exception is encountered, processing resumes here.
@@ -195,7 +195,7 @@ void BackgroundWriterMain(void) {
         MemoryContextResetAndDeleteChildren(bgwriter_context);
 
         /* re-initialize to avoid repeated errors causing problems */
-        WritebackContextInit(&wb_context, &bgwriter_flush_after);
+        WritebackContextInit(&writebackContext, &bgwriter_flush_after);
 
         /* Now we can allow interrupts again */
         RESUME_INTERRUPTS();
@@ -243,12 +243,13 @@ void BackgroundWriterMain(void) {
              * control back to the sigsetjmp block above
              */
             ExitOnAnyError = true;
+
             /* Normal exit from the bgwriter is here */
             proc_exit(0);        /* done */
         }
 
         // do one cycle of dirty-buffer writing
-        bool canHibernate = BgBufferSync(&wb_context);
+        bool canHibernate = BgBufferSync(&writebackContext);
 
         /*
          * Send off activity statistics to the stats collector

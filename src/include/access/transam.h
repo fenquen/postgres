@@ -28,81 +28,78 @@
  * Note: if you need to change it, you must change pg_class.h as well.
  * ----------------
  */
-#define InvalidTransactionId		((TransactionId) 0)
-#define BootstrapTransactionId		((TransactionId) 1)
-#define FrozenTransactionId			((TransactionId) 2)
-#define FirstNormalTransactionId	((TransactionId) 3)
-#define MaxTransactionId			((TransactionId) 0xFFFFFFFF)
+#define InvalidTransactionId        ((TransactionId) 0)
+#define BootstrapTransactionId        ((TransactionId) 1)
+#define FrozenTransactionId            ((TransactionId) 2)
+#define FirstNormalTransactionId    ((TransactionId) 3)
+#define MaxTransactionId            ((TransactionId) 0xFFFFFFFF)
 
 /* ----------------
  *		transaction ID manipulation macros
  * ----------------
  */
-#define TransactionIdIsValid(xid)		((xid) != InvalidTransactionId)
-#define TransactionIdIsNormal(xid)		((xid) >= FirstNormalTransactionId)
-#define TransactionIdEquals(id1, id2)	((id1) == (id2))
-#define TransactionIdStore(xid, dest)	(*(dest) = (xid))
+#define TransactionIdIsValid(xid)        ((xid) != InvalidTransactionId)
+#define TransactionIdIsNormal(xid)        ((xid) >= FirstNormalTransactionId)
+#define TransactionIdEquals(id1, id2)    ((id1) == (id2))
+#define TransactionIdStore(xid, dest)    (*(dest) = (xid))
 #define StoreInvalidTransactionId(dest) (*(dest) = InvalidTransactionId)
 
-#define EpochFromFullTransactionId(x)	((uint32) ((x).value >> 32))
-#define XidFromFullTransactionId(x)		((uint32) (x).value)
-#define U64FromFullTransactionId(x)		((x).value)
-#define FullTransactionIdPrecedes(a, b)	((a).value < (b).value)
-#define FullTransactionIdIsValid(x)		TransactionIdIsValid(XidFromFullTransactionId(x))
-#define InvalidFullTransactionId		FullTransactionIdFromEpochAndXid(0, InvalidTransactionId)
+#define EpochFromFullTransactionId(x)    ((uint32) ((x).value >> 32))
+#define XidFromFullTransactionId(x)        ((uint32) (x).value)
+#define U64FromFullTransactionId(x)        ((x).value)
+#define FullTransactionIdPrecedes(a, b)    ((a).value < (b).value)
+#define FullTransactionIdIsValid(x)        TransactionIdIsValid(XidFromFullTransactionId(x))
+#define InvalidFullTransactionId        FullTransactionIdFromEpochAndXid(0, InvalidTransactionId)
 
 /*
  * A 64 bit value that contains an epoch and a TransactionId.  This is
  * wrapped in a struct to prevent implicit conversion to/from TransactionId.
  * Not all values represent valid normal XIDs.
  */
-typedef struct FullTransactionId
-{
-	uint64		value;
+typedef struct FullTransactionId {
+    uint64 value;
 } FullTransactionId;
 
 static inline FullTransactionId
-FullTransactionIdFromEpochAndXid(uint32 epoch, TransactionId xid)
-{
-	FullTransactionId result;
+FullTransactionIdFromEpochAndXid(uint32 epoch, TransactionId xid) {
+    FullTransactionId result;
 
-	result.value = ((uint64) epoch) << 32 | xid;
+    result.value = ((uint64) epoch) << 32 | xid;
 
-	return result;
+    return result;
 }
 
 /* advance a transaction ID variable, handling wraparound correctly */
-#define TransactionIdAdvance(dest)	\
-	do { \
-		(dest)++; \
-		if ((dest) < FirstNormalTransactionId) \
-			(dest) = FirstNormalTransactionId; \
-	} while(0)
+#define TransactionIdAdvance(dest)    \
+    do { \
+        (dest)++; \
+        if ((dest) < FirstNormalTransactionId) \
+            (dest) = FirstNormalTransactionId; \
+    } while(0)
 
 /* advance a FullTransactionId variable, stepping over special XIDs */
 static inline void
-FullTransactionIdAdvance(FullTransactionId *dest)
-{
-	dest->value++;
-	while (XidFromFullTransactionId(*dest) < FirstNormalTransactionId)
-		dest->value++;
+FullTransactionIdAdvance(FullTransactionId *dest) {
+    dest->value++;
+    while (XidFromFullTransactionId(*dest) < FirstNormalTransactionId)
+        dest->value++;
 }
 
 /* back up a transaction ID variable, handling wraparound correctly */
-#define TransactionIdRetreat(dest)	\
-	do { \
-		(dest)--; \
-	} while ((dest) < FirstNormalTransactionId)
+#define TransactionIdRetreat(dest)    \
+    do { \
+        (dest)--; \
+    } while ((dest) < FirstNormalTransactionId)
 
-/* 两个的id 前者是不是比后者小 */
+// 两个的id 前者是不是比后者小
 #define NormalTransactionIdPrecedes(id1, id2) \
-	(AssertMacro(TransactionIdIsNormal(id1) && TransactionIdIsNormal(id2)), \
-	(int32) ((id1) - (id2)) < 0)
+    (AssertMacro(TransactionIdIsNormal(id1) && TransactionIdIsNormal(id2)), \
+    (int32) ((id1) - (id2)) < 0)
 
 /* compare two XIDs already known to be normal; this is a macro for speed */
 #define NormalTransactionIdFollows(id1, id2) \
-	(AssertMacro(TransactionIdIsNormal(id1) && TransactionIdIsNormal(id2)), \
-	(int32) ((id1) - (id2)) > 0)
+    (AssertMacro(TransactionIdIsNormal(id1) && TransactionIdIsNormal(id2)), \
+    (int32) ((id1) - (id2)) > 0)
 
 /* ----------
  *		Object ID (OID) zero is InvalidOid.
@@ -136,9 +133,9 @@ FullTransactionIdAdvance(FullTransactionId *dest)
  * reassigning OIDs that might have been assigned during initdb.
  * ----------
  */
-#define FirstGenbkiObjectId		10000
-#define FirstBootstrapObjectId	12000
-#define FirstNormalObjectId		16384
+#define FirstGenbkiObjectId        10000
+#define FirstBootstrapObjectId    12000
+#define FirstNormalObjectId        16384
 
 /*
  * VariableCache is a data structure in shared memory that is used to track
@@ -150,42 +147,40 @@ FullTransactionIdAdvance(FullTransactionId *dest)
  * used just to generate useful messages when xidWarnLimit or xidStopLimit
  * are exceeded.
  */
-typedef struct VariableCacheData
-{
-	/*
-	 * These fields are protected by OidGenLock.
-	 */
-	Oid			nextOid;		/* next OID to assign */
-	uint32		oidCount;		/* OIDs available before must do XLOG work */
+typedef struct VariableCacheData {
+    /*
+     * These fields are protected by OidGenLock.
+     */
+    Oid nextOid;        /* next OID to assign */
+    uint32 oidCount;        /* OIDs available before must do XLOG work */
 
-	/*
-	 * These fields are protected by XidGenLock.
-	 */
-	FullTransactionId nextFullXid;	/* next full XID to assign */
+    /*
+     * These fields are protected by XidGenLock.
+     */
+    FullTransactionId nextFullXid;    /* next full XID to assign */
 
-	TransactionId oldestXid;	/* cluster-wide minimum datfrozenxid */
-	TransactionId xidVacLimit;	/* start forcing autovacuums here */
-	TransactionId xidWarnLimit; /* start complaining here */
-	TransactionId xidStopLimit; /* refuse to advance nextFullXid beyond here */
-	TransactionId xidWrapLimit; /* where the world ends */
-	Oid			oldestXidDB;	/* database with minimum datfrozenxid */
+    TransactionId oldestXid;    /* cluster-wide minimum datfrozenxid */
+    TransactionId xidVacLimit;    /* start forcing autovacuums here */
+    TransactionId xidWarnLimit; /* start complaining here */
+    TransactionId xidStopLimit; /* refuse to advance nextFullXid beyond here */
+    TransactionId xidWrapLimit; /* where the world ends */
+    Oid oldestXidDB;    /* database with minimum datfrozenxid */
 
-	/*
-	 * These fields are protected by CommitTsLock
-	 */
-	TransactionId oldestCommitTsXid;
-	TransactionId newestCommitTsXid;
+    /*
+     * These fields are protected by CommitTsLock
+     */
+    TransactionId oldestCommitTsXid;
+    TransactionId newestCommitTsXid;
 
-	/*
-	 * These fields are protected by ProcArrayLock.
-	 */
-	TransactionId latestCompletedXid;	/* latest XID that has committed or
-										 * aborted */
+    /*
+     * These fields are protected by ProcArrayLock.
+     */
+    TransactionId latestCompletedXid;    /* latest XID that has committed or aborted */
 
-	/*
-	 * These fields are protected by CLogTruncationLock
-	 */
-	TransactionId oldestClogXid;	/* oldest it's safe to look up in clog */
+    /*
+     * These fields are protected by CLogTruncationLock
+     */
+    TransactionId oldestClogXid;    /* oldest it's safe to look up in clog */
 
 } VariableCacheData;
 
@@ -205,29 +200,47 @@ extern PGDLLIMPORT VariableCache ShmemVariableCache;
 
 
 extern bool TransactionIdDidCommit(TransactionId transactionId);
+
 extern bool TransactionIdDidAbort(TransactionId transactionId);
+
 extern bool TransactionIdIsKnownCompleted(TransactionId transactionId);
+
 extern void TransactionIdAbort(TransactionId transactionId);
+
 extern void TransactionIdCommitTree(TransactionId xid, int subXactCount, TransactionId *subXactIds);
+
 extern void TransactionIdAsyncCommitTree(TransactionId xid, int nxids, TransactionId *xids, XLogRecPtr lsn);
+
 extern void TransactionIdAbortTree(TransactionId xid, int nxids, TransactionId *xids);
+
 extern bool TransactionIdPrecedes(TransactionId id1, TransactionId id2);
+
 extern bool TransactionIdPrecedesOrEquals(TransactionId id1, TransactionId id2);
+
 extern bool TransactionIdFollows(TransactionId id1, TransactionId id2);
+
 extern bool TransactionIdFollowsOrEquals(TransactionId id1, TransactionId id2);
+
 extern TransactionId TransactionIdLatest(TransactionId mainxid,
                                          int subXactCount, const TransactionId *subXactIds);
+
 extern XLogRecPtr TransactionIdGetCommitLSN(TransactionId xid);
 
 /* in transam/varsup.c */
 extern FullTransactionId GetNewTransactionId(bool isSubXact);
+
 extern void AdvanceNextFullTransactionIdPastXid(TransactionId xid);
+
 extern FullTransactionId ReadNextFullTransactionId(void);
+
 extern void SetTransactionIdLimit(TransactionId oldest_datfrozenxid,
-								  Oid oldest_datoid);
+                                  Oid oldest_datoid);
+
 extern void AdvanceOldestClogXid(TransactionId oldest_datfrozenxid);
+
 extern bool ForceTransactionIdLimitUpdate(void);
-extern Oid	GetNewObjectId(void);
+
+extern Oid GetNewObjectId(void);
 
 /*
  * Some frontend programs include this header.  For compilers that emit static
@@ -240,11 +253,10 @@ extern Oid	GetNewObjectId(void);
  * For callers that just need the XID part of the next transaction ID.
  */
 static inline TransactionId
-ReadNewTransactionId(void)
-{
-	return XidFromFullTransactionId(ReadNextFullTransactionId());
+ReadNewTransactionId(void) {
+    return XidFromFullTransactionId(ReadNextFullTransactionId());
 }
 
-#endif							/* FRONTEND */
+#endif                            /* FRONTEND */
 
-#endif							/* TRANSAM_H */
+#endif                            /* TRANSAM_H */

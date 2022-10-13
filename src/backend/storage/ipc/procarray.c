@@ -186,7 +186,7 @@ static void KnownAssignedXidsDisplay(int trace_level);
 
 static void KnownAssignedXidsReset(void);
 
-static inline void ProcArrayEndTransactionInternal(PGPROC *proc,
+static inline void ProcArrayEndTransactionInternal(PGPROC *pgproc,
                                                    PGXACT *pgxact, TransactionId latestXid);
 
 static void ProcArrayGroupClearXid(PGPROC *proc, TransactionId latestXid);
@@ -387,8 +387,7 @@ ProcArrayRemove(PGPROC *proc, TransactionId latestXid) {
  * latestXid is the latest Xid among the transaction's main XID and
  * subtransactions, or InvalidTransactionId if it has no XID.  (We must ask
  * the caller to pass latestXid, instead of computing it from the PGPROC's
- * contents, because the subxid information in the PGPROC might be
- * incomplete.)
+ * contents, because the subxid information in the PGPROC might be incomplete.)
  */
 void ProcArrayEndTransaction(PGPROC *pgproc, TransactionId latestXid) {
     PGXACT *pgxact = &allPgXact[pgproc->pgprocno];
@@ -428,34 +427,31 @@ void ProcArrayEndTransaction(PGPROC *pgproc, TransactionId latestXid) {
     }
 }
 
-/*
- * Mark a write transaction as no longer running.
- *
- * We don't do any locking here; caller must handle that.
- */
-static inline void
-ProcArrayEndTransactionInternal(PGPROC *proc, PGXACT *pgxact,
-                                TransactionId latestXid) {
+// mark a write transaction as no longer running.
+// we don't do any locking here; caller must handle that.
+static inline void ProcArrayEndTransactionInternal(PGPROC *pgproc,
+                                                   PGXACT *pgxact,
+                                                   TransactionId latestXid) {
     pgxact->xid = InvalidTransactionId;
-    proc->lxid = InvalidLocalTransactionId;
+    pgproc->lxid = InvalidLocalTransactionId;
     pgxact->xmin = InvalidTransactionId;
     /* must be cleared with xid/xmin: */
     pgxact->vacuumFlags &= ~PROC_VACUUM_STATE_MASK;
 
     /* be sure these are cleared in abort */
     pgxact->delayChkpt = false;
-    proc->delayChkptEnd = false;
+    pgproc->delayChkptEnd = false;
 
-    proc->recoveryConflictPending = false;
+    pgproc->recoveryConflictPending = false;
 
     /* Clear the subtransaction-XID cache too while holding the lock */
     pgxact->nxids = 0;
     pgxact->overflowed = false;
 
     /* also advance global latestCompletedXid while holding the lock */
-    if (TransactionIdPrecedes(ShmemVariableCache->latestCompletedXid,
-                              latestXid))
+    if (TransactionIdPrecedes(ShmemVariableCache->latestCompletedXid, latestXid)) {
         ShmemVariableCache->latestCompletedXid = latestXid;
+    }
 }
 
 /*
@@ -1446,9 +1442,6 @@ GetMaxSnapshotSubxidCount(void) {
  */
 Snapshot GetSnapshotData(Snapshot snapshot) {
     ProcArrayStruct *arrayP = procArray;
-    TransactionId xmin;
-    TransactionId xmax;
-    TransactionId globalxmin;
 
     int subcount = 0;
     bool suboverflowed = false;
@@ -1488,59 +1481,63 @@ Snapshot GetSnapshotData(Snapshot snapshot) {
         }
     }
 
-    // it is sufficient to get shared lock on ProcArrayLock, even if we are going to set MyPgXact->xmin.
+    // it is sufficient to get shared lock on ProcArrayLock, even if we are going to set MyPgXact->snapshotXmin.
     LWLockAcquire(ProcArrayLock, LW_SHARED);
 
-    /* xmax is always latestCompletedXid + 1 */
-    xmax = ShmemVariableCache->latestCompletedXid;
-    Assert(TransactionIdIsNormal(xmax));
-    TransactionIdAdvance(xmax);
+    // snapshotXmax is always latestCompletedXid + 1
+    TransactionId snapshotXmax = ShmemVariableCache->latestCompletedXid;
+    Assert(TransactionIdIsNormal(snapshotXmax));
 
-    /* initialize xmin calculation with xmax */
-    globalxmin = xmin = xmax;
+    TransactionIdAdvance(snapshotXmax); // transactionId大小增加1
+
+    /* initialize snapshotXmin calculation with snapshotXmax */
+    TransactionId snapshotXmin = snapshotXmax;
+    TransactionId globalXmin = snapshotXmax;
 
     snapshot->takenDuringRecovery = RecoveryInProgress();
-    int count = 0;
+
+    int snapshotXipCount = 0;
+
     if (!snapshot->takenDuringRecovery) {
-        int *pgprocnos = arrayP->pgprocnos;
+        int *pgProcNos = arrayP->pgprocnos;
 
         /*
-         * Spin over procArray checking xid, xmin, and subxids.  The goal is
-         * to gather all active xids, find the lowest xmin, and try to record subxids.
+         * Spin over procArray checking xid, snapshotXmin, and subxids.  The goal is
+         * to gather all active xids, find the lowest snapshotXmin, and try to record subxids.
          */
-        int numProcs = arrayP->numProcs;
-        for (int index = 0; index < numProcs; index++) {
-            int pgprocno = pgprocnos[index];
-            PGXACT *pgxact = &allPgXact[pgprocno];
+        int pgProcCount = arrayP->numProcs;
+        for (int index = 0; index < pgProcCount; index++) {
+            int pgProcNo = pgProcNos[index];
+            PGXACT *pgxact = &allPgXact[pgProcNo];
 
-            // Skip over backends doing logical decoding which manages xmin
+            // Skip over backends doing logical decoding which manages snapshotXmin
             // separately (check below) and ones running LAZY VACUUM.
             if (pgxact->vacuumFlags & (PROC_IN_LOGICAL_DECODING | PROC_IN_VACUUM)) {
                 continue;
             }
 
-            /* Update globalxmin to be the smallest valid xmin */
-            TransactionId xid = UINT32_ACCESS_ONCE(pgxact->xmin);
-            if (TransactionIdIsNormal(xid) && NormalTransactionIdPrecedes(xid, globalxmin)) {
-                globalxmin = xid;
+            // update globalXmin to be the smallest valid snapshotXmin
+            TransactionId pgxactXmin = UINT32_ACCESS_ONCE(pgxact->xmin); // 1般情况是InvalidTransactionId
+            if (TransactionIdIsNormal(pgxactXmin) && NormalTransactionIdPrecedes(pgxactXmin, globalXmin)) {
+                globalXmin = pgxactXmin;
             }
 
-            /* Fetch xid just once - see GetNewTransactionId */
-            xid = UINT32_ACCESS_ONCE(pgxact->xid);
+            // fetch pgxactXid just once - see GetNewTransactionId
+            TransactionId pgxactXid = UINT32_ACCESS_ONCE(pgxact->xid);// 1般情况是InvalidTransactionId
 
             /*
              * If the transaction has no XID assigned, we can skip it; it
-             * won't have sub-XIDs either.  If the XID is >= xmax, we can also
+             * won't have sub-XIDs either.  If the XID is >= snapshotXmax, we can also
              * skip it; such transactions will be treated as running anyway
-             * (and any sub-XIDs will also be >= xmax).
+             * (and any sub-XIDs will also be >= snapshotXmax).
              */
-            if (!TransactionIdIsNormal(xid) || !NormalTransactionIdPrecedes(xid, xmax)) {
+            if (!TransactionIdIsNormal(pgxactXid) || !NormalTransactionIdPrecedes(pgxactXid, snapshotXmax)) {
                 continue;
             }
 
-            // We don't include our own XIDs (if any) in the snapshot, but we must include them in xmin.
-            if (NormalTransactionIdPrecedes(xid, xmin)) {
-                xmin = xid;
+            // We don't include our own XIDs (if any) in the snapshot, but we must include them in snapshotXmin.
+            if (NormalTransactionIdPrecedes(pgxactXid, snapshotXmin)) {
+                snapshotXmin = pgxactXid;
             }
 
             if (pgxact == MyPgXact) {
@@ -1548,20 +1545,19 @@ Snapshot GetSnapshotData(Snapshot snapshot) {
             }
 
             /* Add XID to snapshot. */
-            snapshot->xip[count++] = xid;
+            snapshot->xip[snapshotXipCount++] = pgxactXid;
 
             /*
              * Save subtransaction XIDs if possible (if we've already
              * overflowed, there's no point).  Note that the subxact XIDs must
              * be later than their parent, so no need to check them against
-             * xmin.  We could filter against xmax, but it seems better not to
+             * snapshotXmin.  We could filter against snapshotXmax, but it seems better not to
              * do that much work while holding the ProcArrayLock.
              *
              * The other backend can add more subxids concurrently, but cannot
              * remove any.  Hence it's important to fetch nxids just once.
              * Should be safe to use memcpy, though.  (We needn't worry about
-             * missing any xids added concurrently, because they must postdate
-             * xmax.)
+             * missing any xids added concurrently, because they must postdate snapshotXmax)
              *
              * Again, our own XIDs are not included in the snapshot.
              */
@@ -1571,7 +1567,7 @@ Snapshot GetSnapshotData(Snapshot snapshot) {
                 } else {
                     int nxids = pgxact->nxids;
                     if (nxids > 0) {
-                        PGPROC *pgproc = &allProcs[pgprocno];
+                        PGPROC *pgproc = &allProcs[pgProcNo];
 
                         // pairs with GetNewTransactionId
                         pg_read_barrier();
@@ -1610,14 +1606,13 @@ Snapshot GetSnapshotData(Snapshot snapshot) {
          *
          * Note: It is possible for recovery to end before we finish taking
          * the snapshot, and for newly assigned transaction ids to be added to
-         * the ProcArray.  xmax cannot change while we hold ProcArrayLock, so
+         * the ProcArray.  snapshotXmax cannot change while we hold ProcArrayLock, so
          * those newly added transaction ids would be filtered away, so we
          * need not be concerned about them.
          */
-        subcount = KnownAssignedXidsGetAndSetXmin(snapshot->subxip, &xmin,
-                                                  xmax);
+        subcount = KnownAssignedXidsGetAndSetXmin(snapshot->subxip, &snapshotXmin, snapshotXmax);
 
-        if (TransactionIdPrecedesOrEquals(xmin, procArray->lastOverflowedXid))
+        if (TransactionIdPrecedesOrEquals(snapshotXmin, procArray->lastOverflowedXid))
             suboverflowed = true;
     }
 
@@ -1630,26 +1625,26 @@ Snapshot GetSnapshotData(Snapshot snapshot) {
     replication_slot_catalog_xmin = procArray->replication_slot_catalog_xmin;
 
     if (!TransactionIdIsValid(MyPgXact->xmin))
-        MyPgXact->xmin = TransactionXmin = xmin;
+        MyPgXact->xmin = TransactionXmin = snapshotXmin;
 
     LWLockRelease(ProcArrayLock);
 
     /*
-     * Update globalxmin to include actual process xids.  This is a slightly
+     * Update globalXmin to include actual process xids.  This is a slightly
      * different way of computing it than GetOldestXmin uses, but should give
      * the same result.
      */
-    if (TransactionIdPrecedes(xmin, globalxmin)) {
-        globalxmin = xmin;
+    if (TransactionIdPrecedes(snapshotXmin, globalXmin)) {
+        globalXmin = snapshotXmin;
     }
 
     /* Update global variables too */
-    RecentGlobalXmin = globalxmin - vacuum_defer_cleanup_age;
+    RecentGlobalXmin = globalXmin - vacuum_defer_cleanup_age;
     if (!TransactionIdIsNormal(RecentGlobalXmin)) {
         RecentGlobalXmin = FirstNormalTransactionId;
     }
 
-    /* Check whether there's a replication slot requiring an older xmin. */
+    /* Check whether there's a replication slot requiring an older snapshotXmin. */
     if (TransactionIdIsValid(replication_slot_xmin) &&
         NormalTransactionIdPrecedes(replication_slot_xmin, RecentGlobalXmin)) {
         RecentGlobalXmin = replication_slot_xmin;
@@ -1658,18 +1653,18 @@ Snapshot GetSnapshotData(Snapshot snapshot) {
     /* Non-catalog tables can be vacuumed if older than this xid */
     RecentGlobalDataXmin = RecentGlobalXmin;
 
-    // check whether there's a replication slot requiring an older catalog xmin.
+    // check whether there's a replication slot requiring an older catalog snapshotXmin.
     if (TransactionIdIsNormal(replication_slot_catalog_xmin) &&
         NormalTransactionIdPrecedes(replication_slot_catalog_xmin, RecentGlobalXmin)) {
         RecentGlobalXmin = replication_slot_catalog_xmin;
     }
 
-    RecentXmin = xmin;
+    RecentXmin = snapshotXmin;
 
-    snapshot->xmin = xmin;
-    snapshot->xmax = xmax;
+    snapshot->xmin = snapshotXmin;
+    snapshot->xmax = snapshotXmax;
 
-    snapshot->xcnt = count;
+    snapshot->xcnt = snapshotXipCount;
     snapshot->subxcnt = subcount;
 
     snapshot->suboverflowed = suboverflowed;
@@ -1680,8 +1675,8 @@ Snapshot GetSnapshotData(Snapshot snapshot) {
     snapshot->regd_count = 0;
     snapshot->copied = false;
 
+    // "snapshot too old" feature 默认是-1不使用, fill related fields with dummy values that don't require any locking.
     if (old_snapshot_threshold < 0) {
-        // if not using "snapshot too old" feature, fill related fields with dummy values that don't require any locking.
         snapshot->lsn = InvalidXLogRecPtr;
         snapshot->whenTaken = 0;
     } else {
@@ -1690,7 +1685,7 @@ Snapshot GetSnapshotData(Snapshot snapshot) {
         snapshot->lsn = GetXLogInsertRecPtr();
         snapshot->whenTaken = GetSnapshotCurrentTimestamp();
 
-        MaintainOldSnapshotTimeMapping(snapshot->whenTaken, xmin);
+        MaintainOldSnapshotTimeMapping(snapshot->whenTaken, snapshotXmin);
     }
 
     return snapshot;

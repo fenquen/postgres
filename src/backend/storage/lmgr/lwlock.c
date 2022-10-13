@@ -1055,30 +1055,30 @@ LWLockDequeueSelf(LWLock *lock) {
 }
 
 /*
- * LWLockAcquire - acquire a lightweight lwLock in the specified mode
+ * LWLockAcquire - acquire a lightweight lwLock in the specified lwLockMode
  *
  * If the lwLock is not available, sleep until it is.  Returns true if the lwLock
  * was available immediately, false if we get the lock after sleep  不管怎样都是能拿到锁 不过是不是能立即拿到
  *
  * Side effect: cancel/die interrupts are held off until lwLock release.
  */
-bool LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
-    PGPROC *proc = MyProc;
+bool LWLockAcquire(LWLock *lwLock, LWLockMode lwLockMode) {
+    PGPROC *pgproc = MyProc;
     bool result = true;
     int extraWaits = 0;
+
 #ifdef LWLOCK_STATS
     lwlock_stats *lwstats;
-
     lwstats = get_lwlock_stats_entry(lwLock);
 #endif
 
-    AssertArg(mode == LW_SHARED || mode == LW_EXCLUSIVE);
+    AssertArg(lwLockMode == LW_SHARED || lwLockMode == LW_EXCLUSIVE);
 
-    PRINT_LWDEBUG("LWLockAcquire", lwLock, mode);
+    PRINT_LWDEBUG("LWLockAcquire", lwLock, lwLockMode);
 
 #ifdef LWLOCK_STATS
     /* Count lwLock acquisition attempts */
-    if (mode == LW_EXCLUSIVE)
+    if (lwLockMode == LW_EXCLUSIVE)
         lwstats->ex_acquire_count++;
     else
         lwstats->sh_acquire_count++;
@@ -1089,7 +1089,7 @@ bool LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
      * during bootstrap or shared memory initialization.  Put an Assert here
      * to catch unsafe coding practices.
      */
-    Assert(!(proc == NULL && IsUnderPostmaster));
+    Assert(!(pgproc == NULL && IsUnderPostmaster));
 
     /* Ensure we will have room to remember the lwLock */
     if (num_held_lwlocks >= MAX_SIMUL_LWLOCKS) {
@@ -1121,7 +1121,7 @@ bool LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
      */
     for (;;) {
         // Try to grab the lwLock the first time, we're not in the wait queue yet/anymore.
-        bool mustWait = LWLockAttemptLock(lwLock, mode);
+        bool mustWait = LWLockAttemptLock(lwLock, lwLockMode);
         if (!mustWait) {
             LOG_LWDEBUG("LWLockAcquire", lwLock, "immediately acquired lwLock");
             break;
@@ -1138,11 +1138,11 @@ bool LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
          * existed before we checked for the lwLock.
          */
 
-        /* add to the queue */
-        LWLockQueueSelf(lwLock, mode);
+        // add to the queue
+        LWLockQueueSelf(lwLock, lwLockMode);
 
         // we're now guaranteed to be woken up if necessary
-        mustWait = LWLockAttemptLock(lwLock, mode);
+        mustWait = LWLockAttemptLock(lwLock, lwLockMode);
         // ok, grabbed the lwLock the second time round, need to undo queueing
         if (!mustWait) {
             LOG_LWDEBUG("LWLockAcquire", lwLock, "acquired, undoing queue");
@@ -1165,12 +1165,12 @@ bool LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
 #endif
 
         LWLockReportWaitStart(lwLock);
-        TRACE_POSTGRESQL_LWLOCK_WAIT_START(T_NAME(lwLock), mode);
+        TRACE_POSTGRESQL_LWLOCK_WAIT_START(T_NAME(lwLock), lwLockMode);
 
         for (;;) {
-            PGSemaphoreLock(proc->sem);
+            PGSemaphoreLock(pgproc->sem);
 
-            if (!proc->lwWaiting) {
+            if (!pgproc->lwWaiting) {
                 break;
             }
             // 这个时候lwWaiting还是true
@@ -1193,7 +1193,7 @@ bool LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
         LWLockReportWaitEnd();
         LOG_LWDEBUG("LWLockAcquire", lock, "awakened");
 
-        // Now loop back and try to acquire lwLock again.
+        // now loop back and try to acquire lwLock again.
         result = false;
     }
 
@@ -1201,13 +1201,13 @@ bool LWLockAcquire(LWLock *lwLock, LWLockMode mode) {
 
     // Add lwLock to list of locks held by this backend */
     held_lwlocks[num_held_lwlocks].lock = lwLock;
-    held_lwlocks[num_held_lwlocks].mode = mode;
+    held_lwlocks[num_held_lwlocks].mode = lwLockMode;
 
     num_held_lwlocks++;
 
     // Fix the process wait semaphore's count for any unrelated wake up.
     while (extraWaits-- > 0) {
-        PGSemaphoreUnlock(proc->sem);
+        PGSemaphoreUnlock(pgproc->sem);
     }
 
     return result;

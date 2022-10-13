@@ -1404,50 +1404,46 @@ InvalidateBuffer(BufferDesc *buf) {
 }
 
 /*
- * MarkBufferDirty
- *
- *		Marks buffer contents as dirty (actual write happens later).
+ * Marks buffer contents as dirty (actual write happens later).
  *
  * Buffer must be pinned and exclusive-locked.  (If caller does not hold
  * exclusive lock, then somebody could be in process of writing the buffer,
  * leading to risk of bad data written to disk.)
  */
 void MarkBufferDirty(Buffer buffer) {
-    BufferDesc *bufferDesc;
-    uint32 buf_state;
-    uint32 old_buf_state;
-
-    if (!BufferIsValid(buffer))
+    if (!BufferIsValid(buffer)) {
         elog(ERROR, "bad buffer ID: %d", buffer);
+    }
 
     if (BufferIsLocal(buffer)) {
         MarkLocalBufferDirty(buffer);
         return;
     }
 
-    bufferDesc = GetBufferDescriptor(buffer - 1);
+    BufferDesc *bufferDesc = GetBufferDescriptor(buffer - 1);
 
     Assert(BufferIsPinned(buffer));
     Assert(LWLockHeldByMeInMode(BufferDescriptorGetContentLock(bufferDesc), LW_EXCLUSIVE));
 
-    old_buf_state = pg_atomic_read_u32(&bufferDesc->state);
+    uint32 oldBufferState = pg_atomic_read_u32(&bufferDesc->state);
+
     for (;;) {
-        if (old_buf_state & BM_LOCKED) {
-            old_buf_state = WaitBufHdrUnlocked(bufferDesc);
+        if (oldBufferState & BM_LOCKED) {
+            oldBufferState = WaitBufHdrUnlocked(bufferDesc);
         }
 
-        buf_state = old_buf_state;
+        uint32 bufferState = oldBufferState;
 
-        Assert(BUF_STATE_GET_REFCOUNT(buf_state) > 0);
-        buf_state |= BM_DIRTY | BM_JUST_DIRTIED;
+        Assert(BUF_STATE_GET_REFCOUNT(bufferState) > 0);
+        bufferState |= BM_DIRTY | BM_JUST_DIRTIED;
 
-        if (pg_atomic_compare_exchange_u32(&bufferDesc->state, &old_buf_state, buf_state)) {
+        if (pg_atomic_compare_exchange_u32(&bufferDesc->state, &oldBufferState, bufferState)) {
             break;
         }
     }
 
     // If the buffer was not dirty already, do vacuum accounting.
-    if (!(old_buf_state & BM_DIRTY)) {
+    if (!(oldBufferState & BM_DIRTY)) {
         VacuumPageDirty++;
         pgBufferUsage.shared_blks_dirtied++;
         if (VacuumCostActive) {
@@ -1972,7 +1968,7 @@ BufferSync(int flags) {
  */
 bool BgBufferSync(WritebackContext *writebackContext) {
     /* info obtained from freelist.c */
-    int strategy_buf_id;
+
     uint32 completeNBufferRoundNum;
     uint32 recentAllocatedBufferNum;
 
@@ -2012,7 +2008,7 @@ bool BgBufferSync(WritebackContext *writebackContext) {
 
     // Find out where the freelist clock sweep currently is, and how many
     // buffer allocations have happened since our last call.
-    strategy_buf_id = StrategySyncStart(&completeNBufferRoundNum, &recentAllocatedBufferNum);
+    int strategyBufId = StrategySyncStart(&completeNBufferRoundNum, &recentAllocatedBufferNum);
 
     /* Report buffer alloc counts to pgstat */
     BgWriterStats.m_buf_alloc += recentAllocatedBufferNum;
@@ -2037,27 +2033,27 @@ bool BgBufferSync(WritebackContext *writebackContext) {
     if (saved_info_valid) {
         int32 passes_delta = completeNBufferRoundNum - prev_strategy_passes;
 
-        strategy_delta = strategy_buf_id - prev_strategy_buf_id;
+        strategy_delta = strategyBufId - prev_strategy_buf_id;
         strategy_delta += (long) passes_delta * NBuffers;
 
         Assert(strategy_delta >= 0);
 
         if ((int32) (next_passes - completeNBufferRoundNum) > 0) {
             /* we're one pass ahead of the strategy point */
-            bufs_to_lap = strategy_buf_id - nextToCleanBufferId;
+            bufs_to_lap = strategyBufId - nextToCleanBufferId;
 #ifdef BGW_DEBUG
             elog(DEBUG2, "bgwriter ahead: bgw %u-%u strategy %u-%u delta=%ld lap=%d",
                  next_passes, nextToCleanBufferId,
-                 completeNBufferRoundNum, strategy_buf_id,
+                 completeNBufferRoundNum, strategyBufId,
                  strategy_delta, bufs_to_lap);
 #endif
-        } else if (next_passes == completeNBufferRoundNum && nextToCleanBufferId >= strategy_buf_id) {
+        } else if (next_passes == completeNBufferRoundNum && nextToCleanBufferId >= strategyBufId) {
             /* on same pass, but ahead or at least not behind */
-            bufs_to_lap = NBuffers - (nextToCleanBufferId - strategy_buf_id);
+            bufs_to_lap = NBuffers - (nextToCleanBufferId - strategyBufId);
 #ifdef BGW_DEBUG
             elog(DEBUG2, "bgwriter ahead: bgw %u-%u strategy %u-%u delta=%ld lap=%d",
                  next_passes, nextToCleanBufferId,
-                 completeNBufferRoundNum, strategy_buf_id,
+                 completeNBufferRoundNum, strategyBufId,
                  strategy_delta, bufs_to_lap);
 #endif
         } else {
@@ -2065,10 +2061,10 @@ bool BgBufferSync(WritebackContext *writebackContext) {
 #ifdef BGW_DEBUG
             elog(DEBUG2, "bgwriter behind: bgw %u-%u strategy %u-%u delta=%ld",
                  next_passes, nextToCleanBufferId,
-                 completeNBufferRoundNum, strategy_buf_id,
+                 completeNBufferRoundNum, strategyBufId,
                  strategy_delta);
 #endif
-            nextToCleanBufferId = strategy_buf_id;
+            nextToCleanBufferId = strategyBufId;
             next_passes = completeNBufferRoundNum;
             bufs_to_lap = NBuffers;
         }
@@ -2076,16 +2072,16 @@ bool BgBufferSync(WritebackContext *writebackContext) {
         // Initializing at startup or after LRU scanning had been off. Always start at the strategy point.
 #ifdef BGW_DEBUG
         elog(DEBUG2, "bgwriter initializing: strategy %u-%u",
-             completeNBufferRoundNum, strategy_buf_id);
+             completeNBufferRoundNum, strategyBufId);
 #endif
         strategy_delta = 0;
-        nextToCleanBufferId = strategy_buf_id;
+        nextToCleanBufferId = strategyBufId;
         next_passes = completeNBufferRoundNum;
         bufs_to_lap = NBuffers;
     }
 
     /* Update saved info for next time */
-    prev_strategy_buf_id = strategy_buf_id;
+    prev_strategy_buf_id = strategyBufId;
     prev_strategy_passes = completeNBufferRoundNum;
     saved_info_valid = true;
 
@@ -2166,7 +2162,7 @@ bool BgBufferSync(WritebackContext *writebackContext) {
     num_written = 0;
     reusable_buffers = reusable_buffers_est;
 
-    /* Execute the LRU scan */
+    // scan LRU
     while (num_to_scan > 0 && reusable_buffers < upcoming_alloc_est) {
         int sync_state = SyncOneBuffer(nextToCleanBufferId, true, writebackContext);
 

@@ -131,6 +131,7 @@ static volatile OldSnapshotControlData *oldSnapshotControl;
 /*
  * CurrentSnapshot points to the only snapshot taken in transaction-snapshot
  * mode, and to the latest one taken in a read-committed transaction.
+ *
  * SecondarySnapshot is a snapshot that's always up-to-date as of the current
  * instant, even in transaction-snapshot mode.  It should only be used for
  * special-purpose code (say, RI checking.)  CatalogSnapshot points to an
@@ -288,8 +289,7 @@ SnapMgrInit(void) {
 }
 
 /*
- * GetTransactionSnapshot
- *		Get the appropriate snapshot for a new query in a transaction.
+ * Get the appropriate snapshot for a new query in a transaction.
  *
  * Note that the return value may point at static storage that will be modified
  * by future calls and by CommandCounterIncrement().  Callers should call
@@ -718,9 +718,9 @@ void PushActiveSnapshot(Snapshot snapshot) {
  * transaction nesting level that "owns" the snapshot.  This level
  * must not be deeper than the current top of the snapshot stack.
  */
-void PushActiveSnapshotWithLevel(Snapshot snapshot, int snap_level) {
+void PushActiveSnapshotWithLevel(Snapshot snapshot, int snapshotLevel) {
     Assert(snapshot != InvalidSnapshot);
-    Assert(ActiveSnapshot == NULL || snap_level >= ActiveSnapshot->as_level);
+    Assert(ActiveSnapshot == NULL || snapshotLevel >= ActiveSnapshot->as_level);
 
     ActiveSnapshotElt *newactive = MemoryContextAlloc(TopTransactionContext, sizeof(ActiveSnapshotElt));
 
@@ -732,8 +732,7 @@ void PushActiveSnapshotWithLevel(Snapshot snapshot, int snap_level) {
     }
 
     newactive->as_next = ActiveSnapshot;
-    newactive->as_level = snap_level;
-
+    newactive->as_level = snapshotLevel;
     newactive->as_snap->active_count++;
 
     ActiveSnapshot = newactive;
@@ -791,22 +790,23 @@ UpdateActiveSnapshotCommandId(void) {
  * reference count, and free it if this was the last reference.
  */
 void PopActiveSnapshot(void) {
-    ActiveSnapshotElt *newstack;
-
-    newstack = ActiveSnapshot->as_next;
+    ActiveSnapshotElt *next = ActiveSnapshot->as_next;
 
     Assert(ActiveSnapshot->as_snap->active_count > 0);
 
     ActiveSnapshot->as_snap->active_count--;
 
-    if (ActiveSnapshot->as_snap->active_count == 0 &&
-        ActiveSnapshot->as_snap->regd_count == 0)
+    if (ActiveSnapshot->as_snap->active_count == 0 && ActiveSnapshot->as_snap->regd_count == 0) {
         FreeSnapshot(ActiveSnapshot->as_snap);
+    }
 
     pfree(ActiveSnapshot);
-    ActiveSnapshot = newstack;
-    if (ActiveSnapshot == NULL)
+
+    ActiveSnapshot = next;
+
+    if (ActiveSnapshot == NULL) {
         OldestActiveSnapshot = NULL;
+    }
 
     SnapshotResetXmin();
 }
@@ -965,23 +965,23 @@ GetFullRecentGlobalXmin(void) {
  * stack entry has the oldest xmin.  (Current uses of GetOldestSnapshot() are
  * not actually critical, but this would be.)
  */
-static void
-SnapshotResetXmin(void) {
-    Snapshot minSnapshot;
-
-    if (ActiveSnapshot != NULL)
+static void SnapshotResetXmin(void) {
+    if (ActiveSnapshot != NULL) {
         return;
+    }
 
     if (pairingheap_is_empty(&RegisteredSnapshots)) {
         MyPgXact->xmin = InvalidTransactionId;
         return;
     }
 
-    minSnapshot = pairingheap_container(SnapshotData, ph_node,
-                                        pairingheap_first(&RegisteredSnapshots));
+    Snapshot minSnapshot = pairingheap_container(SnapshotData,
+                                                 ph_node,
+                                                 pairingheap_first(&RegisteredSnapshots));
 
-    if (TransactionIdPrecedes(MyPgXact->xmin, minSnapshot->xmin))
+    if (TransactionIdPrecedes(MyPgXact->xmin, minSnapshot->xmin)) {
         MyPgXact->xmin = minSnapshot->xmin;
+    }
 }
 
 /*
