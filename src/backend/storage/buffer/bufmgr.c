@@ -2008,7 +2008,8 @@ bool BgBufferSync(WritebackContext *writebackContext) {
 
     // Find out where the freelist clock sweep currently is, and how many
     // buffer allocations have happened since our last call.
-    int strategyBufId = StrategySyncStart(&completeNBufferRoundNum, &recentAllocatedBufferNum);
+    int strategyBufId = StrategySyncStart(&completeNBufferRoundNum,
+                                          &recentAllocatedBufferNum);
 
     /* Report buffer alloc counts to pgstat */
     BgWriterStats.m_buf_alloc += recentAllocatedBufferNum;

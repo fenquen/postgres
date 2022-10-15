@@ -668,6 +668,13 @@ typedef struct IndexElem {
     SortByNulls nulls_ordering; /* FIRST/LAST/default */
 } IndexElem;
 
+typedef enum DefElemAction {
+    DEFELEM_UNSPEC,                /* no action given */
+    DEFELEM_SET,
+    DEFELEM_ADD,
+    DEFELEM_DROP
+} DefElemAction;
+
 /*
  * DefElem - a generic "name = value" option definition
  *
@@ -678,13 +685,6 @@ typedef struct IndexElem {
  * where they are relevant; C code can just ignore those fields in other
  * statements.)
  */
-typedef enum DefElemAction {
-    DEFELEM_UNSPEC,                /* no action given */
-    DEFELEM_SET,
-    DEFELEM_ADD,
-    DEFELEM_DROP
-} DefElemAction;
-
 typedef struct DefElem {
     NodeTag type;
     char *defnamespace;    /* NULL if unqualified name */

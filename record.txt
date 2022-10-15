@@ -1,7 +1,13 @@
 编译
-    ./configure --enable-debug --enable-cassert --enable-thread-safety --prefix=/Users/a/program/pg12 CFLAGS="-g -O0 -std=c99 -Wno-declaration-after-statement"
+    ubuntu下需要的
+        flex        sudo apt install flex
+        bison       sudo apt install bison
+        readline    sudo apt install libreadline-dev
+        zlib        sudo apt install zlib1g-dev
 
-    make -sj
+        ./configure --enable-debug --enable-cassert --enable-thread-safety --prefix=/Users/a/program/pg12 CFLAGS="-g -O0 -std=c99 -Wno-declaration-after-statement"
+
+            make -sj
 其他
   SELECT pg_backend_pid();
 

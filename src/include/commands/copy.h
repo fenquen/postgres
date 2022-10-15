@@ -19,26 +19,54 @@
 #include "parser/parse_node.h"
 #include "tcop/dest.h"
 
-/* CopyStateData is private in commands/copy.c */
+// CopyStateData is private in commands/copy.c
 typedef struct CopyStateData *CopyState;
-typedef int (*copy_data_source_cb) (void *outbuf, int minread, int maxread);
 
-extern void DoCopy(ParseState *state, const CopyStmt *stmt,
-				   int stmt_location, int stmt_len,
-				   uint64 *processed);
+typedef int (*copy_data_source_cb)(void *outbuf, int minread, int maxread);
 
-extern void ProcessCopyOptions(ParseState *pstate, CopyState cstate, bool is_from, List *options);
-extern CopyState BeginCopyFrom(ParseState *pstate, Relation rel, const char *filename,
-							   bool is_program, copy_data_source_cb data_source_cb, List *attnamelist, List *options);
-extern void EndCopyFrom(CopyState cstate);
-extern bool NextCopyFrom(CopyState cstate, ExprContext *econtext,
-						 Datum *values, bool *nulls);
-extern bool NextCopyFromRawFields(CopyState cstate,
-								  char ***fields, int *nfields);
+extern void DoCopy(ParseState *state,
+                   const CopyStmt *stmt,
+                   int stmt_location, int stmt_len,
+                   uint64 *processed);
+
+extern void ProcessCopyOptions(ParseState *parseState,
+                               CopyState copyState,
+                               bool is_from,
+                               List *optionList);
+
+/*
+ * setup to read tuples from a file for COPY FROM.
+ *
+ * 'relation': Used as a template for the tuples
+ * 'filename': Name of server-local file to read
+ * 'attrNameList': List of char *, columns to include. NIL selects all cols.
+ * 'optionList': List of DefElem. See copy_opt_item in gram.y for selections.
+ *
+ * Returns a CopyState, to be passed to NextCopyFrom and related functions.
+ */
+extern CopyState BeginCopyFrom(ParseState *parseState,
+                               Relation relation,
+                               const char *filename,
+                               bool is_program,
+                               copy_data_source_cb copyDataSourceCb,
+                               List *attrNameList,
+                               List *optionList);
+
+extern void EndCopyFrom(CopyState copyState);
+
+extern bool NextCopyFrom(CopyState copyState,
+                         ExprContext *exprContext,
+                         Datum *values,
+                         bool *nulls);
+
+extern bool NextCopyFromRawFields(CopyState copyState,
+                                  char ***fields,
+                                  int *nfields);
+
 extern void CopyFromErrorCallback(void *arg);
 
-extern uint64 CopyFrom(CopyState cstate);
+extern uint64 CopyFrom(CopyState copyState);
 
 extern DestReceiver *CreateCopyDestReceiver(void);
 
-#endif							/* COPY_H */
+#endif                            /* COPY_H */

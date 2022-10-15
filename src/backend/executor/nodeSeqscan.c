@@ -237,9 +237,7 @@ ExecSeqScanReInitializeDSM(SeqScanState *node,
  *		Copy relevant information from TOC into planstate.
  * ----------------------------------------------------------------
  */
-void
-ExecSeqScanInitializeWorker(SeqScanState *node,
-                            ParallelWorkerContext *pwcxt) {
+void ExecSeqScanInitializeWorker(SeqScanState *node, ParallelWorkerContext *pwcxt) {
     ParallelTableScanDesc pscan;
 
     pscan = shm_toc_lookup(pwcxt->toc, node->ss.ps.plan->plan_node_id, false);

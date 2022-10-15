@@ -6978,10 +6978,9 @@ create_partitionwise_grouping_paths(PlannerInfo *root,
  * Returns true, if all the partition keys of the given relation are part of
  * the GROUP BY clauses, false otherwise.
  */
-static bool
-group_by_has_partkey(RelOptInfo *input_rel,
-                     List *targetList,
-                     List *groupClause) {
+static bool group_by_has_partkey(RelOptInfo *input_rel,
+                                 List *targetList,
+                                 List *groupClause) {
     List *groupexprs = get_sortgrouplist_exprs(groupClause, targetList);
     int cnt = 0;
     int partnatts;

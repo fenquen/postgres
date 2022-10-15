@@ -25,15 +25,14 @@
  * Create an empty 'StringInfoData' & return a pointer to it.
  */
 StringInfo
-makeStringInfo(void)
-{
-	StringInfo	res;
+makeStringInfo(void) {
+    StringInfo res;
 
-	res = (StringInfo) palloc(sizeof(StringInfoData));
+    res = (StringInfo) palloc(sizeof(StringInfoData));
 
-	initStringInfo(res);
+    initStringInfo(res);
 
-	return res;
+    return res;
 }
 
 /*
@@ -42,14 +41,12 @@ makeStringInfo(void)
  * Initialize a StringInfoData struct (with previously undefined contents)
  * to describe an empty string.
  */
-void
-initStringInfo(StringInfo str)
-{
-	int			size = 1024;	/* initial default buffer size */
+void initStringInfo(StringInfo str) {
+    int size = 1024;    /* initial default buffer size */
 
-	str->data = (char *) palloc(size);
-	str->maxlen = size;
-	resetStringInfo(str);
+    str->data = (char *) palloc(size);
+    str->maxlen = size;
+    resetStringInfo(str);
 }
 
 /*
@@ -59,11 +56,10 @@ initStringInfo(StringInfo str)
  * previous content, if any, is cleared.
  */
 void
-resetStringInfo(StringInfo str)
-{
-	str->data[0] = '\0';
-	str->len = 0;
-	str->cursor = 0;
+resetStringInfo(StringInfo str) {
+    str->data[0] = '\0';
+    str->len = 0;
+    str->cursor = 0;
 }
 
 /*
@@ -75,27 +71,25 @@ resetStringInfo(StringInfo str)
  * strcat.
  */
 void
-appendStringInfo(StringInfo str, const char *fmt,...)
-{
-	int			save_errno = errno;
+appendStringInfo(StringInfo str, const char *fmt, ...) {
+    int save_errno = errno;
 
-	for (;;)
-	{
-		va_list		args;
-		int			needed;
+    for (;;) {
+        va_list args;
+        int needed;
 
-		/* Try to format the data. */
-		errno = save_errno;
-		va_start(args, fmt);
-		needed = appendStringInfoVA(str, fmt, args);
-		va_end(args);
+        /* Try to format the data. */
+        errno = save_errno;
+        va_start(args, fmt);
+        needed = appendStringInfoVA(str, fmt, args);
+        va_end(args);
 
-		if (needed == 0)
-			break;				/* success */
+        if (needed == 0)
+            break;                /* success */
 
-		/* Increase the buffer size and try again. */
-		enlargeStringInfo(str, needed);
-	}
+        /* Increase the buffer size and try again. */
+        enlargeStringInfo(str, needed);
+    }
 }
 
 /*
@@ -117,40 +111,38 @@ appendStringInfo(StringInfo str, const char *fmt,...)
  * that from here.
  */
 int
-appendStringInfoVA(StringInfo str, const char *fmt, va_list args)
-{
-	int			avail;
-	size_t		nprinted;
+appendStringInfoVA(StringInfo str, const char *fmt, va_list args) {
+    int avail;
+    size_t nprinted;
 
-	Assert(str != NULL);
+    Assert(str != NULL);
 
-	/*
-	 * If there's hardly any space, don't bother trying, just fail to make the
-	 * caller enlarge the buffer first.  We have to guess at how much to
-	 * enlarge, since we're skipping the formatting work.
-	 */
-	avail = str->maxlen - str->len;
-	if (avail < 16)
-		return 32;
+    /*
+     * If there's hardly any space, don't bother trying, just fail to make the
+     * caller enlarge the buffer first.  We have to guess at how much to
+     * enlarge, since we're skipping the formatting work.
+     */
+    avail = str->maxlen - str->len;
+    if (avail < 16)
+        return 32;
 
-	nprinted = pvsnprintf(str->data + str->len, (size_t) avail, fmt, args);
+    nprinted = pvsnprintf(str->data + str->len, (size_t) avail, fmt, args);
 
-	if (nprinted < (size_t) avail)
-	{
-		/* Success.  Note nprinted does not include trailing null. */
-		str->len += (int) nprinted;
-		return 0;
-	}
+    if (nprinted < (size_t) avail) {
+        /* Success.  Note nprinted does not include trailing null. */
+        str->len += (int) nprinted;
+        return 0;
+    }
 
-	/* Restore the trailing null so that str is unmodified. */
-	str->data[str->len] = '\0';
+    /* Restore the trailing null so that str is unmodified. */
+    str->data[str->len] = '\0';
 
-	/*
-	 * Return pvsnprintf's estimate of the space needed.  (Although this is
-	 * given as a size_t, we know it will fit in int because it's not more
-	 * than MaxAllocSize.)
-	 */
-	return (int) nprinted;
+    /*
+     * Return pvsnprintf's estimate of the space needed.  (Although this is
+     * given as a size_t, we know it will fit in int because it's not more
+     * than MaxAllocSize.)
+     */
+    return (int) nprinted;
 }
 
 /*
@@ -160,9 +152,8 @@ appendStringInfoVA(StringInfo str, const char *fmt, va_list args)
  * Like appendStringInfo(str, "%s", s) but faster.
  */
 void
-appendStringInfoString(StringInfo str, const char *s)
-{
-	appendBinaryStringInfo(str, s, strlen(s));
+appendStringInfoString(StringInfo str, const char *s) {
+    appendBinaryStringInfo(str, s, strlen(s));
 }
 
 /*
@@ -172,16 +163,15 @@ appendStringInfoString(StringInfo str, const char *s)
  * Like appendStringInfo(str, "%c", ch) but much faster.
  */
 void
-appendStringInfoChar(StringInfo str, char ch)
-{
-	/* Make more room if needed */
-	if (str->len + 1 >= str->maxlen)
-		enlargeStringInfo(str, 1);
+appendStringInfoChar(StringInfo str, char ch) {
+    /* Make more room if needed */
+    if (str->len + 1 >= str->maxlen)
+        enlargeStringInfo(str, 1);
 
-	/* OK, append the character */
-	str->data[str->len] = ch;
-	str->len++;
-	str->data[str->len] = '\0';
+    /* OK, append the character */
+    str->data[str->len] = ch;
+    str->len++;
+    str->data[str->len] = '\0';
 }
 
 /*
@@ -190,18 +180,16 @@ appendStringInfoChar(StringInfo str, char ch)
  * Append the specified number of spaces to a buffer.
  */
 void
-appendStringInfoSpaces(StringInfo str, int count)
-{
-	if (count > 0)
-	{
-		/* Make more room if needed */
-		enlargeStringInfo(str, count);
+appendStringInfoSpaces(StringInfo str, int count) {
+    if (count > 0) {
+        /* Make more room if needed */
+        enlargeStringInfo(str, count);
 
-		/* OK, append the spaces */
-		while (--count >= 0)
-			str->data[str->len++] = ' ';
-		str->data[str->len] = '\0';
-	}
+        /* OK, append the spaces */
+        while (--count >= 0)
+            str->data[str->len++] = ' ';
+        str->data[str->len] = '\0';
+    }
 }
 
 /*
@@ -211,23 +199,22 @@ appendStringInfoSpaces(StringInfo str, int count)
  * if necessary. Ensures that a trailing null byte is present.
  */
 void
-appendBinaryStringInfo(StringInfo str, const char *data, int datalen)
-{
-	Assert(str != NULL);
+appendBinaryStringInfo(StringInfo str, const char *data, int datalen) {
+    Assert(str != NULL);
 
-	/* Make more room if needed */
-	enlargeStringInfo(str, datalen);
+    /* Make more room if needed */
+    enlargeStringInfo(str, datalen);
 
-	/* OK, append the data */
-	memcpy(str->data + str->len, data, datalen);
-	str->len += datalen;
+    /* OK, append the data */
+    memcpy(str->data + str->len, data, datalen);
+    str->len += datalen;
 
-	/*
-	 * Keep a trailing null in place, even though it's probably useless for
-	 * binary data.  (Some callers are dealing with text but call this because
-	 * their input isn't null-terminated.)
-	 */
-	str->data[str->len] = '\0';
+    /*
+     * Keep a trailing null in place, even though it's probably useless for
+     * binary data.  (Some callers are dealing with text but call this because
+     * their input isn't null-terminated.)
+     */
+    str->data[str->len] = '\0';
 }
 
 /*
@@ -237,16 +224,15 @@ appendBinaryStringInfo(StringInfo str, const char *data, int datalen)
  * if necessary. Does not ensure a trailing null-byte exists.
  */
 void
-appendBinaryStringInfoNT(StringInfo str, const char *data, int datalen)
-{
-	Assert(str != NULL);
+appendBinaryStringInfoNT(StringInfo str, const char *data, int datalen) {
+    Assert(str != NULL);
 
-	/* Make more room if needed */
-	enlargeStringInfo(str, datalen);
+    /* Make more room if needed */
+    enlargeStringInfo(str, datalen);
 
-	/* OK, append the data */
-	memcpy(str->data + str->len, data, datalen);
-	str->len += datalen;
+    /* OK, append the data */
+    memcpy(str->data + str->len, data, datalen);
+    str->len += datalen;
 }
 
 /*
@@ -267,48 +253,47 @@ appendBinaryStringInfoNT(StringInfo str, const char *data, int datalen)
  * This is the desired and indeed critical behavior!
  */
 void
-enlargeStringInfo(StringInfo str, int needed)
-{
-	int			newlen;
+enlargeStringInfo(StringInfo str, int needed) {
+    int newlen;
 
-	/*
-	 * Guard against out-of-range "needed" values.  Without this, we can get
-	 * an overflow or infinite loop in the following.
-	 */
-	if (needed < 0)				/* should not happen */
-		elog(ERROR, "invalid string enlargement request size: %d", needed);
-	if (((Size) needed) >= (MaxAllocSize - (Size) str->len))
-		ereport(ERROR,
-				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("out of memory"),
-				 errdetail("Cannot enlarge string buffer containing %d bytes by %d more bytes.",
-						   str->len, needed)));
+    /*
+     * Guard against out-of-range "needed" values.  Without this, we can get
+     * an overflow or infinite loop in the following.
+     */
+    if (needed < 0)                /* should not happen */
+        elog(ERROR, "invalid string enlargement request size: %d", needed);
+    if (((Size) needed) >= (MaxAllocSize - (Size) str->len))
+        ereport(ERROR,
+                (errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+                        errmsg("out of memory"),
+                        errdetail("Cannot enlarge string buffer containing %d bytes by %d more bytes.",
+                                  str->len, needed)));
 
-	needed += str->len + 1;		/* total space required now */
+    needed += str->len + 1;        /* total space required now */
 
-	/* Because of the above test, we now have needed <= MaxAllocSize */
+    /* Because of the above test, we now have needed <= MaxAllocSize */
 
-	if (needed <= str->maxlen)
-		return;					/* got enough space already */
+    if (needed <= str->maxlen)
+        return;                    /* got enough space already */
 
-	/*
-	 * We don't want to allocate just a little more space with each append;
-	 * for efficiency, double the buffer size each time it overflows.
-	 * Actually, we might need to more than double it if 'needed' is big...
-	 */
-	newlen = 2 * str->maxlen;
-	while (needed > newlen)
-		newlen = 2 * newlen;
+    /*
+     * We don't want to allocate just a little more space with each append;
+     * for efficiency, double the buffer size each time it overflows.
+     * Actually, we might need to more than double it if 'needed' is big...
+     */
+    newlen = 2 * str->maxlen;
+    while (needed > newlen)
+        newlen = 2 * newlen;
 
-	/*
-	 * Clamp to MaxAllocSize in case we went past it.  Note we are assuming
-	 * here that MaxAllocSize <= INT_MAX/2, else the above loop could
-	 * overflow.  We will still have newlen >= needed.
-	 */
-	if (newlen > (int) MaxAllocSize)
-		newlen = (int) MaxAllocSize;
+    /*
+     * Clamp to MaxAllocSize in case we went past it.  Note we are assuming
+     * here that MaxAllocSize <= INT_MAX/2, else the above loop could
+     * overflow.  We will still have newlen >= needed.
+     */
+    if (newlen > (int) MaxAllocSize)
+        newlen = (int) MaxAllocSize;
 
-	str->data = (char *) repalloc(str->data, newlen);
+    str->data = (char *) repalloc(str->data, newlen);
 
-	str->maxlen = newlen;
+    str->maxlen = newlen;
 }

@@ -2446,10 +2446,9 @@ reform_and_rewrite_tuple(HeapTuple tuple,
 /*
  * Check visibility of the tuple.
  */
-static bool
-SampleHeapTupleVisible(TableScanDesc scan, Buffer buffer,
-                       HeapTuple tuple,
-                       OffsetNumber tupoffset) {
+static bool SampleHeapTupleVisible(TableScanDesc scan, Buffer buffer,
+                                   HeapTuple tuple,
+                                   OffsetNumber tupoffset) {
     HeapScanDesc hscan = (HeapScanDesc) scan;
 
     if (scan->rs_flags & SO_ALLOW_PAGEMODE) {

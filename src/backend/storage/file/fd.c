@@ -433,7 +433,7 @@ pg_flush_data(int fd, off_t offset, off_t nbytes) {
      */
 #if defined(HAVE_SYNC_FILE_RANGE)
     {
-        int			rc;
+        int rc;
         static bool not_implemented_by_kernel = false;
 
         if (not_implemented_by_kernel)
@@ -450,26 +450,23 @@ pg_flush_data(int fd, off_t offset, off_t nbytes) {
          */
         rc = sync_file_range(fd, offset, nbytes,
                              SYNC_FILE_RANGE_WRITE);
-        if (rc != 0)
-        {
-            int			elevel;
+        if (rc != 0) {
+            int elevel;
 
             /*
              * For systems that don't have an implementation of
              * sync_file_range() such as Windows WSL, generate only one
              * warning and then suppress all further attempts by this process.
              */
-            if (errno == ENOSYS)
-            {
+            if (errno == ENOSYS) {
                 elevel = WARNING;
                 not_implemented_by_kernel = true;
-            }
-            else
+            } else
                 elevel = data_sync_elevel(WARNING);
 
             ereport(elevel,
                     (errcode_for_file_access(),
-                     errmsg("could not flush dirty data: %m")));
+                            errmsg("could not flush dirty data: %m")));
         }
 
         return;
@@ -555,7 +552,7 @@ pg_flush_data(int fd, off_t offset, off_t nbytes) {
 #endif
 #if defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_DONTNEED)
     {
-        int			rc;
+        int rc;
 
         /*
          * Signal the kernel that the passed in range should not be cached
@@ -567,12 +564,11 @@ pg_flush_data(int fd, off_t offset, off_t nbytes) {
 
         rc = posix_fadvise(fd, offset, nbytes, POSIX_FADV_DONTNEED);
 
-        if (rc != 0)
-        {
+        if (rc != 0) {
             /* don't error out, this is just a performance optimization */
             ereport(WARNING,
                     (errcode_for_file_access(),
-                     errmsg("could not flush dirty data: %m")));
+                            errmsg("could not flush dirty data: %m")));
         }
 
         return;
@@ -1095,16 +1091,12 @@ LruInsert(File file) {
     return 0;
 }
 
-/*
- * Release one kernel FD by closing the least-recently-used VFD.
- */
+// Release one kernel FD by closing the least-recently-used VFD.
 static bool ReleaseLruFile(void) {
     DO_DB(elog(LOG, "ReleaseLruFile. Opened %d", nfile));
 
+    // 说明还有fd可以区释放
     if (nfile > 0) {
-        /*
-         * There are opened files and so there should be at least one used vfd in the ring.
-         */
         Assert(VfdCache[0].lruMoreRecently != 0);
         LruDelete(VfdCache[0].lruMoreRecently);
         return true;            /* freed a file */
@@ -1701,13 +1693,13 @@ FileClose(File file) {
 int
 FilePrefetch(File file, off_t offset, int amount, uint32 wait_event_info) {
 #if defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
-    int			returnCode;
+    int returnCode;
 
     Assert(FileIsValid(file));
 
     DO_DB(elog(LOG, "FilePrefetch: %d (%s) " INT64_FORMAT " %d",
-               file, VfdCache[file].fileName,
-               (int64) offset, amount));
+            file, VfdCache[file].fileName,
+            (int64) offset, amount));
 
     returnCode = FileAccess(file);
     if (returnCode < 0)
@@ -2097,8 +2089,8 @@ FILE *AllocateFile(const char *filePath, const char *mode) {
     if (!reserveAllocatedDesc()) {
         ereport(ERROR,
                 (errcode(ERRCODE_INSUFFICIENT_RESOURCES),
-                        errmsg("exceeded maxAllocatedDescs (%d) while trying to open file \"%s\"", maxAllocatedDescs,
-                               filePath)));
+                        errmsg("exceeded maxAllocatedDescs (%d) while trying to open file \"%s\"",
+                               maxAllocatedDescs, filePath)));
     }
 
     // close excess kernel FDs.
@@ -2121,23 +2113,21 @@ FILE *AllocateFile(const char *filePath, const char *mode) {
         int save_errno = errno;
 
         ereport(LOG,
-                (errcode(ERRCODE_INSUFFICIENT_RESOURCES),
-                        errmsg("out of file descriptors: %m; release and retry")));
+                (errcode(ERRCODE_INSUFFICIENT_RESOURCES), errmsg("out of file descriptors: %m; release and retry")));
         errno = 0;
-        if (ReleaseLruFile())
+
+        if (ReleaseLruFile()) {
             goto TryAgain;
+        }
+
         errno = save_errno;
     }
 
     return NULL;
 }
 
-/*
- * Open a file with OpenTransientFilePerm() and pass default file mode for
- * the fileMode parameter.
- */
-int
-OpenTransientFile(const char *fileName, int fileFlags) {
+// open a file with OpenTransientFilePerm() and pass default file mode for the fileMode parameter.
+int OpenTransientFile(const char *fileName, int fileFlags) {
     return OpenTransientFilePerm(fileName, fileFlags, pg_file_create_mode);
 }
 
@@ -2178,6 +2168,7 @@ OpenTransientFilePerm(const char *fileName, int fileFlags, mode_t fileMode) {
 }
 
 /*
+ * 调用程序读取其stdout
  * Routines that want to initiate a pipe stream should use OpenPipeStream
  * rather than plain popen().  This lets fd.c deal with freeing FDs if
  * necessary.  When done, call ClosePipeStream rather than pclose.
@@ -2186,20 +2177,16 @@ OpenTransientFilePerm(const char *fileName, int fileFlags, mode_t fileMode) {
  * SIGPIPE processing, rather than the SIG_IGN setting the backend normally
  * uses.  This ensures desirable response to, eg, closing a read pipe early.
  */
-FILE *
-OpenPipeStream(const char *command, const char *mode) {
-    FILE *file;
-    int save_errno;
+FILE *OpenPipeStream(const char *command, const char *mode) {
+    DO_DB(elog(LOG, "OpenPipeStream: Allocated %d (%s)", numAllocatedDescs, command));
 
-    DO_DB(elog(LOG, "OpenPipeStream: Allocated %d (%s)",
-               numAllocatedDescs, command));
-
-    /* Can we allocate another non-virtual FD? */
-    if (!reserveAllocatedDesc())
+    // can we allocate another non-virtual FD?
+    if (!reserveAllocatedDesc()) {
         ereport(ERROR,
                 (errcode(ERRCODE_INSUFFICIENT_RESOURCES),
                         errmsg("exceeded maxAllocatedDescs (%d) while trying to execute command \"%s\"",
                                maxAllocatedDescs, command)));
+    }
 
     /* Close excess kernel FDs. */
     ReleaseLruFiles();
@@ -2207,28 +2194,37 @@ OpenPipeStream(const char *command, const char *mode) {
     TryAgain:
     fflush(stdout);
     fflush(stderr);
+
     pqsignal(SIGPIPE, SIG_DFL);
+
     errno = 0;
-    file = popen(command, mode);
-    save_errno = errno;
+
+    FILE *file = popen(command, mode);
+    int save_errno = errno;
+
     pqsignal(SIGPIPE, SIG_IGN);
     errno = save_errno;
-    if (file != NULL) {
-        AllocateDesc *desc = &allocatedDescs[numAllocatedDescs];
 
-        desc->kind = AllocateDescPipe;
-        desc->desc.file = file;
-        desc->create_subid = GetCurrentSubTransactionId();
+    if (file != NULL) {
+        AllocateDesc *allocateDesc = &allocatedDescs[numAllocatedDescs];
+
+        allocateDesc->kind = AllocateDescPipe;
+        allocateDesc->desc.file = file;
+        allocateDesc->create_subid = GetCurrentSubTransactionId();
+
         numAllocatedDescs++;
-        return desc->desc.file;
+
+        return allocateDesc->desc.file;
     }
 
     if (errno == EMFILE || errno == ENFILE) {
         ereport(LOG,
-                (errcode(ERRCODE_INSUFFICIENT_RESOURCES),
-                        errmsg("out of file descriptors: %m; release and retry")));
-        if (ReleaseLruFile())
+                (errcode(ERRCODE_INSUFFICIENT_RESOURCES), errmsg("out of file descriptors: %m; release and retry")));
+
+        if (ReleaseLruFile()) {
             goto TryAgain;
+        }
+
         errno = save_errno;
     }
 
