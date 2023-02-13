@@ -274,7 +274,7 @@ typedef struct IndexTupleData {
 typedef IndexTupleData *IndexTuple;
 
 如何应对1个单column的index
-如何应对过个单column的index
+如何应对多个单column的index
 如何应对1个多column的index
 如何应对多个多column的index
 
