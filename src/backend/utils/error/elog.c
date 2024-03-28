@@ -1639,9 +1639,7 @@ ThrowErrorData(ErrorData *edata)
  * the original error.  This is slower than just PG_RE_THROW() but should
  * be used if the "some processing" is likely to incur another error.
  */
-void
-ReThrowError(ErrorData *edata)
-{
+void ReThrowError(ErrorData *edata) {
 	ErrorData  *newedata;
 
 	Assert(edata->elevel == ERROR);

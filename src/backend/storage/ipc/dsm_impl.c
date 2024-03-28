@@ -254,6 +254,7 @@ static bool dsm_impl_posix(dsm_op op,
      */
     flags = O_RDWR | (op == DSM_OP_CREATE ? O_CREAT | O_EXCL : 0);
 
+    // posix 共享内存
     if ((fd = shm_open(name, flags, PG_FILE_MODE_OWNER)) == -1) {
         if (errno != EEXIST) {
             ereport(elevel,(errcode_for_dynamic_shared_memory(),

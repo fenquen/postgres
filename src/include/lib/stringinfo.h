@@ -32,12 +32,11 @@
  *				Some routines use it to scan through a StringInfo.
  *-------------------------
  */
-typedef struct StringInfoData
-{
-	char	   *data;
-	int			len;
-	int			maxlen;
-	int			cursor; // 对应了java的byteBuffer的position
+typedef struct StringInfoData {
+    char *data;
+    int len; // 对应byteBuffer的length
+    int maxlen; // 对应capacity
+    int cursor; // 对应了java的byteBuffer的position
 } StringInfoData;
 
 typedef StringInfoData *StringInfo;

@@ -79,8 +79,7 @@ static inline ListCell *list_tail(List *list) {
 	return list ? list->tail : NULL;
 }
 
-static inline int list_length(const List *l)
-{
+static inline int list_length(const List *l) {
 	return l ? l->length : 0;
 }
 
@@ -148,8 +147,7 @@ static inline int list_length(const List *l)
 #define list_make5_oid(x1,x2,x3,x4,x5)	lcons_oid(x1, list_make4_oid(x2, x3, x4, x5))
 
 /*
- * foreach -
- *	  a convenience macro which loops through the list
+ * a convenience macro which loops through the list
  */
 #define foreach(cell, l)	\
 	for ((cell) = list_head(l); (cell) != NULL; (cell) = lnext(cell))

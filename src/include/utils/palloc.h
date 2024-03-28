@@ -105,13 +105,11 @@ extern void *repalloc_huge(void *pointer, Size size);
  */
 
 #ifndef FRONTEND
-static inline MemoryContext
-MemoryContextSwitchTo(MemoryContext context)
-{
-	MemoryContext old = CurrentMemoryContext;
 
-	CurrentMemoryContext = context;
-	return old;
+static inline MemoryContext MemoryContextSwitchTo(MemoryContext context) {
+    MemoryContext old = CurrentMemoryContext;
+    CurrentMemoryContext = context;
+    return old;
 }
 #endif							/* FRONTEND */
 

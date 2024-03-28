@@ -1,4 +1,5 @@
- <component name="BookmarksManager">
+<project version="4">
+  <component name="BookmarksManager">
     <option name="groups">
       <GroupState>
         <option name="bookmarks">
@@ -458,7 +459,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
-              <entry key="line" value="4003" />
+              <entry key="line" value="4002" />
             </attributes>
             <option name="description" value="exec_simple_query(queryString)" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -594,7 +595,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
-              <entry key="line" value="932" />
+              <entry key="line" value="931" />
             </attributes>
             <option name="description" value="----planstate = ExecInitNode() 通过plan生成planState" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -762,7 +763,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
-              <entry key="line" value="323" />
+              <entry key="line" value="322" />
             </attributes>
             <option name="description" value="----真正执行ExecutePlan()" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -770,7 +771,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
-              <entry key="line" value="1507" />
+              <entry key="line" value="1506" />
             </attributes>
             <option name="description" value="-----不断的for循环" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -778,7 +779,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
-              <entry key="line" value="1512" />
+              <entry key="line" value="1511" />
             </attributes>
             <option name="description" value="-----tupleTableSlot = ExecProcNode(planState);" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -1562,7 +1563,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/executor/execMain.c" />
-              <entry key="line" value="1535" />
+              <entry key="line" value="1534" />
             </attributes>
             <option name="description" value="destReceiver-&gt;receiveSlot(tupleTableSlot, destReceiver)" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -1586,7 +1587,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/tcop/postgres.c" />
-              <entry key="line" value="2409" />
+              <entry key="line" value="2408" />
             </attributes>
             <option name="description" value="-CommitTransactionCommand()" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -2652,7 +2653,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
-              <entry key="line" value="645" />
+              <entry key="line" value="634" />
             </attributes>
             <option name="description" value="--调mmap CreateAnonymousSegment" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -2660,7 +2661,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
-              <entry key="line" value="559" />
+              <entry key="line" value="558" />
             </attributes>
             <option name="description" value="---系统调用 mmap()" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -2668,7 +2669,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
-              <entry key="line" value="671" />
+              <entry key="line" value="661" />
             </attributes>
             <option name="description" value="--调shmget和shmat InternalIpcMemoryCreate" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -2684,7 +2685,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
-              <entry key="line" value="253" />
+              <entry key="line" value="252" />
             </attributes>
             <option name="description" value="---系统调用 shmat()" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -2692,7 +2693,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
-              <entry key="line" value="781" />
+              <entry key="line" value="772" />
             </attributes>
             <option name="description" value="--拿 sharedMemAddr 头部 copy到 mmap内存" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -2756,7 +2757,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/dsm_impl.c" />
-              <entry key="line" value="256" />
+              <entry key="line" value="257" />
             </attributes>
             <option name="description" value="----系统调用 shm_open" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -2764,7 +2765,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/dsm_impl.c" />
-              <entry key="line" value="286" />
+              <entry key="line" value="287" />
             </attributes>
             <option name="description" value="----dsm_impl_posix_resize" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -2772,7 +2773,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/dsm_impl.c" />
-              <entry key="line" value="353" />
+              <entry key="line" value="354" />
             </attributes>
             <option name="description" value="-----系统调用 ftruncate(fd, size);" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -2780,7 +2781,7 @@
           <BookmarkState>
             <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/dsm_impl.c" />
-              <entry key="line" value="310" />
+              <entry key="line" value="311" />
             </attributes>
             <option name="description" value="----系统调用 mmap" />
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
@@ -2815,7 +2816,7 @@
             <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
           </BookmarkState>
         </option>
-        <option name="name" value="PGSemaphoreCreate()" />
+        <option name="name" value="PGSemaphoreCreate()用的是systemv" />
       </GroupState>
       <GroupState>
         <option name="bookmarks">
@@ -2858,6 +2859,14 @@
         <option name="bookmarks">
           <BookmarkState>
             <attributes>
+              <entry key="url" value="file://$PROJECT_DIR$/src/backend/storage/ipc/ipci.c" />
+              <entry key="line" value="50" />
+            </attributes>
+            <option name="description" value="shared_memory_type默认是mmap的" />
+            <option name="provider" value="com.intellij.ide.bookmark.providers.LineBookmarkProvider" />
+          </BookmarkState>
+          <BookmarkState>
+            <attributes>
               <entry key="url" value="file://$PROJECT_DIR$/src/common/relpath.c" />
               <entry key="line" value="136" />
             </attributes>
@@ -2869,3 +2878,787 @@
       </GroupState>
     </option>
   </component>
+  <component name="BranchesTreeState">
+    <expand>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:origin" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:upstream" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </expand>
+    <select />
+  </component>
+  <component name="FileEditorManager">
+    <leaf SIDE_TABS_SIZE_LIMIT_KEY="-1">
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/utils/time/snapmgr.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="13447">
+              <caret line="791" column="5" selection-start-line="791" selection-start-column="5" selection-end-line="791" selection-end-column="5" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/storage/ipc/procarray.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="25279">
+              <caret line="1487" column="40" selection-start-line="1487" selection-start-column="40" selection-end-line="1487" selection-end-column="40" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/utils/snapshot.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="2618">
+              <caret line="154" column="18" selection-start-line="154" selection-start-column="18" selection-end-line="154" selection-end-column="18" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/access/transam.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="3366">
+              <caret line="198" column="37" selection-start-line="198" selection-start-column="37" selection-end-line="198" selection-end-column="37" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/access/transam/varsup.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="561">
+              <caret line="33" column="24" selection-start-line="33" selection-start-column="24" selection-end-line="33" selection-end-column="24" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/storage/ipc/shmem.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1309">
+              <caret line="77" column="15" selection-start-line="77" selection-start-column="15" selection-end-line="77" selection-end-column="15" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/storage/pg_shmem.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="748">
+              <caret line="44" column="12" selection-start-line="44" selection-start-column="12" selection-end-line="44" selection-end-column="12" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="12512">
+              <caret line="736" column="29" selection-start-line="736" selection-start-column="29" selection-end-line="736" selection-end-column="29" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/tcop/postgres.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="18428">
+              <caret line="1084" column="15" selection-start-line="1084" selection-start-column="15" selection-end-line="1084" selection-end-column="15" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/tcop/pquery.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="14620">
+              <caret line="860" column="17" selection-start-line="860" selection-start-column="17" selection-end-line="860" selection-end-column="17" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/executor/execMain.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="568">
+              <caret line="323" column="32" selection-start-line="323" selection-start-column="32" selection-end-line="323" selection-end-column="32" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/nodes/nodes.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="11679">
+              <caret line="687" column="2" selection-start-line="687" selection-start-column="2" selection-end-line="687" selection-end-column="2" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/nodes/execnodes.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="10081">
+              <caret line="593" column="2" selection-start-line="593" selection-start-column="2" selection-end-line="593" selection-end-column="2" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/executor/executor.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="265">
+              <caret line="73" column="41" selection-start-line="73" selection-start-column="41" selection-end-line="73" selection-end-column="41" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/executor/execdesc.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="714">
+              <caret line="42" column="15" selection-start-line="42" selection-start-column="15" selection-end-line="42" selection-end-column="15" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/utils/portal.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="2346">
+              <caret line="138" column="9" selection-start-line="138" selection-start-column="9" selection-end-line="138" selection-end-column="9" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/access/sdir.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="782">
+              <caret line="46" column="8" selection-start-line="46" selection-start-column="8" selection-end-line="46" selection-end-column="8" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file:///Library/Developer/CommandLineTools/SDKs/MacOSX13.3.sdk/usr/include/sys/stat.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="3077">
+              <caret line="181" column="17" selection-start-line="181" selection-start-column="17" selection-end-line="181" selection-end-column="17" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/storage/ipc/ipc.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="6120">
+              <caret line="360" selection-start-line="360" selection-end-line="360" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/include/utils/elog.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="5610">
+              <caret line="330" column="8" selection-start-line="330" selection-start-column="8" selection-end-line="330" selection-end-column="8" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file>
+        <entry file="file://$PROJECT_DIR$/src/backend/utils/error/elog.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="84">
+              <caret line="1641" column="36" selection-start-line="1641" selection-start-column="36" selection-end-line="1641" selection-end-column="36" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file:///Library/Developer/CommandLineTools/SDKs/MacOSX13.3.sdk/usr/include/setjmp.h">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1564">
+              <caret line="92" column="4" selection-start-line="92" selection-start-column="4" selection-end-line="92" selection-end-column="4" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/backend/storage/ipc/ipci.c">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="850">
+              <caret line="50" column="8" selection-start-line="50" selection-start-column="4" selection-end-line="50" selection-end-column="22" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+    </leaf>
+  </component>
+  <component name="FileTypeUsageLocalSummary">
+    <fileType name="DIFF">
+      <summary usageCount="1" lastUsed="1705489061935" />
+    </fileType>
+    <fileType name="Makefile">
+      <summary usageCount="19" lastUsed="1705489022211" />
+    </fileType>
+    <fileType name="ObjectiveC">
+      <summary usageCount="311" lastUsed="1711256817569" />
+    </fileType>
+    <fileType name="PLAIN_TEXT">
+      <summary usageCount="16" lastUsed="1710506337246" />
+    </fileType>
+    <fileType name="XML">
+      <summary usageCount="3" lastUsed="1710503587616" />
+    </fileType>
+  </component>
+  <component name="FindInProjectRecents">
+    <findStrings>
+      <find>contrib-global.mk</find>
+      <find>include $(top_builddir)/src/Makefile.global
+include $(top_srcdir)/contrib/contrib-global.mk</find>
+      <find>clean:</find>
+      <find>clean</find>
+      <find>rm -f</find>
+      <find>datarootdir</find>
+      <find>prefix</find>
+      <find>AllocSetContextCreateInternal</find>
+    </findStrings>
+    <replaceStrings>
+      <replace />
+    </replaceStrings>
+    <dirStrings>
+      <dir>$PROJECT_DIR$/contrib/bloom</dir>
+      <dir>$PROJECT_DIR$/src/backend/utils/mmgr</dir>
+    </dirStrings>
+  </component>
+  <component name="FindInProjectScope">
+    <option name="isCustomScope" value="true" />
+    <option name="customScopeName" value="Project Files" />
+  </component>
+  <component name="IdeDocumentHistory">
+    <changedPaths>
+      <option value="$PROJECT_DIR$/GNUmakefile" />
+      <option value="$PROJECT_DIR$/src/makefiles/pgxs.mk" />
+      <option value="$PROJECT_DIR$/src/Makefile.global" />
+      <option value="$PROJECT_DIR$/contrib/adminpack/Makefile" />
+      <option value="$PROJECT_DIR$/src/backend/storage/ipc/dsm_impl.c" />
+      <option value="$PROJECT_DIR$/src/backend/port/pg_sema.c" />
+      <option value="$PROJECT_DIR$/src/backend/libpq/pqformat.c" />
+      <option value="$PROJECT_DIR$/src/include/lib/stringinfo.h" />
+      <option value="$PROJECT_DIR$/src/backend/tcop/postgres.c" />
+      <option value="$PROJECT_DIR$/src/include/utils/palloc.h" />
+      <option value="$PROJECT_DIR$/src/include/nodes/pg_list.h" />
+      <option value="$PROJECT_DIR$/src/backend/storage/ipc/shmem.c" />
+      <option value="$PROJECT_DIR$/src/include/storage/pg_shmem.h" />
+      <option value="$PROJECT_DIR$/src/backend/storage/ipc/ipc.c" />
+      <option value="$PROJECT_DIR$/src/backend/port/pg_shmem.c" />
+      <option value="$PROJECT_DIR$/src/backend/executor/execMain.c" />
+      <option value="$PROJECT_DIR$/src/backend/utils/error/elog.c" />
+    </changedPaths>
+  </component>
+  <component name="IgnoredFileRootStore">
+    <option name="generatedRoots">
+      <set>
+        <option value="$PROJECT_DIR$/.idea" />
+      </set>
+    </option>
+  </component>
+  <component name="LanguageUsageStatistics">
+    <language id="Makefile">
+      <summary usageCount="19" lastUsage="1705489022211" />
+    </language>
+    <language id="ObjectiveC">
+      <summary usageCount="311" lastUsage="1711256817569" />
+    </language>
+    <language id="TEXT">
+      <summary usageCount="16" lastUsage="1710506337246" />
+    </language>
+    <language id="XML">
+      <summary usageCount="3" lastUsage="1710503587616" />
+    </language>
+  </component>
+  <component name="ProjectView">
+    <navigator currentView="ProjectPane" proportions="" version="1" />
+    <panes>
+      <pane id="ProjectPane">
+        <subPane>
+          <expand>
+            <path>
+              <item name="postgres" type="b2602c69:ProjectViewProjectNode" />
+              <item name="dir{file:///Users/a/github/postgres}" type="462c0819:PsiDirectoryNode" />
+            </path>
+          </expand>
+          <select />
+        </subPane>
+      </pane>
+      <pane id="Scope" />
+    </panes>
+  </component>
+  <component name="TerminalArrangementManager">
+    <option name="myTabStates">
+      <TerminalTabState tabName="Local" currentWorkingDirectory="$PROJECT_DIR$">
+        <shellCommand>
+          <arg value="/bin/zsh" />
+          <arg value="--login" />
+          <arg value="-i" />
+        </shellCommand>
+      </TerminalTabState>
+    </option>
+  </component>
+  <component name="TimeTrackingManager">
+    <option name="totallyTimeSpent" value="28495000" />
+  </component>
+  <component name="ToolWindowManager">
+    <layout>
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.2393544" />
+      <window_info anchor="bottom" id="Version Control" order="0" weight="0.32997882" />
+      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info anchor="bottom" id="Run" order="2" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
+      <window_info anchor="bottom" id="Python Packages" order="4" show_stripe_button="false" weight="0.32997882" />
+      <window_info anchor="bottom" id="TODO" order="5" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Inspection" order="6" weight="0.4" />
+      <window_info anchor="bottom" id="Problems View" order="7" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Terminal" order="8" weight="0.31620765" />
+      <window_info anchor="bottom" id="Services" order="9" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Statistic" order="10" show_stripe_button="false" weight="0.32997882" />
+      <window_info anchor="bottom" id="Vcpkg" order="11" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Build" order="12" weight="0.32997882" />
+      <window_info anchor="bottom" id="Messages" order="13" weight="0.32997882" />
+      <window_info anchor="bottom" id="Notifications" order="14" side_tool="true" weight="0.25" />
+      <window_info anchor="right" id="Database" order="0" show_stripe_button="false" />
+      <window_info anchor="right" id="make" order="1" show_stripe_button="false" side_tool="true" />
+      <window_info anchor="right" id="Pull Requests" order="2" show_stripe_button="false" />
+      <window_info anchor="right" id="Structure" order="3" show_stripe_button="false" />
+      <window_info anchor="right" id="Bookmarks" order="4" weight="0.33001375" />
+      <unified_weights bottom="0.31620765" left="0.2393544" right="0.33001375" />
+    </layout>
+    <layout-to-restore>
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.2393544" />
+      <window_info anchor="bottom" id="Version Control" order="0" weight="0.32997882" />
+      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info anchor="bottom" id="Run" order="2" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
+      <window_info anchor="bottom" id="Python Packages" order="4" show_stripe_button="false" weight="0.32997882" />
+      <window_info anchor="bottom" id="TODO" order="5" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Inspection" order="6" weight="0.4" />
+      <window_info anchor="bottom" id="Problems View" order="7" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Terminal" order="8" weight="0.31620765" />
+      <window_info anchor="bottom" id="Services" order="9" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Statistic" order="10" show_stripe_button="false" weight="0.32997882" />
+      <window_info anchor="bottom" id="Vcpkg" order="11" show_stripe_button="false" />
+      <window_info anchor="bottom" id="Build" order="12" weight="0.32997882" />
+      <window_info anchor="bottom" id="Messages" order="13" weight="0.32997882" />
+      <window_info anchor="bottom" id="Notifications" order="14" side_tool="true" weight="0.25" />
+      <window_info anchor="right" id="Database" order="0" show_stripe_button="false" />
+      <window_info anchor="right" id="make" order="1" show_stripe_button="false" side_tool="true" />
+      <window_info anchor="right" id="Pull Requests" order="2" show_stripe_button="false" />
+      <window_info anchor="right" id="Structure" order="3" show_stripe_button="false" />
+      <window_info anchor="right" id="Bookmarks" order="4" weight="0.33001375" />
+      <unified_weights bottom="0.31620765" left="0.2393544" right="0.33001375" />
+    </layout-to-restore>
+    <recentWindows>
+      <value>Project</value>
+      <value>Bookmarks</value>
+      <value>Terminal</value>
+      <value>Statistic</value>
+      <value>Version Control</value>
+      <value>Python Packages</value>
+      <value>Build</value>
+      <value>Messages</value>
+    </recentWindows>
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="293" y="154" key="SettingsEditor" timestamp="1710507134697">
+      <screen x="55" y="38" width="1457" height="944" />
+    </state>
+    <state x="293" y="154" key="SettingsEditor/55.38.1457.944@55.38.1457.944" timestamp="1710507134697" />
+    <state x="625" y="133" width="587" height="713" key="find.popup" timestamp="1706943975163">
+      <screen x="49" y="38" width="1463" height="944" />
+    </state>
+    <state x="625" y="133" width="587" height="713" key="find.popup/49.38.1463.944@49.38.1463.944" timestamp="1706943975163" />
+    <state x="519" y="255" width="672" height="683" key="search.everywhere.popup" timestamp="1710664752832">
+      <screen x="53" y="38" width="1459" height="944" />
+    </state>
+    <state x="516" y="255" width="670" height="683" key="search.everywhere.popup/49.38.1463.944@49.38.1463.944" timestamp="1706943649779" />
+    <state x="519" y="255" width="672" height="683" key="search.everywhere.popup/53.38.1459.944@53.38.1459.944" timestamp="1710664752832" />
+    <state x="521" y="255" width="670" height="683" key="search.everywhere.popup/56.38.1456.944@56.38.1456.944" timestamp="1709816880652" />
+  </component>
+  <component name="editorHistoryManager">
+    <entry file="file://$PROJECT_DIR$/src/include/utils/memutils.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2278">
+          <caret line="134" column="12" selection-start-line="134" selection-start-column="12" selection-end-line="134" selection-end-column="12" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/access/brin/brin.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3893">
+          <caret line="229" column="37" selection-start-line="229" selection-start-column="37" selection-end-line="229" selection-end-column="37" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/access/gist/gist.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1955">
+          <caret line="115" column="11" selection-start-line="115" selection-start-column="11" selection-end-line="115" selection-end-column="11" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/bookmark.xml">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="17">
+          <caret line="1" column="26" selection-start-line="1" selection-start-column="26" selection-end-line="1" selection-end-column="26" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/utils/init/postinit.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="269">
+          <caret line="444" column="22" selection-start-line="444" selection-start-column="22" selection-end-line="444" selection-end-column="22" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file:///Library/Developer/CommandLineTools/SDKs/MacOSX13.3.sdk/usr/include/sys/mman.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="446">
+          <caret line="250" column="8" selection-start-line="250" selection-start-column="8" selection-end-line="250" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file:///Library/Developer/CommandLineTools/SDKs/MacOSX13.3.sdk/usr/include/sys/_types/_key_t.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="544">
+          <caret line="30" column="25" selection-start-line="30" selection-start-column="25" selection-end-line="30" selection-end-column="25" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/storage/ipc/dsm_impl.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="260">
+          <caret line="257" selection-start-line="257" selection-end-line="257" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/storage/lmgr/proc.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="260">
+          <caret line="230" column="36" lean-forward="true" selection-start-line="230" selection-start-column="36" selection-end-line="230" selection-end-column="36" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/storage/pg_sema.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="272">
+          <caret line="33" column="27" selection-start-line="33" selection-start-column="27" selection-end-line="33" selection-end-column="27" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/port/pg_sema.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="260">
+          <caret line="366" selection-start-line="366" selection-end-line="366" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/storage/lwlock.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="265">
+          <caret line="88" selection-start-line="88" selection-end-line="88" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/lib/stringinfo.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="265">
+          <caret line="43" column="5" selection-start-line="43" selection-start-column="5" selection-end-line="43" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/lib/stringinfo.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="265">
+          <caret line="36" column="34" selection-start-line="36" selection-start-column="34" selection-end-line="36" selection-end-column="34" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/utils/mb/mbutils.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="277">
+          <caret line="548" column="21" lean-forward="true" selection-start-line="548" selection-start-column="21" selection-end-line="548" selection-end-column="21" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/libpq/pqformat.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="265">
+          <caret line="579" column="13" selection-start-line="579" selection-start-column="13" selection-end-line="579" selection-end-column="13" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/replication/walsender.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="272">
+          <caret line="29" column="12" selection-start-line="29" selection-start-column="12" selection-end-line="29" selection-end-column="12" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/tcop/dest.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="371">
+          <caret line="98" column="2" selection-start-line="98" selection-start-column="2" selection-end-line="98" selection-end-column="2" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/tcop/tcopprot.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="272">
+          <caret line="28" column="31" selection-start-line="28" selection-start-column="31" selection-end-line="28" selection-end-column="31" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/access/xact.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="272">
+          <caret line="53" column="12" selection-start-line="53" selection-start-column="12" selection-end-line="53" selection-end-column="12" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/storage/lock.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="420">
+          <caret line="64" column="23" selection-start-line="64" selection-start-column="23" selection-end-line="64" selection-end-column="23" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/access/transam/xact.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-1427">
+          <caret line="1835" column="15" lean-forward="true" selection-start-line="1835" selection-start-column="15" selection-end-line="1835" selection-end-column="15" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/utils/palloc.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="260">
+          <caret line="109" column="32" selection-start-line="109" selection-start-column="32" selection-end-line="109" selection-end-column="32" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/utils/misc/ps_status.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="145">
+          <caret line="326" column="55" lean-forward="true" selection-start-line="326" selection-start-column="55" selection-end-line="326" selection-end-column="55" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/nodes/pg_list.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="265">
+          <caret line="97" column="49" lean-forward="true" selection-start-line="97" selection-start-column="49" selection-end-line="97" selection-end-column="49" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/nodes/parsenodes.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="264">
+          <caret line="1424" column="10" selection-start-line="1424" selection-start-column="10" selection-end-line="1424" selection-end-column="10" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/parser/analyze.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="311">
+          <caret line="337" column="33" selection-start-line="337" selection-start-column="33" selection-end-line="337" selection-end-column="33" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/record.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="153">
+          <caret line="9" column="20" selection-start-line="9" selection-start-column="11" selection-end-line="9" selection-end-column="20" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/utils/time/snapmgr.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="13447">
+          <caret line="791" column="5" selection-start-line="791" selection-start-column="5" selection-end-line="791" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/storage/ipc/procarray.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="25279">
+          <caret line="1487" column="40" selection-start-line="1487" selection-start-column="40" selection-end-line="1487" selection-end-column="40" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/utils/snapshot.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2618">
+          <caret line="154" column="18" selection-start-line="154" selection-start-column="18" selection-end-line="154" selection-end-column="18" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/access/transam.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3366">
+          <caret line="198" column="37" selection-start-line="198" selection-start-column="37" selection-end-line="198" selection-end-column="37" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/access/transam/varsup.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="561">
+          <caret line="33" column="24" selection-start-line="33" selection-start-column="24" selection-end-line="33" selection-end-column="24" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/storage/ipc/shmem.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1309">
+          <caret line="77" column="15" selection-start-line="77" selection-start-column="15" selection-end-line="77" selection-end-column="15" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/storage/pg_shmem.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="748">
+          <caret line="44" column="12" selection-start-line="44" selection-start-column="12" selection-end-line="44" selection-end-column="12" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/port/pg_shmem.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="12512">
+          <caret line="736" column="29" selection-start-line="736" selection-start-column="29" selection-end-line="736" selection-end-column="29" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/tcop/postgres.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="18428">
+          <caret line="1084" column="15" selection-start-line="1084" selection-start-column="15" selection-end-line="1084" selection-end-column="15" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/tcop/pquery.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="14620">
+          <caret line="860" column="17" selection-start-line="860" selection-start-column="17" selection-end-line="860" selection-end-column="17" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/nodes/nodes.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="11679">
+          <caret line="687" column="2" selection-start-line="687" selection-start-column="2" selection-end-line="687" selection-end-column="2" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/nodes/execnodes.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="10081">
+          <caret line="593" column="2" selection-start-line="593" selection-start-column="2" selection-end-line="593" selection-end-column="2" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/executor/execdesc.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="714">
+          <caret line="42" column="15" selection-start-line="42" selection-start-column="15" selection-end-line="42" selection-end-column="15" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/utils/portal.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2346">
+          <caret line="138" column="9" selection-start-line="138" selection-start-column="9" selection-end-line="138" selection-end-column="9" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/access/sdir.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="782">
+          <caret line="46" column="8" selection-start-line="46" selection-start-column="8" selection-end-line="46" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file:///Library/Developer/CommandLineTools/SDKs/MacOSX13.3.sdk/usr/include/sys/stat.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3077">
+          <caret line="181" column="17" selection-start-line="181" selection-start-column="17" selection-end-line="181" selection-end-column="17" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/storage/ipc/ipc.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="6120">
+          <caret line="360" selection-start-line="360" selection-end-line="360" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/utils/elog.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="5610">
+          <caret line="330" column="8" selection-start-line="330" selection-start-column="8" selection-end-line="330" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file:///Library/Developer/CommandLineTools/SDKs/MacOSX13.3.sdk/usr/include/setjmp.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1564">
+          <caret line="92" column="4" selection-start-line="92" selection-start-column="4" selection-end-line="92" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/storage/ipc/ipci.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="850">
+          <caret line="50" column="8" selection-start-line="50" selection-start-column="4" selection-end-line="50" selection-end-column="22" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/executor/execMain.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="568">
+          <caret line="323" column="32" selection-start-line="323" selection-start-column="32" selection-end-line="323" selection-end-column="32" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/include/executor/executor.h">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="265">
+          <caret line="73" column="41" selection-start-line="73" selection-start-column="41" selection-end-line="73" selection-end-column="41" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/backend/utils/error/elog.c">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="84">
+          <caret line="1641" column="36" selection-start-line="1641" selection-start-column="36" selection-end-line="1641" selection-end-column="36" />
+        </state>
+      </provider>
+    </entry>
+  </component>
+</project>

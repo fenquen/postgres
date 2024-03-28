@@ -159,7 +159,6 @@ static void *InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size) {
 #endif
 
     shmid = shmget(memKey, size, IPC_CREAT | IPC_EXCL | IPCProtection);
-
     if (shmid < 0) {
         int shmget_errno = errno;
 
@@ -568,16 +567,13 @@ static void *CreateAnonymousSegment(Size *size) {
 
     if (ptr == MAP_FAILED) {
         errno = mmap_errno;
-        ereport(FATAL,
-                (errmsg("could not map anonymous shared memory: %m"),
-                        (mmap_errno == ENOMEM) ?
+        ereport(FATAL,(errmsg("could not map anonymous shared memory: %m"),(mmap_errno == ENOMEM) ?
                         errhint("This error usually means that PostgreSQL's request "
                                 "for a shared memory segment exceeded available memory, "
                                 "swap space, or huge pages. To reduce the request size "
                                 "(currently %zu bytes), reduce PostgreSQL's shared "
                                 "memory usage, perhaps by reducing shared_buffers or "
-                                "max_connections.",
-                                *size) : 0));
+                                "max_connections.",*size) : 0));
     }
 
     *size = allocsize;
@@ -617,29 +613,22 @@ AnonymousShmemDetach(int status, Datum arg) {
 PGShmemHeader *PGSharedMemoryCreate(Size size,
                                     int port,
                                     PGShmemHeader **pgshmemeHeaderInShareMem) {
-    IpcMemoryKey NextShmemSegID;
-    void *sharedMemAddr;
-    PGShmemHeader *pgShmemHeader;
-    struct stat statbuf;
-    Size sysvsize;
 
     /* Complain if hugepages demanded but we can't possibly support them */
 #if !defined(MAP_HUGETLB)
     if (huge_pages == HUGE_PAGES_ON)
-        ereport(ERROR,
-                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                        errmsg("huge pages not supported on this platform")));
+        ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED), errmsg("huge pages not supported on this platform")));
 #endif
 
     /* For now, we don't support huge pages in SysV memory */
     if (huge_pages == HUGE_PAGES_ON && shared_memory_type != SHMEM_TYPE_MMAP) {
-        ereport(ERROR,
-                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                        errmsg("huge pages not supported with the current shared_memory_type setting")));
+        ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED), errmsg("huge pages not supported with the current shared_memory_type setting")));
     }
 
     /* Room for a header? */
     Assert(size > MAXALIGN(sizeof(PGShmemHeader)));
+
+    Size sysvsize = size;
 
     if (shared_memory_type == SHMEM_TYPE_MMAP) {
         // 匿名调用了mmap
@@ -651,8 +640,6 @@ PGShmemHeader *PGSharedMemoryCreate(Size size,
 
         // now we need only allocate a minimal-sized SysV shmem block
         sysvsize = sizeof(PGShmemHeader);
-    } else {
-        sysvsize = size;
     }
 
     /*
@@ -661,7 +648,10 @@ PGShmemHeader *PGSharedMemoryCreate(Size size,
      * loop simultaneously.  (CreateDataDirLockFile() does not ensure that,
      * but prefer fixing it over coping here.)
      */
-    NextShmemSegID = 1 + port * 1000;
+    IpcMemoryKey NextShmemSegID = 1 + port * 1000;
+
+    // systemv shm得到
+    void *sharedMemAddr;
 
     for (;;) {
         IpcMemoryId shmid;
@@ -745,12 +735,13 @@ PGShmemHeader *PGSharedMemoryCreate(Size size,
     }
 
     // Initialize new segment
-    pgShmemHeader = (PGShmemHeader *) sharedMemAddr;
+    PGShmemHeader *pgShmemHeader = (PGShmemHeader *) sharedMemAddr;
     pgShmemHeader->creatorPID = getpid();
     pgShmemHeader->magic = PGShmemMagic;
     pgShmemHeader->dsmHandle = 0;
 
     /* Fill in the data directory ID info, too */
+    struct stat statbuf;
     if (stat(DataDir, &statbuf) < 0) {
         ereport(FATAL, (errcode_for_file_access(), errmsg("could not stat data directory \"%s\": %m", DataDir)));
     }
@@ -761,6 +752,7 @@ PGShmemHeader *PGSharedMemoryCreate(Size size,
     // Initialize space allocation status for segment.
     pgShmemHeader->totalsize = size;
     pgShmemHeader->freeoffset = MAXALIGN(sizeof(PGShmemHeader));
+
     *pgshmemeHeaderInShareMem = pgShmemHeader;
 
     /* Save info for possible future use */
@@ -776,7 +768,6 @@ PGShmemHeader *PGSharedMemoryCreate(Size size,
     if (AnonymousShmem == NULL) {
         return pgShmemHeader;
     }
-
 
     // 把 sharedMemAddr 头部 copy到 mmap内存
     memcpy(AnonymousShmem, pgShmemHeader, sizeof(PGShmemHeader));

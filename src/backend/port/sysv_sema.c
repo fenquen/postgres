@@ -36,8 +36,8 @@
 
 
 typedef struct PGSemaphoreData {
-    int semId;            // 隶属的 semaphore set id
-    int semNum;            // 在 隶属的semaphore set 索引
+    int semId;            // 隶属的 信号量set的id
+    int semNum;            // 信号量set上对应的索引
 } PGSemaphoreData;
 
 #ifndef HAVE_UNION_SEMUN

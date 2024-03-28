@@ -105,38 +105,36 @@ void InitShmemAccess(void *ptr) {
  * This should be called only in the postmaster or a standalone backend.
  */
 void InitShmemAllocation(void) {
-	PGShmemHeader *shmhdr = pgShmemHeader_global;
-	char	   *aligned;
+    PGShmemHeader *shmhdr = pgShmemHeader_global;
 
-	Assert(shmhdr != NULL);
+    Assert(shmhdr != NULL);
 
-	/*
-	 * Initialize the spinlock used by ShmemAlloc.  We must use
-	 * ShmemAllocUnlocked, since obviously ShmemAlloc can't be called yet.
-	 */
-	ShmemLock = (slock_t *) ShmemAllocUnlocked(sizeof(slock_t));
+    /*
+     * Initialize the spinlock used by ShmemAlloc.  We must use
+     * ShmemAllocUnlocked, since obviously ShmemAlloc can't be called yet.
+     */
+    ShmemLock = (slock_t *) ShmemAllocUnlocked(sizeof(slock_t));
 
-	SpinLockInit(ShmemLock);
+    SpinLockInit(ShmemLock);
 
-	/*
-	 * Allocations after this point should go through ShmemAlloc, which
-	 * expects to allocate everything on cache line boundaries.  Make sure the
-	 * first allocation begins on a cache line boundary.
-	 */
-	aligned = (char *)
-		(CACHELINEALIGN((((char *) shmhdr) + shmhdr->freeoffset)));
-	shmhdr->freeoffset = aligned - (char *) shmhdr;
+    /*
+     * Allocations after this point should go through ShmemAlloc, which
+     * expects to allocate everything on cache line boundaries.  Make sure the
+     * first allocation begins on a cache line boundary.
+     */
+    char *aligned = (char *) (CACHELINEALIGN((((char *) shmhdr) + shmhdr->freeoffset)));
+    shmhdr->freeoffset = aligned - (char *) shmhdr;
 
-	/* ShmemIndex can't be set up yet (need LWLocks first) */
-	shmhdr->index = NULL;
-	ShmemIndex = (HTAB *) NULL;
+    /* ShmemIndex can't be set up yet (need LWLocks first) */
+    shmhdr->index = NULL;
+    ShmemIndex = (HTAB *) NULL;
 
-	/*
-	 * Initialize ShmemVariableCache for transaction manager. (This doesn't
-	 * really belong here, but not worth moving.)
-	 */
-	ShmemVariableCache = (VariableCache) ShmemAlloc(sizeof(*ShmemVariableCache));
-	memset(ShmemVariableCache, 0, sizeof(*ShmemVariableCache));
+    /*
+     * Initialize ShmemVariableCache for transaction manager. (This doesn't
+     * really belong here, but not worth moving.)
+     */
+    ShmemVariableCache = (VariableCache) ShmemAlloc(sizeof(*ShmemVariableCache));
+    memset(ShmemVariableCache, 0, sizeof(*ShmemVariableCache));
 }
 
 /*
@@ -147,12 +145,9 @@ void InitShmemAllocation(void) {
  * Assumes ShmemLock and pgShmemHeader_global are initialized.
  */
 void *ShmemAlloc(Size size) {
-    void *newSpace;
-
-    newSpace = ShmemAllocNoError(size);
+    void *newSpace = ShmemAllocNoError(size);
     if (!newSpace)
-        ereport(ERROR,
-                (errcode(ERRCODE_OUT_OF_MEMORY), errmsg("out of shared memory (%zu bytes requested)", size)));
+        ereport(ERROR, (errcode(ERRCODE_OUT_OF_MEMORY), errmsg("out of shared memory (%zu bytes requested)", size)));
     return newSpace;
 }
 
@@ -162,43 +157,40 @@ void *ShmemAlloc(Size size) {
  * 要是失败的话 return null 不会去跑异常的
  */
 void *ShmemAllocNoError(Size size) {
-	Size		newStart;
-	Size		newFree;
-	void	   *newSpace;
+    /*
+     * Ensure all space is adequately aligned.  We used to only MAXALIGN this
+     * space but experience has proved that on modern systems that is not good
+     * enough.  Many parts of the system are very sensitive to critical data
+     * structures getting split across cache line boundaries.  To avoid that,
+     * attempt to align the beginning of the allocation to a cache line
+     * boundary.  The calling code will still need to be careful about how it
+     * uses the allocated space - e.g. by padding each element in an array of
+     * structures out to a power-of-two size - but without this, even that
+     * won't be sufficient.
+     */
+    size = CACHELINEALIGN(size);
 
-	/*
-	 * Ensure all space is adequately aligned.  We used to only MAXALIGN this
-	 * space but experience has proved that on modern systems that is not good
-	 * enough.  Many parts of the system are very sensitive to critical data
-	 * structures getting split across cache line boundaries.  To avoid that,
-	 * attempt to align the beginning of the allocation to a cache line
-	 * boundary.  The calling code will still need to be careful about how it
-	 * uses the allocated space - e.g. by padding each element in an array of
-	 * structures out to a power-of-two size - but without this, even that
-	 * won't be sufficient.
-	 */
-	size = CACHELINEALIGN(size);
+    Assert(pgShmemHeader_global != NULL);
 
-	Assert(pgShmemHeader_global != NULL);
+    SpinLockAcquire(ShmemLock);
 
-	SpinLockAcquire(ShmemLock);
+    Size newStart = pgShmemHeader_global->freeoffset;
+    Size newFree = newStart + size;
 
-	newStart = pgShmemHeader_global->freeoffset;
-	newFree = newStart + size;
-
-	if (newFree <= pgShmemHeader_global->totalsize) {
-		newSpace = (void *) ((char *) pgShmemHeader_global_base + newStart);
+    void *newSpace;
+    if (newFree <= pgShmemHeader_global->totalsize) {
+        newSpace = (void *) ((char *) pgShmemHeader_global_base + newStart);
         pgShmemHeader_global->freeoffset = newFree;
-	} else {
-		newSpace = NULL;
+    } else {
+        newSpace = NULL;
     }
 
-	SpinLockRelease(ShmemLock);
+    SpinLockRelease(ShmemLock);
 
-	/* note this assert is okay with newSpace == NULL */
-	Assert(newSpace == (void *) CACHELINEALIGN(newSpace));
+    /* note this assert is okay with newSpace == NULL */
+    Assert(newSpace == (void *) CACHELINEALIGN(newSpace));
 
-	return newSpace;
+    return newSpace;
 }
 
 /*

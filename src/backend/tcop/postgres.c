@@ -2388,7 +2388,6 @@ exec_describe_portal_message(const char *portal_name) {
 static void start_xact_command(void) {
     if (!xact_started) {
         StartTransactionCommand();
-
         xact_started = true;
     }
 

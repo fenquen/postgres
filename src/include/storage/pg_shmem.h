@@ -46,20 +46,18 @@ extern int	shared_memory_type;
 extern int	huge_pages;
 
 /* Possible values for huge_pages */
-typedef enum
-{
-	HUGE_PAGES_OFF,
-	HUGE_PAGES_ON,
-	HUGE_PAGES_TRY
-}			HugePagesType;
+typedef enum {
+    HUGE_PAGES_OFF,
+    HUGE_PAGES_ON,
+    HUGE_PAGES_TRY
+} HugePagesType;
 
 /* Possible values for shared_memory_type */
-typedef enum
-{
-	SHMEM_TYPE_WINDOWS,
-	SHMEM_TYPE_SYSV,
-	SHMEM_TYPE_MMAP // 默认
-}			PGShmemType;
+typedef enum {
+    SHMEM_TYPE_WINDOWS,
+    SHMEM_TYPE_SYSV,
+    SHMEM_TYPE_MMAP // 默认
+} PGShmemType;
 
 #ifndef WIN32
 extern unsigned long UsedShmemSegID;

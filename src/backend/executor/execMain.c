@@ -308,7 +308,6 @@ void standard_ExecutorRun(QueryDesc *queryDesc,
     estate->es_processed = 0;
 
     bool sendTuples = (cmdType == CMD_SELECT || queryDesc->plannedstmt->hasReturning);
-
     if (sendTuples) {
         destReceiver->rStartup(destReceiver, cmdType, queryDesc->tupDesc);
     }
